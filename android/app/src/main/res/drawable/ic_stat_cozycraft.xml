@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android status-bar icons must be a solid white silhouette on transparency. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- CozyCraft couch mark: back, arms, seat and feet. -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M6.25,5.25C4.73,5.25 3.5,6.48 3.5,8V13.25H5.5V8C5.5,7.59 5.84,7.25 6.25,7.25H17.75C18.16,7.25 18.5,7.59 18.5,8V13.25H20.5V8C20.5,6.48 19.27,5.25 17.75,5.25H6.25Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M2.5,10.75C1.67,10.75 1,11.42 1,12.25V16.25C1,17.77 2.23,19 3.75,19H4.5V20.25C4.5,20.66 4.84,21 5.25,21H6.25C6.66,21 7,20.66 7,20.25V19H17V20.25C17,20.66 17.34,21 17.75,21H18.75C19.16,21 19.5,20.66 19.5,20.25V19H20.25C21.77,19 23,17.77 23,16.25V12.25C23,11.42 22.33,10.75 21.5,10.75C20.67,10.75 20,11.42 20,12.25V14.5H4V12.25C4,11.42 3.33,10.75 2.5,10.75Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M4,15.75H20V16.5C20,16.78 19.78,17 19.5,17H4.5C4.22,17 4,16.78 4,16.5V15.75Z" />
+</vector>

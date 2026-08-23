@@ -1,0 +1,10 @@
+<ion-content [fullscreen]="true" class="cozy-content" [scrollY]="false">
+  <iframe
+    #storefront
+    class="original-frontend"
+    src="assets/original-frontend/index.html"
+    (load)="onStorefrontLoad()"
+    title="CozyCraft Furniture mobile storefront"
+    allow="clipboard-read; clipboard-write"
+  ></iframe>
+</ion-content>

@@ -1,0 +1,4 @@
+// Xcode 26.6 can deadlock while pre-planning Swift Package targets if the
+// default Clang capability probe writes verbose output. Apply the same safe
+// wrapper to the app and every package target in the build graph.
+CC = $(COZYCRAFT_CLANG_WRAPPER)

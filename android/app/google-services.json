@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "161993965149",
+    "project_id": "cozycraft-furnitures",
+    "storage_bucket": "cozycraft-furnitures.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:161993965149:android:833e34a32ee03ed5bf17b4",
+        "android_client_info": {
+          "package_name": "com.cozycraft.furniture"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBX4IT-gzta8Reql-V0YtmtBNoS3KLmxTo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

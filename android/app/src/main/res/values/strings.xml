@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">CozyCraft Furnitures</string>
+    <string name="title_activity_main">CozyCraft Furnitures</string>
+    <string name="package_name">com.cozycraft.furniture</string>
+    <string name="custom_url_scheme">com.cozycraft.furniture</string>
+</resources>
