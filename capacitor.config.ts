@@ -13,6 +13,9 @@ const config: CapacitorConfig = {
       insetsHandling: 'disable',
       style: 'light',
     },
+    PushNotifications: {
+      presentationOptions: ['badge', 'sound', 'banner', 'list'],
+    },
   },
 };
 

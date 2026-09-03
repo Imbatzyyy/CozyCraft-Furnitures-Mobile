@@ -3,7 +3,7 @@ set -euo pipefail
 
 PLATFORM="${1:-all}"
 MOBILE_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-FRONTEND_ROOT="${COZYCRAFT_FRONTEND_ROOT:-$MOBILE_ROOT/../ORIGINAL FRONTEND}"
+FRONTEND_ROOT="${COZYCRAFT_FRONTEND_ROOT:-$MOBILE_ROOT/storefront}"
 BUNDLED_FRONTEND="$MOBILE_ROOT/src/assets/original-frontend"
 STATE_DIR="$MOBILE_ROOT/.native-build"
 
@@ -33,6 +33,10 @@ hash_sources() {
 }
 
 if [[ -f "$FRONTEND_ROOT/package.json" ]]; then
+  if [[ ! -d "$FRONTEND_ROOT/node_modules" ]]; then
+    echo "Installing mobile storefront dependencies..."
+    (cd "$FRONTEND_ROOT" && npm ci --no-audit --no-fund)
+  fi
   FRONTEND_HASH="$(hash_sources "$FRONTEND_ROOT")"
   FRONTEND_STATE="$STATE_DIR/frontend.sha"
   if [[ ! -f "$FRONTEND_ROOT/dist/index.html" ]] || [[ "$(cat "$FRONTEND_STATE" 2>/dev/null || true)" != "$FRONTEND_HASH" ]]; then

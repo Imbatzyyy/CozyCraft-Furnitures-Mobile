@@ -39,7 +39,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="com.cozycraft.furniture" android:host="auth" android:pathPrefix="/callback" />
-                <data android:scheme="com.cozycraft.furniture" android:host="payment" android:pathPrefix="/callback" />
+                <data android:scheme="com.cozycraft.furniture" android:host="payment" android:pathPrefix="/return" />
             </intent-filter>
 
         </activity>
