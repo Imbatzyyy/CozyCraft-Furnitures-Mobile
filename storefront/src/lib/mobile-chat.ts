@@ -7,11 +7,33 @@ const directionSignal = /\b(?:go to|head to|navigate to|visit|tap|choose|select|
 const directionContinuation = /^(?:first|next|then|after that|from there|once there|finally),?\s+/i
 
 function cleanInstruction(value: string) {
-  return value.trim().replace(/^[-•]\s*/, "").replace(/\s+/g, " ")
+  const withoutInternalRoutes = value
+    // Internal web routes are implementation details, not customer directions.
+    .replace(/\s*\([^)]*(?:#?\/|[?&][a-z0-9_-]+=)[^)]*\)/gi, "")
+    .replace(/\s*(?:[-–—,:]\s*)?(?:(?:or\s+)?(?:go|navigate)\s+to|that(?:'s| is)|that’s|via|using)?\s*`?#?\/[a-z0-9][a-z0-9_./?=&%-]*`?/gi, "")
+
+  const directInstruction = withoutInternalRoutes
+    .replace(/^[-•]\s*/, "")
+    .replace(/[`*_]/g, "")
+    .replace(/\s*[=\\/]\s*/g, " ")
+    .replace(/\(([^)]+)\)/g, ", $1")
+    .replace(/\s*(?:→|>)\s*/g, ", then ")
+    .replace(/^click\b/i, "Tap")
+    .replace(/^select\b/i, "Tap")
+    .replace(/\s+/g, " ")
+    .replace(/\s+([.,!?])/g, "$1")
+    .replace(/\s*[-–—,:]+\s*([.!?])$/, "$1")
+    .trim()
+
+  if (!directInstruction) return ""
+  return /[.!?]$/.test(directInstruction) ? directInstruction : `${directInstruction}.`
 }
 
 function splitSentences(value: string) {
-  return value.match(/[^.!?]+(?:[.!?]+|$)/g)?.map((sentence) => sentence.trim()).filter(Boolean) ?? []
+  return value
+    .split(/(?<=[.!?])\s+(?=[A-Z0-9])/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean)
 }
 
 function paragraphBlocks(value: string): MobileAssistantReplyBlock[] {
@@ -31,7 +53,8 @@ function paragraphBlocks(value: string): MobileAssistantReplyBlock[] {
       !directionSignal.test(sentence) &&
       !directionContinuation.test(sentence)
     ) break
-    directions.push(cleanInstruction(sentence.replace(directionContinuation, "")))
+    const instruction = cleanInstruction(sentence.replace(directionContinuation, ""))
+    if (instruction) directions.push(instruction)
   }
   const after = sentences.slice(afterIndex).join(" ").trim()
 
@@ -63,7 +86,8 @@ export function formatMobileAssistantReply(content: string): MobileAssistantRepl
     if (!cleanLine) return
     const instruction = cleanLine.match(numberedInstruction)
     if (instruction) {
-      pendingDirections.push(cleanInstruction(instruction[1]))
+      const customerInstruction = cleanInstruction(instruction[1])
+      if (customerInstruction) pendingDirections.push(customerInstruction)
       return
     }
     flushDirections()
