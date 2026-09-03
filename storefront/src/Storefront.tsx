@@ -66,7 +66,7 @@ import {
   type MobileSearchSynonym,
 } from "./lib/mobile-data"
 import { buildMobileRecommendations } from "./lib/mobile-recommendations"
-import { clearStorefrontReturnState, readStorefrontReturnState, rememberStorefrontReturnState } from "./lib/mobile-navigation"
+import { clearStorefrontReturnState, notificationBadgeCount, readStorefrontReturnState, rememberStorefrontReturnState } from "./lib/mobile-navigation"
 import PhoneVerificationField from "./features/profile/PhoneVerificationField"
 import { usePhoneVerification } from "./features/profile/usePhoneVerification"
 import { normalizePhilippineMobile, type VerifiedPhone } from "./features/profile/phone-verification"
@@ -613,6 +613,16 @@ export default function Storefront() {
     useState<typeof categories[number] | null>(null)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [notifications, setNotifications] = useState<Array<Record<string, any>>>([])
+  const [notificationsHydrated, setNotificationsHydrated] = useState(false)
+  const applyNotifications = (items: Array<Record<string, any>>) => {
+    setNotifications(items)
+    setNotificationsHydrated(true)
+  }
+  const unreadNotificationCount = notificationBadgeCount(
+    notifications.filter((item) => !item.read_at).length,
+    notificationsHydrated,
+    returnState,
+  )
   const [storeSettings, setStoreSettings] = useState<MobileStoreSettings>(() => readOfflineCache<MobileStoreSettings>(OFFLINE_SETTINGS_KEY, {
     announcement_enabled: false,
     announcement_text: "",
@@ -770,7 +780,7 @@ export default function Storefront() {
           setSaved(nextSaved)
           setBag(nextCart as CartLine[])
           setOrders(nextOrders as CustomerOrder[])
-          setNotifications(nextNotifications)
+          applyNotifications(nextNotifications)
         }
         retryVisibleRemoteImages(resourceRevision)
       } catch (error) {
@@ -808,7 +818,7 @@ export default function Storefront() {
         else if (status === "denied") flash("Notifications remain off. You can enable them in your phone settings.")
       }
       if (event.data?.type === "cozycraft-push-received") {
-        if (userId) void loadNotifications(userId).then(setNotifications).catch(console.error)
+        if (userId) void loadNotifications(userId).then(applyNotifications).catch(console.error)
       }
     }
     window.addEventListener("message", openNativeNotification)
@@ -1148,7 +1158,7 @@ export default function Storefront() {
       setSaved([])
       setBag([])
       setOrders([])
-      setNotifications([])
+      applyNotifications([])
       setProfile({
         name: "Guest",
         username: "",
@@ -1234,7 +1244,7 @@ export default function Storefront() {
           if (!live) return
           setProfile(nextProfile)
           setSaved(nextSaved)
-          setNotifications(nextNotifications)
+          applyNotifications(nextNotifications)
           const catalog = await loadProducts()
           const nextCart = await loadCart(session.user.id, catalog)
           if (live) setBag(nextCart as CartLine[])
@@ -1264,7 +1274,7 @@ export default function Storefront() {
           if (!live) return
           setProfile(nextProfile)
           setSaved(nextSaved)
-          setNotifications(nextNotifications)
+          applyNotifications(nextNotifications)
           setBag(await loadCart(session.user.id, catalog) as CartLine[])
           setOrders(await loadOrders(session.user.id, catalog) as CustomerOrder[])
         }).catch(console.error)
@@ -1340,7 +1350,7 @@ export default function Storefront() {
     }
     const refreshNotifications = async (event?: { eventType?: string; new?: Record<string, any> }) => {
       try {
-        setNotifications(await loadNotifications(userId))
+        applyNotifications(await loadNotifications(userId))
         const item = event?.new
         if (event?.eventType === "INSERT" && item && window.parent !== window) {
           window.parent.postMessage({
@@ -1700,8 +1710,8 @@ export default function Storefront() {
               <span className="material-symbols-rounded" aria-hidden="true">
                 notifications
               </span>
-              {notifications.some((item) => !item.read_at) && (
-                <i><span>{Math.min(99, notifications.filter((item) => !item.read_at).length)}</span></i>
+              {unreadNotificationCount > 0 && (
+                <i><span>{Math.min(99, unreadNotificationCount)}</span></i>
               )}
             </button>
             <button
@@ -2054,6 +2064,7 @@ export default function Storefront() {
               completedOrders={completedOrderCount}
               savedCount={saved.length}
               bagCount={bagCount}
+              unreadNotificationCount={unreadNotificationCount}
               pushPermission={pushPermission}
               enableNotifications={requestPushPermission}
               openMembership={() => setMembershipOpen(true)}
@@ -2154,7 +2165,7 @@ export default function Storefront() {
             items={notifications}
             userId={userId}
             close={() => setNotificationsOpen(false)}
-            refresh={async () => userId && setNotifications(await loadNotifications(userId))}
+            refresh={async () => userId && applyNotifications(await loadNotifications(userId))}
           />
         )}
         {membershipOpen && (
@@ -2913,6 +2924,7 @@ function Account({
   completedOrders,
   savedCount,
   bagCount,
+  unreadNotificationCount,
   pushPermission,
   enableNotifications,
   edit,
@@ -2932,6 +2944,7 @@ function Account({
   completedOrders: number
   savedCount: number
   bagCount: number
+  unreadNotificationCount: number
   pushPermission: "unknown" | "granted" | "denied" | "unsupported"
   enableNotifications: () => void
   edit: () => void
@@ -3172,7 +3185,7 @@ function Account({
   const active = entries.find((x) => x.id === view)
   const openContentDocument = (route: "about" | "contact" | "terms" | "privacy-policy") => {
     const scrollTop = document.querySelector<HTMLElement>(".lux-body")?.scrollTop || 0
-    rememberStorefrontReturnState(scrollTop)
+    rememberStorefrontReturnState(scrollTop, unreadNotificationCount)
     window.location.hash = `#/${route}`
   }
   const selectedReturn = selectedOrder?.databaseId

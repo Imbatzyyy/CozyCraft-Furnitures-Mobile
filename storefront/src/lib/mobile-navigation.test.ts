@@ -4,6 +4,7 @@ import {
   hasStorefrontReturnState,
   isMobileContentDocumentRoute,
   mobileShellBackAction,
+  notificationBadgeCount,
   readStorefrontReturnState,
   rememberStorefrontReturnState,
 } from "./mobile-navigation"
@@ -20,18 +21,32 @@ function storageDouble() {
 describe("mobile content-page return navigation", () => {
   it("restores the account tab and its previous scroll position once", () => {
     const storage = storageDouble()
-    rememberStorefrontReturnState(428.4, storage)
+    rememberStorefrontReturnState(428.4, 7, storage)
     expect(hasStorefrontReturnState(storage)).toBe(true)
-    expect(readStorefrontReturnState(storage)).toEqual({ tab: "account", scrollTop: 428 })
-    expect(readStorefrontReturnState(storage)).toEqual({ tab: "account", scrollTop: 428 })
+    expect(readStorefrontReturnState(storage)).toEqual({ tab: "account", scrollTop: 428, unreadNotifications: 7 })
+    expect(readStorefrontReturnState(storage)).toEqual({ tab: "account", scrollTop: 428, unreadNotifications: 7 })
     clearStorefrontReturnState(storage)
     expect(readStorefrontReturnState(storage)).toBeNull()
   })
 
   it("sanitizes unusable scroll positions", () => {
     const storage = storageDouble()
-    rememberStorefrontReturnState(Number.NaN, storage)
-    expect(readStorefrontReturnState(storage)).toEqual({ tab: "account", scrollTop: 0 })
+    rememberStorefrontReturnState(Number.NaN, Number.NaN, storage)
+    expect(readStorefrontReturnState(storage)).toEqual({ tab: "account", scrollTop: 0, unreadNotifications: 0 })
+  })
+
+  it("keeps an older return marker compatible when it has no notification count", () => {
+    const storage = storageDouble()
+    storage.setItem("cozycraft-storefront-return-state", JSON.stringify({ tab: "account", scrollTop: 21 }))
+    expect(readStorefrontReturnState(storage)).toEqual({ tab: "account", scrollTop: 21, unreadNotifications: 0 })
+  })
+
+  it("holds the previous notification badge until the live list is hydrated", () => {
+    const returnState = { tab: "account" as const, scrollTop: 428, unreadNotifications: 7 }
+    expect(notificationBadgeCount(0, false, returnState)).toBe(7)
+    expect(notificationBadgeCount(7, true, returnState)).toBe(7)
+    expect(notificationBadgeCount(0, true, returnState)).toBe(0)
+    expect(notificationBadgeCount(4, false, null)).toBe(4)
   })
 
   it("identifies only the four shared content-document routes", () => {
