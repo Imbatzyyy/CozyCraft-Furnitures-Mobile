@@ -67,6 +67,7 @@ import {
 } from "./lib/mobile-data"
 import { buildMobileRecommendations } from "./lib/mobile-recommendations"
 import { clearStorefrontReturnState, notificationBadgeCount, readStorefrontReturnState, rememberStorefrontReturnState } from "./lib/mobile-navigation"
+import { MOBILE_TEXT_SIZE_OPTIONS, readMobileTextSize, saveMobileTextSize, type MobileTextSize } from "./lib/mobile-text-size"
 import PhoneVerificationField from "./features/profile/PhoneVerificationField"
 import { usePhoneVerification } from "./features/profile/usePhoneVerification"
 import { normalizePhilippineMobile, type VerifiedPhone } from "./features/profile/phone-verification"
@@ -550,6 +551,7 @@ const categories = [
 
 export default function Storefront() {
   const [returnState] = useState(readStorefrontReturnState)
+  const [textSize, setTextSize] = useState<MobileTextSize>(readMobileTextSize)
   const [tab, setTab] = useState(returnState?.tab || "home")
   const [navGlassIndex, setNavGlassIndex] = useState(returnState?.tab === "account" ? 4 : 2)
   const [navGlassPosition, setNavGlassPosition] = useState(returnState?.tab === "account" ? 90 : 50)
@@ -623,6 +625,12 @@ export default function Storefront() {
     notificationsHydrated,
     returnState,
   )
+  const changeTextSize = (nextSize: MobileTextSize) => {
+    setTextSize(nextSize)
+    saveMobileTextSize(nextSize)
+    const option = MOBILE_TEXT_SIZE_OPTIONS.find((item) => item.id === nextSize)
+    flash(`${option?.label || "Preferred"} text size applied`)
+  }
   const [storeSettings, setStoreSettings] = useState<MobileStoreSettings>(() => readOfflineCache<MobileStoreSettings>(OFFLINE_SETTINGS_KEY, {
     announcement_enabled: false,
     announcement_text: "",
@@ -2065,6 +2073,8 @@ export default function Storefront() {
               savedCount={saved.length}
               bagCount={bagCount}
               unreadNotificationCount={unreadNotificationCount}
+              textSize={textSize}
+              changeTextSize={changeTextSize}
               pushPermission={pushPermission}
               enableNotifications={requestPushPermission}
               openMembership={() => setMembershipOpen(true)}
@@ -2925,6 +2935,8 @@ function Account({
   savedCount,
   bagCount,
   unreadNotificationCount,
+  textSize,
+  changeTextSize,
   pushPermission,
   enableNotifications,
   edit,
@@ -2945,6 +2957,8 @@ function Account({
   savedCount: number
   bagCount: number
   unreadNotificationCount: number
+  textSize: MobileTextSize
+  changeTextSize: (size: MobileTextSize) => void
   pushPermission: "unknown" | "granted" | "denied" | "unsupported"
   enableNotifications: () => void
   edit: () => void
@@ -3204,6 +3218,13 @@ function Account({
     ? Math.min(100, ((lifetimeSpend - currentFloor) / (nextTier.target - currentFloor)) * 100)
     : 100
 
+  const textSizePreference = (
+    <TextSizePreference
+      textSize={textSize}
+      changeTextSize={changeTextSize}
+    />
+  )
+
   if (!userId) {
     return (
       <section className="account-page atelier-account guest-account">
@@ -3247,6 +3268,7 @@ function Account({
             <span className="material-symbols-rounded" aria-hidden="true">arrow_outward</span>
           </button>
         </div>
+        {textSizePreference}
       </section>
     )
   }
@@ -3360,6 +3382,7 @@ function Account({
         <header><span className="material-symbols-rounded" aria-hidden="true">notifications</span><div><b>Order notifications</b><small>{pushPermission === "granted" ? "Enabled for this device" : pushPermission === "denied" ? "Off in your phone settings" : pushPermission === "unsupported" ? "Available in the installed app" : "Get useful payment and delivery updates"}</small></div></header>
         {pushPermission === "unknown" && <button type="button" onClick={enableNotifications}>Enable notifications</button>}
       </section>
+      {textSizePreference}
       <nav className="account-resource-links" aria-label="CozyCraft information">
         <button type="button" onClick={() => openContentDocument("about")}>About</button>
         <button type="button" onClick={() => openContentDocument("contact")}>Contact</button>
@@ -3894,6 +3917,46 @@ function Account({
           )}
         </section>
       )}
+    </section>
+  )
+}
+
+function TextSizePreference({
+  textSize,
+  changeTextSize,
+}: {
+  textSize: MobileTextSize
+  changeTextSize: (size: MobileTextSize) => void
+}) {
+  return (
+    <section className="account-text-size-card" aria-labelledby="account-text-size-title">
+      <header>
+        <span className="material-symbols-rounded" aria-hidden="true">text_fields</span>
+        <div>
+          <b id="account-text-size-title">Text size</b>
+          <small>Choose what feels most comfortable to read.</small>
+        </div>
+      </header>
+      <div className="text-size-options" role="radiogroup" aria-label="App text size">
+        {MOBILE_TEXT_SIZE_OPTIONS.map((option) => (
+          <button
+            type="button"
+            role="radio"
+            aria-checked={textSize === option.id}
+            className={textSize === option.id ? "selected" : ""}
+            key={option.id}
+            onClick={() => changeTextSize(option.id)}
+          >
+            <b aria-hidden="true">Aa</b>
+            <span>{option.label}</span>
+            <small>{option.note}</small>
+          </button>
+        ))}
+      </div>
+      <p aria-live="polite">
+        <span className="material-symbols-rounded" aria-hidden="true">check_circle</span>
+        {MOBILE_TEXT_SIZE_OPTIONS.find((option) => option.id === textSize)?.label} is applied throughout CozyCraft.
+      </p>
     </section>
   )
 }

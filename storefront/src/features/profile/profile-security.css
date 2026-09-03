@@ -1,56 +1,56 @@
 .mobile-phone-field { min-width: 0; margin-bottom: 16px; }
 .mobile-phone-label { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
-.deluxe-profile .deluxe-fields .mobile-phone-label > label { width: auto; margin: 0; font-size: 12px; font-weight: 600; }
-.mobile-phone-badge { padding: 5px 9px; border-radius: 999px; background: #eee3d5; color: #806443; font-size: 10px; font-weight: 700; line-height: 1.3; }
+.deluxe-profile .deluxe-fields .mobile-phone-label > label { width: auto; margin: 0; font-size: calc(12px * var(--cozy-font-scale, 1.15)); font-weight: 600; }
+.mobile-phone-badge { padding: 5px 9px; border-radius: 999px; background: #eee3d5; color: #806443; font-size: calc(10px * var(--cozy-font-scale, 1.15)); font-weight: 700; line-height: 1.3; }
 .mobile-phone-badge.is-verified { background: #e2ecde; color: #506b49; }
 .mobile-phone-control { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; min-width: 0; }
-.deluxe-profile .deluxe-fields .mobile-phone-control > input { width: auto; flex: 1 1 160px; min-width: 0; min-height: 48px; margin: 0; padding: 12px 14px; border: 1px solid #d6cfc4; border-radius: 14px; background: #fcfbf8; color: #292722; font-size: 16px; }
+.deluxe-profile .deluxe-fields .mobile-phone-control > input { width: auto; flex: 1 1 160px; min-width: 0; min-height: 48px; margin: 0; padding: 12px 14px; border: 1px solid #d6cfc4; border-radius: 14px; background: #fcfbf8; color: #292722; font-size: calc(16px * var(--cozy-font-scale, 1.15)); }
 .deluxe-profile .mobile-phone-control > input:disabled { opacity: 1; color: #77726a; background: #e8e3db; -webkit-text-fill-color: #77726a; }
-.mobile-phone-control > button { flex: 0 1 auto; min-height: 48px; padding: 10px 14px; border: 1px solid #cfc7bc; border-radius: 14px; font: 600 12px "DM Sans", sans-serif; line-height: 1.3; }
+.mobile-phone-control > button { flex: 0 1 auto; min-height: 48px; padding: 10px 14px; border: 1px solid #cfc7bc; border-radius: 14px; font: 600 calc(12px * var(--cozy-font-scale, 1.15)) "DM Sans", sans-serif; line-height: 1.3; }
 .mobile-phone-control .mobile-phone-verify { background: #26241f; color: #fffdf9; border-color: #26241f; }
 .mobile-phone-control .mobile-phone-change { background: #f9f7f2; color: #35312b; }
 .mobile-phone-control > button:disabled { opacity: .45; cursor: default; }
-.mobile-phone-field > p { margin: 9px 0 0; color: #767066; font-size: 11px; line-height: 1.6; overflow-wrap: anywhere; }
-.mobile-security-text { min-height: 44px; padding: 8px 0; border: 0; background: transparent; color: #484136; font: 600 12px "DM Sans", sans-serif; line-height: 1.4; text-decoration: underline; text-underline-offset: 4px; }
+.mobile-phone-field > p { margin: 9px 0 0; color: #767066; font-size: calc(11px * var(--cozy-font-scale, 1.15)); line-height: 1.6; overflow-wrap: anywhere; }
+.mobile-security-text { min-height: 44px; padding: 8px 0; border: 0; background: transparent; color: #484136; font: 600 calc(12px * var(--cozy-font-scale, 1.15)) "DM Sans", sans-serif; line-height: 1.4; text-decoration: underline; text-underline-offset: 4px; }
 .mobile-security-text:disabled { opacity: .5; text-decoration: none; }
 .mobile-security-overlay { position: fixed; z-index: 3000; inset: 0; display: grid; place-items: center; box-sizing: border-box; padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); background: #201e1bb3; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
 .mobile-security-dialog { box-sizing: border-box; width: min(100%, 460px); max-height: 100%; min-height: 0; display: flex; flex-direction: column; overflow: hidden; border: 1px solid #e3ddd2; border-radius: 28px; outline: 0; background: #faf8f3; color: #292722; box-shadow: 0 24px 70px #17151040; font-family: "DM Sans", sans-serif; }
 .mobile-security-dialog *, .mobile-security-dialog *::before, .mobile-security-dialog *::after { box-sizing: border-box; }
 .mobile-security-heading { display: grid; flex: 0 0 auto; grid-template-columns: 44px minmax(0, 1fr) 44px; gap: 12px; align-items: center; padding: 22px 20px; border-bottom: 1px solid #e5dfd5; }
 .mobile-security-heading > div { min-width: 0; }
-.mobile-security-heading p { margin: 0 0 5px; font-size: 9px; font-weight: 700; letter-spacing: .13em; color: #797165; }
-.mobile-security-heading h2 { margin: 0; font: 400 clamp(22px, 6vw, 28px)/1.1 "DM Serif Display", serif; letter-spacing: -.025em; overflow-wrap: anywhere; }
+.mobile-security-heading p { margin: 0 0 5px; font-size: calc(9px * var(--cozy-font-scale, 1.15)); font-weight: 700; letter-spacing: .13em; color: #797165; }
+.mobile-security-heading h2 { margin: 0; font: 400 clamp(calc(22px * var(--cozy-font-scale, 1.15)), 6vw, calc(28px * var(--cozy-font-scale, 1.15)))/1.1 "DM Serif Display", serif; letter-spacing: -.025em; overflow-wrap: anywhere; }
 .mobile-security-icon { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 15px; background: #ebe4d7; color: #685741; }
 .mobile-security-icon svg { display: block; width: 24px; height: 24px; }
-.mobile-security-close { width: 44px; height: 44px; min-width: 0; display: grid; place-items: center; padding: 0; border: 1px solid #ddd6cc; border-radius: 999px; background: #fffdf9; color: #33302a; font-size: 26px; line-height: 1; }
+.mobile-security-close { width: 44px; height: 44px; min-width: 0; display: grid; place-items: center; padding: 0; border: 1px solid #ddd6cc; border-radius: 999px; background: #fffdf9; color: #33302a; font-size: calc(26px * var(--cozy-font-scale, 1.15)); line-height: 1; }
 .mobile-security-body { min-height: 0; margin: 0; padding: 24px 22px; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
-.mobile-security-body > p { margin: 0 0 12px; font-size: 14px; line-height: 1.65; color: #777067; overflow-wrap: anywhere; }
+.mobile-security-body > p { margin: 0 0 12px; font-size: calc(14px * var(--cozy-font-scale, 1.15)); line-height: 1.65; color: #777067; overflow-wrap: anywhere; }
 .mobile-security-body strong { color: #393329; font-weight: 600; }
-.mobile-security-body .mobile-security-note { font-size: 12px; line-height: 1.6; }
-.mobile-otp-label { display: block; margin: 24px 0 10px; font-size: 12px; font-weight: 700; }
-.mobile-otp-input { display: block; width: 100%; min-width: 0; height: 60px; padding: 10px; border: 1px solid #d8d0c4; border-radius: 16px; background: #fffefa; color: #292722; font: 500 26px/1.2 "DM Sans", sans-serif; letter-spacing: .35em; text-align: center; outline: none; }
+.mobile-security-body .mobile-security-note { font-size: calc(12px * var(--cozy-font-scale, 1.15)); line-height: 1.6; }
+.mobile-otp-label { display: block; margin: 24px 0 10px; font-size: calc(12px * var(--cozy-font-scale, 1.15)); font-weight: 700; }
+.mobile-otp-input { display: block; width: 100%; min-width: 0; height: 60px; padding: 10px; border: 1px solid #d8d0c4; border-radius: 16px; background: #fffefa; color: #292722; font: 500 calc(26px * var(--cozy-font-scale, 1.15))/1.2 "DM Sans", sans-serif; letter-spacing: .35em; text-align: center; outline: none; }
 .mobile-otp-input:focus { border-color: #7c8b70; box-shadow: 0 0 0 3px #b5c3a833; }
 .mobile-security-dialog .mobile-otp-input:focus-visible, .deluxe-profile .mobile-phone-control > input:focus-visible { outline: 2px solid #78856e; outline-offset: 2px; }
 .mobile-otp-input:disabled { opacity: .6; }
-.mobile-otp-timing { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 10px; margin-top: 7px; color: #7d756a; font-size: 12px; }
-.mobile-security-primary, .mobile-security-secondary { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 50px; padding: 13px 16px; border-radius: 16px; font: 600 14px/1.4 "DM Sans", sans-serif; text-align: center; }
+.mobile-otp-timing { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 10px; margin-top: 7px; color: #7d756a; font-size: calc(12px * var(--cozy-font-scale, 1.15)); }
+.mobile-security-primary, .mobile-security-secondary { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 50px; padding: 13px 16px; border-radius: 16px; font: 600 calc(14px * var(--cozy-font-scale, 1.15))/1.4 "DM Sans", sans-serif; text-align: center; }
 .mobile-security-primary { margin-top: 22px; border: 1px solid #28251f; background: #28251f; color: #fffdf8; }
 .mobile-security-secondary { border: 1px solid #d8d0c4; background: #f7f3eb; color: #373129; }
 .mobile-security-primary:disabled, .mobile-security-secondary:disabled, .mobile-security-close:disabled { opacity: .4; cursor: default; }
-.mobile-security-body .mobile-security-error { margin: 16px 0 0; padding: 13px; border: 1px solid #e1c6b7; border-radius: 14px; background: #f6e7dd; color: #855740; font-size: 12px; line-height: 1.6; }
-.mobile-security-body .mobile-security-footnote { margin: 16px 0 0; font-size: 11px; line-height: 1.55; text-align: center; }
+.mobile-security-body .mobile-security-error { margin: 16px 0 0; padding: 13px; border: 1px solid #e1c6b7; border-radius: 14px; background: #f6e7dd; color: #855740; font-size: calc(12px * var(--cozy-font-scale, 1.15)); line-height: 1.6; }
+.mobile-security-body .mobile-security-footnote { margin: 16px 0 0; font-size: calc(11px * var(--cozy-font-scale, 1.15)); line-height: 1.55; text-align: center; }
 .mobile-phone-sending { display: grid; justify-items: center; gap: 12px; min-height: 100px; align-content: center; }
-.mobile-phone-sending p { color: #797064; font-size: 13px; }
+.mobile-phone-sending p { color: #797064; font-size: calc(13px * var(--cozy-font-scale, 1.15)); }
 .mobile-security-spinner { display: block; width: 28px; height: 28px; border: 2px solid #ddd4c7; border-top-color: #685b46; border-radius: 50%; animation: mobile-security-spin .8s linear infinite; }
 .mobile-phone-success { text-align: center; }
-.mobile-phone-success-check { display: grid; place-items: center; width: 66px; height: 66px; margin: 5px auto 18px; border-radius: 23px; background: #e2ecde; color: #55774d; font-size: 32px; }
-.mobile-phone-success h3 { margin: 0 0 12px; font: 400 30px/1.15 "DM Serif Display", serif; }
+.mobile-phone-success-check { display: grid; place-items: center; width: 66px; height: 66px; margin: 5px auto 18px; border-radius: 23px; background: #e2ecde; color: #55774d; font-size: calc(32px * var(--cozy-font-scale, 1.15)); }
+.mobile-phone-success h3 { margin: 0 0 12px; font: 400 calc(30px * var(--cozy-font-scale, 1.15))/1.15 "DM Serif Display", serif; }
 @keyframes mobile-security-spin { to { transform: rotate(360deg); } }
 @media (max-width: 359px) { .mobile-security-overlay { padding-inline: 10px; } .mobile-security-heading { gap: 9px; padding: 18px 14px; grid-template-columns: 36px minmax(0, 1fr) 44px; } .mobile-security-icon { width: 36px; height: 40px; } .mobile-security-body { padding: 20px 16px; } }
 @media (max-height: 520px) { .mobile-security-heading { padding-top: 12px; padding-bottom: 12px; } .mobile-security-body { padding-top: 14px; padding-bottom: 16px; } .mobile-otp-label { margin-top: 14px; } }
 @media (prefers-reduced-motion: reduce) { .mobile-security-spinner { animation: none; } }
 .mobile-auth-check { display: grid; place-items: center; width: 100%; min-height: 100dvh; max-height: 100dvh; overflow: auto; box-sizing: border-box; padding: max(22px, env(safe-area-inset-top)) 18px max(22px, env(safe-area-inset-bottom)); background: #f1ede5; }
 .mobile-auth-check .mobile-security-icon { margin-bottom: 22px; }
-.mobile-auth-check .mobile-auth-eyebrow { margin-bottom: 10px; font-size: 9px; font-weight: 700; letter-spacing: .12em; }
-.mobile-auth-check h1 { margin: 0 0 16px; font: 400 clamp(30px, 8vw, 40px)/1.05 "DM Serif Display", serif; letter-spacing: -.025em; }
-.mobile-auth-check form > p { color: #777067; font-size: 14px; line-height: 1.6; }
+.mobile-auth-check .mobile-auth-eyebrow { margin-bottom: 10px; font-size: calc(9px * var(--cozy-font-scale, 1.15)); font-weight: 700; letter-spacing: .12em; }
+.mobile-auth-check h1 { margin: 0 0 16px; font: 400 clamp(calc(30px * var(--cozy-font-scale, 1.15)), 8vw, calc(40px * var(--cozy-font-scale, 1.15)))/1.05 "DM Serif Display", serif; letter-spacing: -.025em; }
+.mobile-auth-check form > p { color: #777067; font-size: calc(14px * var(--cozy-font-scale, 1.15)); line-height: 1.6; }

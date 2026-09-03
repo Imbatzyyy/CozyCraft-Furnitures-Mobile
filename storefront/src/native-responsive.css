@@ -6,6 +6,28 @@
   font-display: swap;
 }
 
+/* The customer controls this scale from Account. Explicit typography tokens
+   resolve through it while layout dimensions remain unchanged. */
+html {
+  --cozy-font-scale: 1.15;
+}
+
+html[data-cozy-text-size="standard"] {
+  --cozy-font-scale: 1;
+}
+
+html[data-cozy-text-size="comfortable"] {
+  --cozy-font-scale: 1.15;
+}
+
+html[data-cozy-text-size="large"] {
+  --cozy-font-scale: 1.25;
+}
+
+html[data-cozy-text-size="extra-large"] {
+  --cozy-font-scale: 1.4;
+}
+
 /* Final cross-platform override: responsive product imagery must always fill
    its visual frame on both Android and iOS. Keep this at the end so compact,
    search, and device-specific layouts cannot restore intrinsic sizing. */
@@ -188,7 +210,7 @@ html.order-detail-open .account-sheet-close {
   border: 0;
   background: transparent;
   color: #2b2823;
-  font-size: 13px;
+  font-size: calc(13px * var(--cozy-font-scale, 1.15));
   font-weight: 750;
   min-width: 0;
   flex: 1 1 auto;
@@ -196,7 +218,7 @@ html.order-detail-open .account-sheet-close {
 }
 
 .order-detail-close .material-symbols-rounded {
-  font-size: 21px;
+  font-size: calc(21px * var(--cozy-font-scale, 1.15));
 }
 
 .order-detail-status {
@@ -206,7 +228,7 @@ html.order-detail-open .account-sheet-close {
   border-radius: 999px;
   background: #e3eddf;
   color: #54704e;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
   font-style: normal;
   font-weight: 800;
   letter-spacing: 0.09em;
@@ -238,26 +260,26 @@ html.order-detail-open .account-sheet-close {
   border-radius: 20px;
   background: #e8e2d9;
   color: #62594f;
-  font-size: 27px;
+  font-size: calc(27px * var(--cozy-font-scale, 1.15));
   box-shadow: 0 10px 28px rgba(47, 40, 33, 0.07);
 }
 
 .order-detail-hero .hello {
   margin: 0 0 7px;
   color: #777067;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
 }
 
 .atelier-account .order-detail-hero h2 {
   margin: 0;
-  font: 400 clamp(29px, 8vw, 38px)/0.98 "DM Serif Display", serif;
+  font: 400 clamp(calc(29px * var(--cozy-font-scale, 1.15)), 8vw, calc(38px * var(--cozy-font-scale, 1.15)))/0.98 "DM Serif Display", serif;
   letter-spacing: -0.045em;
 }
 
 .order-detail-hero div > p:last-child {
   margin: 9px 0 0;
   color: #777067;
-  font-size: 10px;
+  font-size: calc(10px * var(--cozy-font-scale, 1.15));
   line-height: 1.45;
 }
 
@@ -284,17 +306,17 @@ html.order-detail-open .account-sheet-close {
 .order-detail-section > header small,
 .order-detail-meta small {
   color: #7c746a;
-  font-size: 7px;
+  font-size: calc(7px * var(--cozy-font-scale, 1.15));
   font-weight: 800;
   letter-spacing: 0.14em;
 }
 
 .order-detail-section > header b {
-  font-size: 13px;
+  font-size: calc(13px * var(--cozy-font-scale, 1.15));
 }
 
 .order-detail-section > header > strong {
-  font: 400 22px "DM Serif Display", serif;
+  font: 400 calc(22px * var(--cozy-font-scale, 1.15)) "DM Serif Display", serif;
 }
 
 .atelier-account .order-detail-products {
@@ -333,18 +355,18 @@ html.order-detail-open .account-sheet-close {
 
 .atelier-account .order-detail-products article > div > b {
   overflow-wrap: anywhere;
-  font-size: 13px;
+  font-size: calc(13px * var(--cozy-font-scale, 1.15));
   line-height: 1.25;
 }
 
 .atelier-account .order-detail-products article > div > small {
   color: #7d756c;
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
 }
 
 .atelier-account .order-detail-products article > strong {
   padding-top: 3px;
-  font-size: 12px;
+  font-size: calc(12px * var(--cozy-font-scale, 1.15));
   white-space: nowrap;
 }
 
@@ -360,14 +382,14 @@ html.order-detail-open .account-sheet-close {
   border-radius: 12px;
   background: #27241f;
   color: #fff;
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
   font-weight: 800;
   line-height: 1;
   text-decoration: none;
 }
 
 .order-write-review .material-symbols-rounded {
-  font-size: 16px;
+  font-size: calc(16px * var(--cozy-font-scale, 1.15));
 }
 
 .order-review-complete {
@@ -377,12 +399,12 @@ html.order-detail-open .account-sheet-close {
   gap: 4px;
   margin-top: 6px;
   color: #587252;
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
   font-weight: 750;
 }
 
 .order-review-complete .material-symbols-rounded {
-  font-size: 15px;
+  font-size: calc(15px * var(--cozy-font-scale, 1.15));
 }
 
 .atelier-account .order-detail-meta {
@@ -412,20 +434,20 @@ html.order-detail-open .account-sheet-close {
 .atelier-account .order-detail-meta p > .material-symbols-rounded {
   margin-bottom: 8px;
   color: #675e54;
-  font-size: 20px;
+  font-size: calc(20px * var(--cozy-font-scale, 1.15));
 }
 
 .atelier-account .order-detail-meta p > b,
 .atelier-account .order-detail-meta p > strong {
   overflow-wrap: anywhere;
   color: #292621;
-  font-size: 12px;
+  font-size: calc(12px * var(--cozy-font-scale, 1.15));
   line-height: 1.4;
 }
 
 .atelier-account .order-detail-meta p > em {
   color: #5d7756;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
   font-style: normal;
   font-weight: 800;
   text-transform: capitalize;
@@ -448,7 +470,7 @@ html.order-detail-open .account-sheet-close {
 }
 
 .atelier-account .order-detail-meta .order-detail-address > b {
-  font-size: 13px;
+  font-size: calc(13px * var(--cozy-font-scale, 1.15));
   line-height: 1.55;
 }
 
@@ -484,7 +506,7 @@ html.order-detail-open .account-sheet-close {
 }
 
 .atelier-account .full-order-timeline i > span {
-  font-size: 14px;
+  font-size: calc(14px * var(--cozy-font-scale, 1.15));
 }
 
 .atelier-account .full-order-timeline i::after {
@@ -512,12 +534,12 @@ html.order-detail-open .account-sheet-close {
 }
 
 .atelier-account .full-order-timeline div b {
-  font-size: 12px;
+  font-size: calc(12px * var(--cozy-font-scale, 1.15));
 }
 
 .atelier-account .full-order-timeline time {
   color: #827a70;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
 }
 
 .atelier-account .order-cancel-action {
@@ -528,7 +550,7 @@ html.order-detail-open .account-sheet-close {
   border-radius: 16px;
   background: #f3e8e5;
   color: #845b53;
-  font-size: 10px;
+  font-size: calc(10px * var(--cozy-font-scale, 1.15));
   font-weight: 750;
 }
 
@@ -547,7 +569,7 @@ html.order-detail-open .account-sheet-close {
     width: 49px;
     height: 49px;
     border-radius: 17px;
-    font-size: 23px;
+    font-size: calc(23px * var(--cozy-font-scale, 1.15));
   }
 
   .atelier-account .order-detail-products article,
@@ -617,7 +639,7 @@ html.order-detail-open .account-sheet-close {
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.1);
   color: #e6d6bf;
-  font-size: 27px;
+  font-size: calc(27px * var(--cozy-font-scale, 1.15));
   line-height: 1;
   font-variation-settings: "FILL" 0, "wght" 430, "GRAD" 0, "opsz" 26;
 }
@@ -633,21 +655,21 @@ html.order-detail-open .account-sheet-close {
 .atelier-account .support-compose-card > header small,
 .atelier-account .support-conversations > header small {
   color: #cfc0ac;
-  font-size: 7px;
+  font-size: calc(7px * var(--cozy-font-scale, 1.15));
   font-weight: 850;
   letter-spacing: 0.17em;
 }
 
 .atelier-account .support-care-hero h3 {
   margin: 0;
-  font: 400 clamp(22px, 6.7vw, 30px)/1.04 "DM Serif Display", serif;
+  font: 400 clamp(calc(22px * var(--cozy-font-scale, 1.15)), 6.7vw, calc(30px * var(--cozy-font-scale, 1.15)))/1.04 "DM Serif Display", serif;
   letter-spacing: -0.025em;
 }
 
 .atelier-account .support-care-hero > div > p {
   margin: 1px 0 0;
   color: rgba(250, 248, 243, 0.7);
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
   line-height: 1.55;
 }
 
@@ -678,12 +700,12 @@ html.order-detail-open .account-sheet-close {
 }
 
 .atelier-account .support-care-hero > aside b {
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
 }
 
 .atelier-account .support-care-hero > aside small {
   color: rgba(250, 248, 243, 0.58);
-  font-size: 7px;
+  font-size: calc(7px * var(--cozy-font-scale, 1.15));
 }
 
 .atelier-account .support-guided-topics {
@@ -713,7 +735,7 @@ html.order-detail-open .account-sheet-close {
 
 .atelier-account .support-guided-topics header b,
 .atelier-account .support-conversations > header b {
-  font: 400 18px "DM Serif Display", serif;
+  font: 400 calc(18px * var(--cozy-font-scale, 1.15)) "DM Serif Display", serif;
   letter-spacing: -0.015em;
 }
 
@@ -723,7 +745,7 @@ html.order-detail-open .account-sheet-close {
   border-radius: 999px;
   background: rgba(233, 227, 218, 0.9);
   color: #7b7166;
-  font-size: 7px;
+  font-size: calc(7px * var(--cozy-font-scale, 1.15));
   font-weight: 750;
 }
 
@@ -765,7 +787,7 @@ html.order-detail-open .account-sheet-close {
   padding: 0;
   border-radius: 10px;
   background: #eee8df;
-  font-size: 17px;
+  font-size: calc(17px * var(--cozy-font-scale, 1.15));
   line-height: 1;
 }
 
@@ -775,7 +797,7 @@ html.order-detail-open .account-sheet-close {
 
 .atelier-account .support-topic-rail b {
   overflow-wrap: anywhere;
-  font-size: 7px;
+  font-size: calc(7px * var(--cozy-font-scale, 1.15));
   line-height: 1.25;
 }
 
@@ -809,7 +831,7 @@ html.order-detail-open .account-sheet-close {
   border-radius: 15px;
   background: #eee7dd;
   color: #6f5f4e;
-  font-size: 22px;
+  font-size: calc(22px * var(--cozy-font-scale, 1.15));
   line-height: 1;
 }
 
@@ -825,14 +847,14 @@ html.order-detail-open .account-sheet-close {
 
 .atelier-account .support-compose-card > header h3 {
   margin: 0;
-  font: 400 21px "DM Serif Display", serif;
+  font: 400 calc(21px * var(--cozy-font-scale, 1.15)) "DM Serif Display", serif;
   letter-spacing: -0.02em;
 }
 
 .atelier-account .support-compose-card > header p {
   margin: 0;
   color: #81786e;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
   line-height: 1.45;
 }
 
@@ -854,7 +876,7 @@ html.order-detail-open .account-sheet-close {
   justify-content: space-between;
   gap: 10px;
   color: #746b61;
-  font-size: 7px;
+  font-size: calc(7px * var(--cozy-font-scale, 1.15));
   font-weight: 850;
   letter-spacing: 0.11em;
   text-transform: uppercase;
@@ -862,7 +884,7 @@ html.order-detail-open .account-sheet-close {
 
 .atelier-account .support-message-field > span small {
   color: #938a80;
-  font-size: 6px;
+  font-size: calc(6px * var(--cozy-font-scale, 1.15));
   font-weight: 650;
   letter-spacing: 0;
   text-transform: none;
@@ -883,7 +905,7 @@ html.order-detail-open .account-sheet-close {
   outline: 0;
   background: #fbfaf8;
   color: #292621;
-  font: 9px "DM Sans", sans-serif;
+  font: calc(9px * var(--cozy-font-scale, 1.15)) "DM Sans", sans-serif;
   transition: border-color 150ms ease, box-shadow 150ms ease;
 }
 
@@ -909,7 +931,7 @@ html.order-detail-open .account-sheet-close {
   align-items: center;
   justify-content: center;
   color: #7c7369;
-  font-size: 17px;
+  font-size: calc(17px * var(--cozy-font-scale, 1.15));
   font-style: normal;
   line-height: 1;
   pointer-events: none;
@@ -939,7 +961,7 @@ html.order-detail-open .account-sheet-close {
   right: 12px;
   bottom: 10px;
   color: #958c82;
-  font-size: 7px;
+  font-size: calc(7px * var(--cozy-font-scale, 1.15));
 }
 
 .atelier-account .support-compose-card > button[type="submit"] {
@@ -954,7 +976,7 @@ html.order-detail-open .account-sheet-close {
   border-radius: 16px;
   background: #292621;
   color: #fff;
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
   font-weight: 800;
 }
 
@@ -964,7 +986,7 @@ html.order-detail-open .account-sheet-close {
 }
 
 .atelier-account .support-compose-card > button[type="submit"] > .material-symbols-rounded {
-  font-size: 18px;
+  font-size: calc(18px * var(--cozy-font-scale, 1.15));
 }
 
 .atelier-account .support-compose-card > button[type="submit"] > i {
@@ -983,13 +1005,13 @@ html.order-detail-open .account-sheet-close {
   gap: 5px;
   margin: -3px 0 0;
   color: #8a8177;
-  font-size: 7px;
+  font-size: calc(7px * var(--cozy-font-scale, 1.15));
   line-height: 1.4;
   text-align: center;
 }
 
 .atelier-account .support-form-assurance .material-symbols-rounded {
-  font-size: 12px;
+  font-size: calc(12px * var(--cozy-font-scale, 1.15));
 }
 
 .atelier-account .support-conversations {
@@ -1032,7 +1054,7 @@ html.order-detail-open .account-sheet-close {
   border-radius: 12px;
   background: #eee7dd;
   color: #6e604f;
-  font-size: 18px;
+  font-size: calc(18px * var(--cozy-font-scale, 1.15));
   line-height: 1;
 }
 
@@ -1047,14 +1069,14 @@ html.order-detail-open .account-sheet-close {
 .atelier-account .support-customer-message > small,
 .atelier-account .support-care-reply small {
   color: #8b8177;
-  font-size: 6px;
+  font-size: calc(6px * var(--cozy-font-scale, 1.15));
   font-weight: 850;
   letter-spacing: 0.13em;
 }
 
 .atelier-account .support-ticket > header strong {
   overflow: hidden;
-  font-size: 10px;
+  font-size: calc(10px * var(--cozy-font-scale, 1.15));
   line-height: 1.3;
   text-overflow: ellipsis;
 }
@@ -1065,7 +1087,7 @@ html.order-detail-open .account-sheet-close {
   border-radius: 999px;
   background: #e7efe3;
   color: #526b4c;
-  font-size: 6px;
+  font-size: calc(6px * var(--cozy-font-scale, 1.15));
   font-style: normal;
   font-weight: 850;
   text-transform: uppercase;
@@ -1091,7 +1113,7 @@ html.order-detail-open .account-sheet-close {
   margin: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
   line-height: 1.5;
 }
 
@@ -1115,7 +1137,7 @@ html.order-detail-open .account-sheet-close {
   border-radius: 11px;
   background: rgba(255, 255, 255, 0.1);
   color: #dcc9ae;
-  font-size: 18px;
+  font-size: calc(18px * var(--cozy-font-scale, 1.15));
 }
 
 .atelier-account .support-care-reply > div {
@@ -1147,7 +1169,7 @@ html.order-detail-open .account-sheet-close {
   justify-content: center;
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.64);
-  font-size: 17px;
+  font-size: calc(17px * var(--cozy-font-scale, 1.15));
 }
 
 .atelier-account .support-awaiting-reply > div {
@@ -1156,12 +1178,12 @@ html.order-detail-open .account-sheet-close {
 }
 
 .atelier-account .support-awaiting-reply b {
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
 }
 
 .atelier-account .support-awaiting-reply small {
   color: #8b7656;
-  font-size: 7px;
+  font-size: calc(7px * var(--cozy-font-scale, 1.15));
 }
 
 .atelier-account .support-ticket > footer {
@@ -1172,11 +1194,11 @@ html.order-detail-open .account-sheet-close {
 }
 
 .atelier-account .support-ticket > footer .material-symbols-rounded {
-  font-size: 13px;
+  font-size: calc(13px * var(--cozy-font-scale, 1.15));
 }
 
 .atelier-account .support-ticket > footer time {
-  font-size: 7px;
+  font-size: calc(7px * var(--cozy-font-scale, 1.15));
 }
 
 .atelier-account .support-empty {
@@ -1198,19 +1220,19 @@ html.order-detail-open .account-sheet-close {
   border-radius: 16px;
   background: #eae3da;
   color: #726454;
-  font-size: 23px;
+  font-size: calc(23px * var(--cozy-font-scale, 1.15));
 }
 
 .atelier-account .support-empty h3 {
   margin: 12px 0 5px;
-  font: 400 20px "DM Serif Display", serif;
+  font: 400 calc(20px * var(--cozy-font-scale, 1.15)) "DM Serif Display", serif;
 }
 
 .atelier-account .support-empty p {
   max-width: 270px;
   margin: 0;
   color: #81786e;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
   line-height: 1.5;
 }
 
@@ -1226,7 +1248,7 @@ html.order-detail-open .account-sheet-close {
     width: 46px;
     height: 46px;
     border-radius: 15px;
-    font-size: 23px;
+    font-size: calc(23px * var(--cozy-font-scale, 1.15));
   }
 
   .atelier-account .support-topic-rail {
@@ -1262,7 +1284,7 @@ html.order-detail-open .account-sheet-close {
     width: 40px;
     height: 40px;
     border-radius: 13px;
-    font-size: 20px;
+    font-size: calc(20px * var(--cozy-font-scale, 1.15));
   }
 }
 
@@ -1348,7 +1370,7 @@ html.order-detail-open .account-sheet-close {
   min-inline-size: 0;
   max-inline-size: 100%;
   min-width: 0;
-  font-size: 16px;
+  font-size: calc(16px * var(--cozy-font-scale, 1.15));
 }
 
 .deluxe-profile .profile-birth-field > span:first-child {
@@ -1361,7 +1383,7 @@ html.order-detail-open .account-sheet-close {
 .deluxe-profile .profile-birth-field > span:first-child small {
   flex: 0 0 auto;
   color: #827c72;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
   font-weight: 600;
   letter-spacing: .07em;
   text-transform: uppercase;
@@ -1463,19 +1485,19 @@ html.order-detail-open .account-sheet-close {
 
 .security-summary b,
 .security-panel-heading b {
-  font-size: 14px;
+  font-size: calc(14px * var(--cozy-font-scale, 1.15));
   line-height: 1.25;
 }
 
 .security-summary small,
 .security-panel-heading small {
   color: #777067;
-  font-size: 11px;
+  font-size: calc(11px * var(--cozy-font-scale, 1.15));
   line-height: 1.45;
 }
 
 .security-summary > i {
-  font-size: 20px;
+  font-size: calc(20px * var(--cozy-font-scale, 1.15));
   font-style: normal;
   text-align: right;
 }
@@ -1521,7 +1543,7 @@ html.order-detail-open .account-sheet-close {
   border-radius: 13px;
   background: #f2eee7;
   color: #24211d;
-  font-size: 22px;
+  font-size: calc(22px * var(--cozy-font-scale, 1.15));
   line-height: 1;
 }
 
@@ -1536,7 +1558,7 @@ html.order-detail-open .account-sheet-close {
 }
 
 .security-fields label > span {
-  font-size: 11px;
+  font-size: calc(11px * var(--cozy-font-scale, 1.15));
   font-weight: 700;
 }
 
@@ -1564,7 +1586,7 @@ html.order-detail-open .account-sheet-close {
   border-radius: 14px;
   background: #ece7dd;
   color: #635b50;
-  font-size: 11px;
+  font-size: calc(11px * var(--cozy-font-scale, 1.15));
   line-height: 1.45;
 }
 
@@ -1578,7 +1600,7 @@ html.order-detail-open .account-sheet-close {
   border-radius: 16px;
   background: #211f1b;
   color: #fff;
-  font-size: 13px;
+  font-size: calc(13px * var(--cozy-font-scale, 1.15));
   font-weight: 700;
 }
 
@@ -1648,7 +1670,7 @@ html.order-detail-open .account-sheet-close {
   }
 
   .deluxe-profile .profile-hero h1 {
-    font-size: 23px;
+    font-size: calc(23px * var(--cozy-font-scale, 1.15));
   }
 
   .deluxe-profile .deluxe-fields {
@@ -1695,7 +1717,7 @@ html.order-detail-open .account-sheet-close {
   background: transparent;
   color: #1d1b18;
   font: inherit;
-  font-size: 11px;
+  font-size: calc(11px * var(--cozy-font-scale, 1.15));
   font-weight: 800;
   letter-spacing: .02em;
 }
@@ -1780,7 +1802,7 @@ html.order-detail-open .account-sheet-close {
   border-radius: 50%;
   background: #fff;
   color: #1d1b18;
-  font-size: 24px;
+  font-size: calc(24px * var(--cozy-font-scale, 1.15));
 }
 
 .order-review-dialog .rating-input {
@@ -1793,7 +1815,7 @@ html.order-detail-open .account-sheet-close {
   border: 0;
   background: transparent;
   color: #c8c0b4;
-  font-size: 34px;
+  font-size: calc(34px * var(--cozy-font-scale, 1.15));
   line-height: 1;
 }
 
@@ -1964,12 +1986,12 @@ body.review-dialog-open .order-review-dialog form > button[type="submit"] {
 .membership-levels article { display:grid; grid-template-columns:1fr auto; gap:5px 12px; padding:15px; border-radius:18px; background:#f2eee7; }
 .membership-levels article.active { color:#fff; background:#22201d; }
 .membership-levels small { grid-column:1/-1; line-height:1.45; opacity:.72; }
-.membership-redeem h2 { margin:6px 0 16px; font-family:Georgia,serif; font-size:clamp(27px,7vw,36px); }
+.membership-redeem h2 { margin:6px 0 16px; font-family:Georgia,serif; font-size: clamp(calc(27px * var(--cozy-font-scale, 1.15)),7vw,calc(36px * var(--cozy-font-scale, 1.15))); }
 .membership-redeem>div { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
 .membership-redeem button { min-width:0; padding:14px 6px; border:1px solid rgba(42,39,34,.16); border-radius:17px; background:#f5f1ea; }
 .membership-redeem button b,.membership-redeem button span { display:block; }
-.membership-redeem button b { font-size:18px; }
-.membership-redeem button span { margin-top:3px; font-size:11px; opacity:.7; }
+.membership-redeem button b { font-size: calc(18px * var(--cozy-font-scale, 1.15)); }
+.membership-redeem button span { margin-top:3px; font-size: calc(11px * var(--cozy-font-scale, 1.15)); opacity:.7; }
 .membership-redeem button:disabled { opacity:.42; }
 .membership-redeem>small { display:block; margin-top:12px; line-height:1.45; opacity:.64; }
 .membership-activity article { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:13px 0; border-bottom:1px solid rgba(42,39,34,.1); }
@@ -1979,15 +2001,15 @@ body.review-dialog-open .order-review-dialog form > button[type="submit"] {
 .membership-activity article b.earned { color:#55714f; }
 .membership-activity article b.used { color:#9a5d4a; }
 .rewards-card { width:100%; border:0; text-align:left; cursor:pointer; }
-.rewards-card .rewards-open { position:absolute; right:18px; bottom:48px; z-index:2; padding:0; background:none; color:#f3e7d8; font-size:9px; font-weight:800; }
-.order-reward-line,.order-points-line { display:block; margin-top:6px; color:#6b805f; font-size:10px; font-weight:700; }
+.rewards-card .rewards-open { position:absolute; right:18px; bottom:48px; z-index:2; padding:0; background:none; color:#f3e7d8; font-size: calc(9px * var(--cozy-font-scale, 1.15)); font-weight:800; }
+.order-reward-line,.order-points-line { display:block; margin-top:6px; color:#6b805f; font-size: calc(10px * var(--cozy-font-scale, 1.15)); font-weight:700; }
 .checkout-rewards { display:grid; gap:8px; margin-top:18px; }
 .checkout-rewards>button { display:grid; grid-template-columns:1fr auto; gap:3px 10px; width:100%; padding:13px 15px; border:1px solid #ded7ce; border-radius:16px; background:#f6f2ec; text-align:left; }
 .checkout-rewards>button.selected { border-color:#24211e; box-shadow:inset 0 0 0 1px #24211e; }
 .checkout-rewards>button b { text-align:right; }
 .checkout-rewards>button small { grid-column:1/-1; color:#7b736a; }
 .checkout-reward-total { color:#607b55; }
-.membership-rewards-list strong { font-size:12px; letter-spacing:.05em; }
+.membership-rewards-list strong { font-size: calc(12px * var(--cozy-font-scale, 1.15)); letter-spacing:.05em; }
 
 @font-face {
   font-family: "DM Sans";
@@ -2079,7 +2101,7 @@ label {
 input,
 select,
 textarea {
-  font-size: max(16px, 1em);
+  font-size: max(calc(16px * var(--cozy-font-scale, 1.15)), 1em);
 }
 
 @media (max-width: 600px) {
@@ -2211,14 +2233,14 @@ textarea {
 
   .create-intro h1,
   .signin-intro h1 {
-    font-size: 39px;
+    font-size: calc(39px * var(--cozy-font-scale, 1.15));
     line-height: 0.92;
   }
 
   .create-intro .intro,
   .signin-intro .intro {
     margin-top: 8px;
-    font-size: 10px;
+    font-size: calc(10px * var(--cozy-font-scale, 1.15));
     line-height: 1.35;
   }
 
@@ -2228,7 +2250,7 @@ textarea {
     width: 46px;
     height: 46px;
     border-radius: 17px;
-    font-size: 23px;
+    font-size: calc(23px * var(--cozy-font-scale, 1.15));
   }
 
   .create-form-card,
@@ -2251,7 +2273,7 @@ textarea {
   }
 
   .membership-note small {
-    font-size: 8px;
+    font-size: calc(8px * var(--cozy-font-scale, 1.15));
   }
 
   .deluxe-create .field,
@@ -2316,7 +2338,7 @@ textarea {
   .home-intro h1,
   .room-shop h1,
   .saved-intro h1 {
-    font-size: 36px;
+    font-size: calc(36px * var(--cozy-font-scale, 1.15));
   }
 
   .home-hero {
@@ -2354,7 +2376,7 @@ textarea {
   }
 
   .welcome-panel h1 {
-    font-size: 32px;
+    font-size: calc(32px * var(--cozy-font-scale, 1.15));
   }
 
   .welcome-actions {
@@ -2367,7 +2389,7 @@ textarea {
   }
 
   .atelier-title h1 {
-    font-size: 32px;
+    font-size: calc(32px * var(--cozy-font-scale, 1.15));
   }
 }
 
@@ -2462,7 +2484,7 @@ textarea {
 }
 
 .legal-document > header > button .material-symbols-rounded {
-  font-size: 21px;
+  font-size: calc(21px * var(--cozy-font-scale, 1.15));
   font-variation-settings: "wght" 450, "opsz" 24;
 }
 
@@ -2491,7 +2513,7 @@ textarea {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.62);
   color: #6f675e;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
   font-weight: 700;
   letter-spacing: 0.13em;
   white-space: nowrap;
@@ -2511,7 +2533,7 @@ textarea {
   .legal-document > header > .document-header-label {
     min-width: 55px;
     padding-inline: 8px;
-    font-size: 7px;
+    font-size: calc(7px * var(--cozy-font-scale, 1.15));
   }
 }
 
@@ -2525,14 +2547,14 @@ textarea {
 
 .legal-document h1 {
   margin: 0;
-  font: 400 clamp(36px, 11vw, 48px) / 0.94 "DM Serif Display", serif;
+  font: 400 clamp(calc(36px * var(--cozy-font-scale, 1.15)), 11vw, calc(48px * var(--cozy-font-scale, 1.15))) / 0.94 "DM Serif Display", serif;
   letter-spacing: -0.05em;
 }
 
 .legal-effective {
   margin: 11px 0 21px;
   color: #7a7269;
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
 }
 
 .legal-summary {
@@ -2547,13 +2569,13 @@ textarea {
 .legal-summary span {
   display: block;
   margin-bottom: 8px;
-  font: 400 21px "DM Serif Display", serif;
+  font: 400 calc(21px * var(--cozy-font-scale, 1.15)) "DM Serif Display", serif;
 }
 
 .legal-summary p {
   margin: 0;
   color: #c9c1b6;
-  font-size: 10px;
+  font-size: calc(10px * var(--cozy-font-scale, 1.15));
   line-height: 1.55;
 }
 
@@ -2565,13 +2587,13 @@ textarea {
 .legal-document article > section h2 {
   margin: 0 0 11px;
   color: #292723;
-  font: 400 21px / 1.08 "DM Serif Display", serif;
+  font: 400 calc(21px * var(--cozy-font-scale, 1.15)) / 1.08 "DM Serif Display", serif;
 }
 
 .legal-document article > section p,
 .legal-document article > section li {
   color: #635d55;
-  font-size: 11px;
+  font-size: calc(11px * var(--cozy-font-scale, 1.15));
   line-height: 1.65;
 }
 
@@ -2614,13 +2636,13 @@ textarea {
 }
 
 .legal-document article > aside b {
-  font-size: 11px;
+  font-size: calc(11px * var(--cozy-font-scale, 1.15));
 }
 
 .legal-document article > aside p {
   margin: 6px 0 0;
   color: #685f56;
-  font-size: 10px;
+  font-size: calc(10px * var(--cozy-font-scale, 1.15));
   line-height: 1.5;
 }
 
@@ -2639,7 +2661,7 @@ textarea {
   border-radius: 17px;
   background: #292824;
   color: #fff;
-  font-size: 10px;
+  font-size: calc(10px * var(--cozy-font-scale, 1.15));
   font-weight: 700;
   letter-spacing: 0.08em;
   box-shadow: 0 13px 30px rgba(37, 31, 25, 0.2);
@@ -2683,7 +2705,7 @@ textarea {
   border-radius: 10px;
   background: #45413c;
   color: #dbc4a7;
-  font-size: 17px;
+  font-size: calc(17px * var(--cozy-font-scale, 1.15));
 }
 
 .signin-security-note p {
@@ -2694,13 +2716,13 @@ textarea {
 }
 
 .signin-security-note b {
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
   letter-spacing: 0.04em;
 }
 
 .signin-security-note small {
   color: #c8c0b5;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
   line-height: 1.35;
 }
 
@@ -2709,7 +2731,7 @@ textarea {
 }
 
 .deluxe-signin .field input {
-  font-size: 16px;
+  font-size: calc(16px * var(--cozy-font-scale, 1.15));
 }
 
 .signin-options {
@@ -2719,7 +2741,7 @@ textarea {
 
 .signin-options > span {
   color: #857d73;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
   line-height: 1.35;
 }
 
@@ -2759,7 +2781,7 @@ textarea {
   border: 0;
   background: transparent;
   color: #655e56;
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
   font-weight: 700;
   text-decoration: underline;
   text-underline-offset: 4px;
@@ -2827,7 +2849,7 @@ textarea {
 .password-guidance {
   margin: -5px 2px 11px;
   color: #7d756c;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
   line-height: 1.45;
 }
 
@@ -2886,7 +2908,7 @@ textarea {
   place-items: center;
   background: #e0ebdc;
   color: #526d50;
-  font-size: 21px;
+  font-size: calc(21px * var(--cozy-font-scale, 1.15));
 }
 
 .registration-verify .eyebrow-auth {
@@ -2895,14 +2917,14 @@ textarea {
 
 .registration-verify h1 {
   margin: 0;
-  font: 400 39px/0.98 "DM Serif Display", serif;
+  font: 400 calc(39px * var(--cozy-font-scale, 1.15))/0.98 "DM Serif Display", serif;
   letter-spacing: -0.045em;
 }
 
 .registration-verify section > p:not(.eyebrow-auth, .form-notice) {
   margin: 17px 0 24px;
   color: #6e675f;
-  font-size: 11px;
+  font-size: calc(11px * var(--cozy-font-scale, 1.15));
   line-height: 1.55;
 }
 
@@ -2916,7 +2938,7 @@ textarea {
   border: 0;
   background: transparent;
   color: #696158;
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
   font-weight: 700;
   text-decoration: underline;
   text-underline-offset: 4px;
@@ -2940,7 +2962,7 @@ textarea {
   }
 
   .deluxe-create .create-intro h1 {
-    font-size: 43px;
+    font-size: calc(43px * var(--cozy-font-scale, 1.15));
   }
 }
 
@@ -2972,7 +2994,7 @@ textarea {
 }
 
 .guest-account-mark span {
-  font-size: 34px;
+  font-size: calc(34px * var(--cozy-font-scale, 1.15));
   color: #3e3933;
 }
 
@@ -2982,7 +3004,7 @@ textarea {
 
 .guest-account > h1 {
   margin: 0;
-  font: 400 clamp(35px, 10vw, 46px)/0.94 "DM Serif Display", serif;
+  font: 400 clamp(calc(35px * var(--cozy-font-scale, 1.15)), 10vw, calc(46px * var(--cozy-font-scale, 1.15)))/0.94 "DM Serif Display", serif;
   letter-spacing: -0.055em;
 }
 
@@ -2995,7 +3017,7 @@ textarea {
   max-width: 330px;
   margin: 19px auto 25px;
   color: #716a61;
-  font-size: 12px;
+  font-size: calc(12px * var(--cozy-font-scale, 1.15));
   line-height: 1.55;
 }
 
@@ -3018,14 +3040,14 @@ textarea {
   gap: 11px;
   background: rgba(255, 255, 255, 0.58);
   color: #49443e;
-  font-size: 10px;
+  font-size: calc(10px * var(--cozy-font-scale, 1.15));
   font-weight: 700;
 }
 
 .guest-account-benefits i {
   width: 24px;
   color: #806957;
-  font: 400 17px "DM Sans", sans-serif;
+  font: 400 calc(17px * var(--cozy-font-scale, 1.15)) "DM Sans", sans-serif;
   text-align: center;
 }
 
@@ -3046,7 +3068,7 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  font-size: 12px;
+  font-size: calc(12px * var(--cozy-font-scale, 1.15));
   font-weight: 700;
   letter-spacing: .01em;
   text-align: left;
@@ -3059,7 +3081,7 @@ textarea {
 
 .guest-account .guest-account-actions > button .material-symbols-rounded {
   flex: 0 0 auto;
-  font-size: 21px;
+  font-size: calc(21px * var(--cozy-font-scale, 1.15));
   font-weight: 400;
 }
 
@@ -3183,7 +3205,7 @@ textarea {
   display: grid;
   place-items: center;
   overflow: visible;
-  font-size: 25px;
+  font-size: calc(25px * var(--cozy-font-scale, 1.15));
   line-height: 28px;
 }
 
@@ -3191,7 +3213,7 @@ textarea {
   max-width: 100%;
   overflow: hidden;
   color: inherit;
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
   line-height: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3212,7 +3234,7 @@ textarea {
   place-items: center;
   background: #d88770;
   color: #fff;
-  font: 700 9px/1 "DM Sans", sans-serif;
+  font: 700 calc(9px * var(--cozy-font-scale, 1.15))/1 "DM Sans", sans-serif;
   box-shadow: 0 3px 8px rgba(66, 40, 31, 0.24);
 }
 
@@ -3243,11 +3265,11 @@ textarea {
   }
 
   .lux-nav button > span {
-    font-size: 23px;
+    font-size: calc(23px * var(--cozy-font-scale, 1.15));
   }
 
   .lux-nav button small {
-    font-size: 8px;
+    font-size: calc(8px * var(--cozy-font-scale, 1.15));
   }
 }
 
@@ -3331,7 +3353,7 @@ textarea {
   }
 
   .home-intro h1 {
-    font-size: 34px;
+    font-size: calc(34px * var(--cozy-font-scale, 1.15));
   }
 
   .home-hero {
@@ -3376,7 +3398,7 @@ textarea {
   gap: 5px;
   height: 48px;
   font-family: "DM Sans", sans-serif;
-  font-size: 52px;
+  font-size: calc(52px * var(--cozy-font-scale, 1.15));
   font-weight: 300;
   letter-spacing: -5px;
 }
@@ -3412,13 +3434,13 @@ textarea {
 
 .splash-brand-craft {
   margin-top: 8px;
-  font-size: 25px;
+  font-size: calc(25px * var(--cozy-font-scale, 1.15));
   letter-spacing: 1px;
 }
 
 .splash-brand-furniture {
   margin-top: 4px;
-  font-size: 20px;
+  font-size: calc(20px * var(--cozy-font-scale, 1.15));
   letter-spacing: .4px;
 }
 
@@ -3554,7 +3576,7 @@ textarea:focus-visible {
 .profile-trigger {
   overflow: hidden;
   color: var(--cozy-ink);
-  font-size: 10px;
+  font-size: calc(10px * var(--cozy-font-scale, 1.15));
   font-weight: 800;
   letter-spacing: 0.03em;
 }
@@ -3622,7 +3644,7 @@ textarea:focus-visible {
   backdrop-filter: blur(9px);
   -webkit-backdrop-filter: blur(9px);
   color: #4e4841;
-  font-size: 7px;
+  font-size: calc(7px * var(--cozy-font-scale, 1.15));
   letter-spacing: .08em;
 }
 
@@ -3676,7 +3698,7 @@ textarea:focus-visible {
   margin: 0 0 6px;
   overflow: hidden;
   color: #82796f;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
   font-weight: 700;
   letter-spacing: .1em;
   text-overflow: ellipsis;
@@ -3689,7 +3711,7 @@ textarea:focus-visible {
   min-height: 38px;
   margin: 0 0 6px;
   overflow: hidden;
-  font-size: clamp(17px, 4.7vw, 21px);
+  font-size: clamp(calc(17px * var(--cozy-font-scale, 1.15)), 4.7vw, calc(21px * var(--cozy-font-scale, 1.15)));
   line-height: .98;
   white-space: normal;
   -webkit-box-orient: vertical;
@@ -3701,7 +3723,7 @@ textarea:focus-visible {
   margin: 0 0 10px;
   overflow: hidden;
   color: #7f776d;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
   line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3714,12 +3736,12 @@ textarea:focus-visible {
 
 .lux-card .card-copy strong {
   color: #24211e;
-  font-size: 13px;
+  font-size: calc(13px * var(--cozy-font-scale, 1.15));
   letter-spacing: -.02em;
 }
 
 .lux-card .card-copy del {
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
 }
 
 .lux-card .card-copy .card-add {
@@ -3737,7 +3759,7 @@ textarea:focus-visible {
 }
 
 .lux-card .card-copy .card-add .material-symbols-rounded {
-  font-size: 19px;
+  font-size: calc(19px * var(--cozy-font-scale, 1.15));
   font-variation-settings: "FILL" 0, "wght" 450, "GRAD" 0, "opsz" 22;
 }
 
@@ -3763,7 +3785,7 @@ textarea:focus-visible {
   border-radius: 999px;
   background: #24211e;
   color: white;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
   font-style: normal;
   font-weight: 800;
   line-height: 1;
@@ -3807,7 +3829,7 @@ textarea:focus-visible {
   border-radius: 9px 0 11px 0;
   background: #292622;
   color: white;
-  font-size: 12px;
+  font-size: calc(12px * var(--cozy-font-scale, 1.15));
   font-variation-settings: "FILL" 1, "wght" 600;
 }
 
@@ -3815,7 +3837,7 @@ textarea:focus-visible {
   display: block;
   margin: 3px 0 7px;
   color: #84796b;
-  font-size: 10px;
+  font-size: calc(10px * var(--cozy-font-scale, 1.15));
   letter-spacing: 0.01em;
 }
 
@@ -3845,13 +3867,13 @@ textarea:focus-visible {
 }
 
 .bag-selection span {
-  font-size: 12px;
+  font-size: calc(12px * var(--cozy-font-scale, 1.15));
   font-weight: 700;
 }
 
 .bag-selection small {
   color: var(--cozy-muted);
-  font-size: 10px;
+  font-size: calc(10px * var(--cozy-font-scale, 1.15));
 }
 
 .atelier-bag-items article {
@@ -3938,14 +3960,14 @@ textarea:focus-visible {
   border-radius: 999px;
   background: #e6eee3;
   color: var(--cozy-green);
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
   font-weight: 800;
 }
 
 .mobile-order-list > article > p {
   margin: 8px 0;
   color: var(--cozy-muted);
-  font-size: 10px;
+  font-size: calc(10px * var(--cozy-font-scale, 1.15));
 }
 
 .order-thumbs {
@@ -3973,7 +3995,7 @@ textarea:focus-visible {
   position: relative;
   padding-top: 14px;
   color: #aaa39a;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
   text-align: center;
 }
 
@@ -4002,7 +4024,7 @@ textarea:focus-visible {
   margin: 8px 0 18px;
   gap: 10px;
   color: var(--cozy-muted);
-  font-size: 11px;
+  font-size: calc(11px * var(--cozy-font-scale, 1.15));
 }
 
 .product-rating span {
@@ -4038,7 +4060,7 @@ textarea:focus-visible {
 .product-reviews h2 {
   margin: 5px 0 0;
   font-family: "DM Serif Display", serif;
-  font-size: clamp(25px, 7vw, 34px);
+  font-size: clamp(calc(25px * var(--cozy-font-scale, 1.15)), 7vw, calc(34px * var(--cozy-font-scale, 1.15)));
   font-weight: 400;
 }
 
@@ -4049,7 +4071,7 @@ textarea:focus-visible {
   border: 1px solid var(--cozy-ink);
   border-radius: 999px;
   background: transparent;
-  font-size: 10px;
+  font-size: calc(10px * var(--cozy-font-scale, 1.15));
   font-weight: 800;
 }
 
@@ -4071,7 +4093,7 @@ textarea:focus-visible {
   border: 0;
   background: none;
   color: #b9b0a4;
-  font-size: 23px;
+  font-size: calc(23px * var(--cozy-font-scale, 1.15));
 }
 
 .rating-input button.active {
@@ -4090,7 +4112,7 @@ textarea:focus-visible {
 
 .product-reviews form > small {
   color: #746d64;
-  font-size: 10px;
+  font-size: calc(10px * var(--cozy-font-scale, 1.15));
   text-align: right;
 }
 
@@ -4105,7 +4127,7 @@ textarea:focus-visible {
   padding: 12px 14px;
   border: 1px solid transparent;
   border-radius: 13px;
-  font-size: 12px;
+  font-size: calc(12px * var(--cozy-font-scale, 1.15));
   font-weight: 700;
   line-height: 1.45;
 }
@@ -4146,7 +4168,7 @@ textarea:focus-visible {
   grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
   gap: 7px;
   padding-left: 10px;
-  font-size: 8.5px;
+  font-size: calc(8.5px * var(--cozy-font-scale, 1.15));
   line-height: 1.35;
 }
 
@@ -4201,14 +4223,14 @@ textarea:focus-visible {
 .review-list p {
   margin: 10px 0;
   color: #4f4a45;
-  font-size: 12px;
+  font-size: calc(12px * var(--cozy-font-scale, 1.15));
   line-height: 1.55;
 }
 
 .review-list small,
 .review-list span {
   color: var(--cozy-muted);
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
 }
 
 /* Premium real-home review system shared by every product detail page. */
@@ -4217,7 +4239,7 @@ textarea:focus-visible {
   max-width: 34rem;
   margin-top: 8px;
   color: var(--cozy-muted);
-  font-size: 11px;
+  font-size: calc(11px * var(--cozy-font-scale, 1.15));
   line-height: 1.55;
 }
 
@@ -4243,7 +4265,7 @@ textarea:focus-visible {
 .review-score strong {
   color: var(--cozy-ink);
   font-family: "DM Serif Display", serif;
-  font-size: clamp(42px, 13vw, 58px);
+  font-size: clamp(calc(42px * var(--cozy-font-scale, 1.15)), 13vw, calc(58px * var(--cozy-font-scale, 1.15)));
   font-weight: 400;
   line-height: .9;
 }
@@ -4251,7 +4273,7 @@ textarea:focus-visible {
 .review-score > span {
   margin-top: 10px;
   color: #9a7041;
-  font-size: 13px;
+  font-size: calc(13px * var(--cozy-font-scale, 1.15));
   letter-spacing: .11em;
   white-space: nowrap;
 }
@@ -4264,7 +4286,7 @@ textarea:focus-visible {
 .review-score small {
   margin-top: 7px;
   color: #70685f;
-  font-size: 10px;
+  font-size: calc(10px * var(--cozy-font-scale, 1.15));
 }
 
 .review-distribution {
@@ -4283,7 +4305,7 @@ textarea:focus-visible {
 .review-distribution span,
 .review-distribution small {
   color: #70685f;
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
   font-weight: 750;
 }
 
@@ -4328,7 +4350,7 @@ textarea:focus-visible {
   border-radius: 999px;
   background: #fff;
   color: #5f584f;
-  font-size: 10px;
+  font-size: calc(10px * var(--cozy-font-scale, 1.15));
   font-weight: 750;
   white-space: nowrap;
   transition: background .18s ease, border-color .18s ease, color .18s ease, transform .18s ease;
@@ -4354,7 +4376,7 @@ textarea:focus-visible {
   border-radius: 999px;
   background: rgba(104, 94, 79, .1);
   color: inherit;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
 }
 
 .review-filters button.active span {
@@ -4393,7 +4415,7 @@ textarea:focus-visible {
   background: #e9efe4;
   color: #526649 !important;
   font-family: "DM Serif Display", serif;
-  font-size: 18px !important;
+  font-size: calc(18px * var(--cozy-font-scale, 1.15)) !important;
 }
 
 .reviewer-avatar.has-photo {
@@ -4417,7 +4439,7 @@ textarea:focus-visible {
 .reviewer-identity > b {
   overflow: hidden;
   color: #2d2a26;
-  font-size: 12px;
+  font-size: calc(12px * var(--cozy-font-scale, 1.15));
   letter-spacing: 0;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -4427,20 +4449,20 @@ textarea:focus-visible {
   display: flex;
   align-items: center;
   color: #62745a;
-  font-size: 8.5px;
+  font-size: calc(8.5px * var(--cozy-font-scale, 1.15));
   font-weight: 750;
   gap: 3px;
 }
 
 .reviewer-identity .material-symbols-rounded {
   color: #62745a;
-  font-size: 13px;
+  font-size: calc(13px * var(--cozy-font-scale, 1.15));
 }
 
 .review-card-header time {
   align-self: start;
   color: #8a8279;
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
   white-space: nowrap;
 }
 
@@ -4454,21 +4476,21 @@ textarea:focus-visible {
 
 .review-card-rating > b {
   color: #9a7041;
-  font-size: 15px;
+  font-size: calc(15px * var(--cozy-font-scale, 1.15));
   letter-spacing: .09em;
   line-height: 1;
 }
 
 .review-card-rating > small {
   color: #746d64;
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
   font-weight: 700;
 }
 
 .review-list > article > p {
   margin: 13px 0 0;
   color: #403c37;
-  font-size: 12px;
+  font-size: calc(12px * var(--cozy-font-scale, 1.15));
   line-height: 1.65;
   overflow-wrap: anywhere;
 }
@@ -4516,14 +4538,14 @@ textarea:focus-visible {
   display: flex;
   align-items: center;
   color: #6d665e;
-  font-size: 8.5px;
+  font-size: calc(8.5px * var(--cozy-font-scale, 1.15));
   font-weight: 750;
   gap: 4px;
 }
 
 .review-list > article > footer .material-symbols-rounded {
   color: #798c6c;
-  font-size: 14px;
+  font-size: calc(14px * var(--cozy-font-scale, 1.15));
 }
 
 .review-list > article > footer em {
@@ -4531,7 +4553,7 @@ textarea:focus-visible {
   border-radius: 999px;
   background: #f0e7d8;
   color: #80694a;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
   font-style: normal;
   font-weight: 750;
 }
@@ -4554,13 +4576,13 @@ textarea:focus-visible {
   border-radius: 15px;
   background: #e9efe4;
   color: #62745a;
-  font-size: 23px;
+  font-size: calc(23px * var(--cozy-font-scale, 1.15));
 }
 
 .review-empty h3 {
   margin: 12px 0 0;
   font-family: "DM Serif Display", serif;
-  font-size: 20px;
+  font-size: calc(20px * var(--cozy-font-scale, 1.15));
   font-weight: 400;
 }
 
@@ -4568,7 +4590,7 @@ textarea:focus-visible {
   max-width: 260px;
   margin: 7px 0 0;
   color: var(--cozy-muted);
-  font-size: 10px;
+  font-size: calc(10px * var(--cozy-font-scale, 1.15));
   line-height: 1.55;
 }
 
@@ -4580,7 +4602,7 @@ textarea:focus-visible {
   border-radius: 999px;
   background: var(--cozy-ink);
   color: #fff;
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
   font-weight: 800;
 }
 
@@ -4680,7 +4702,7 @@ textarea:focus-visible {
 .checkout-header small,
 .checkout-footer small {
   color: var(--cozy-muted);
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
   font-weight: 800;
   letter-spacing: 0.18em;
 }
@@ -4732,7 +4754,7 @@ textarea:focus-visible {
   border: 1px solid var(--cozy-line);
   border-radius: 50%;
   background: var(--cozy-paper);
-  font-size: 10px;
+  font-size: calc(10px * var(--cozy-font-scale, 1.15));
   font-weight: 800;
 }
 
@@ -4747,7 +4769,7 @@ textarea:focus-visible {
 }
 
 .checkout-progress small {
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -4761,7 +4783,7 @@ textarea:focus-visible {
 .checkout-panel h1 {
   margin: 8px 0 22px;
   font-family: "DM Serif Display", serif;
-  font-size: clamp(34px, 10vw, 49px);
+  font-size: clamp(calc(34px * var(--cozy-font-scale, 1.15)), 10vw, calc(49px * var(--cozy-font-scale, 1.15)));
   font-weight: 400;
   line-height: 0.95;
 }
@@ -4810,7 +4832,7 @@ textarea:focus-visible {
 .payment-options small {
   margin-top: 3px;
   color: var(--cozy-muted);
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
 }
 
 /* Minimal saved-address selector. These controls intentionally have their own
@@ -4839,14 +4861,14 @@ textarea:focus-visible {
 
 .checkout-address-heading > div > small {
   color: var(--cozy-muted);
-  font-size: 7px;
+  font-size: calc(7px * var(--cozy-font-scale, 1.15));
   font-weight: 800;
   letter-spacing: 0.16em;
 }
 
 .checkout-address-heading > div > b {
   font-family: "DM Serif Display", serif;
-  font-size: 18px;
+  font-size: calc(18px * var(--cozy-font-scale, 1.15));
   font-weight: 400;
   letter-spacing: -0.02em;
 }
@@ -4862,13 +4884,13 @@ textarea:focus-visible {
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.76);
   color: var(--cozy-ink);
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
   font-weight: 700;
   gap: 5px;
 }
 
 .checkout-address-heading > button > span {
-  font-size: 15px;
+  font-size: calc(15px * var(--cozy-font-scale, 1.15));
 }
 
 .checkout-addresses > article {
@@ -4911,7 +4933,7 @@ textarea:focus-visible {
   border-radius: 13px;
   background: var(--cozy-sand);
   color: #514b43;
-  font-size: 19px;
+  font-size: calc(19px * var(--cozy-font-scale, 1.15));
 }
 
 .checkout-address-copy {
@@ -4929,7 +4951,7 @@ textarea:focus-visible {
 
 .checkout-address-title > b {
   overflow: hidden;
-  font-size: 11px;
+  font-size: calc(11px * var(--cozy-font-scale, 1.15));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -4939,7 +4961,7 @@ textarea:focus-visible {
   border-radius: 999px;
   background: #e7eee2;
   color: #55704e;
-  font-size: 6px;
+  font-size: calc(6px * var(--cozy-font-scale, 1.15));
   font-weight: 800;
   letter-spacing: 0.09em;
 }
@@ -4948,7 +4970,7 @@ textarea:focus-visible {
 .checkout-address-line {
   overflow-wrap: anywhere;
   color: var(--cozy-muted);
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
   line-height: 1.4;
 }
 
@@ -4964,7 +4986,7 @@ textarea:focus-visible {
   border: 1px solid var(--cozy-line);
   border-radius: 50%;
   color: transparent;
-  font-size: 13px;
+  font-size: calc(13px * var(--cozy-font-scale, 1.15));
   font-style: normal;
 }
 
@@ -4985,13 +5007,13 @@ textarea:focus-visible {
   border-left: 1px solid var(--cozy-line);
   background: rgba(239, 235, 228, 0.54);
   color: #655e55;
-  font-size: 7px;
+  font-size: calc(7px * var(--cozy-font-scale, 1.15));
   font-weight: 700;
   gap: 3px;
 }
 
 .checkout-address-edit > span {
-  font-size: 15px;
+  font-size: calc(15px * var(--cozy-font-scale, 1.15));
 }
 
 .checkout-address-editor {
@@ -5022,7 +5044,7 @@ textarea:focus-visible {
 .checkout-address-grid label > span {
   padding-left: 2px;
   color: var(--cozy-muted);
-  font-size: 7px;
+  font-size: calc(7px * var(--cozy-font-scale, 1.15));
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -5039,7 +5061,7 @@ textarea:focus-visible {
   outline: 0;
   background: #f8f6f2;
   color: var(--cozy-ink);
-  font-size: 10px;
+  font-size: calc(10px * var(--cozy-font-scale, 1.15));
 }
 
 .checkout-address-grid select {
@@ -5064,7 +5086,7 @@ textarea:focus-visible {
   display: flex;
   align-items: center;
   color: #625b52;
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
   gap: 8px;
 }
 
@@ -5082,7 +5104,7 @@ textarea:focus-visible {
   border-radius: 15px;
   background: var(--cozy-ink);
   color: white;
-  font-size: 10px;
+  font-size: calc(10px * var(--cozy-font-scale, 1.15));
   font-weight: 700;
 }
 
@@ -5124,7 +5146,7 @@ textarea:focus-visible {
 }
 
 .checkout-field span {
-  font-size: 10px;
+  font-size: calc(10px * var(--cozy-font-scale, 1.15));
   font-weight: 800;
 }
 
@@ -5140,7 +5162,7 @@ textarea:focus-visible {
 
 .delivery-option strong {
   color: var(--cozy-green);
-  font-size: 10px;
+  font-size: calc(10px * var(--cozy-font-scale, 1.15));
 }
 
 .payment-options {
@@ -5173,7 +5195,7 @@ textarea:focus-visible {
   align-items: center;
   margin-top: 18px;
   color: var(--cozy-muted);
-  font-size: 10px;
+  font-size: calc(10px * var(--cozy-font-scale, 1.15));
   gap: 8px;
 }
 
@@ -5210,11 +5232,11 @@ textarea:focus-visible {
 .checkout-items small,
 .checkout-review dd {
   color: var(--cozy-muted);
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
 }
 
 .checkout-items strong {
-  font-size: 11px;
+  font-size: calc(11px * var(--cozy-font-scale, 1.15));
 }
 
 .checkout-review dl {
@@ -5236,7 +5258,7 @@ textarea:focus-visible {
 }
 
 .checkout-review dt {
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
   font-weight: 800;
 }
 
@@ -5263,7 +5285,7 @@ textarea:focus-visible {
 
 .checkout-footer strong {
   font-family: "DM Serif Display", serif;
-  font-size: 21px;
+  font-size: calc(21px * var(--cozy-font-scale, 1.15));
   font-weight: 400;
 }
 
@@ -5271,7 +5293,7 @@ textarea:focus-visible {
   min-height: 48px;
   padding: 0 17px;
   border-radius: 15px;
-  font-size: 11px;
+  font-size: calc(11px * var(--cozy-font-scale, 1.15));
   font-weight: 800;
 }
 
@@ -5383,14 +5405,14 @@ textarea:focus-visible {
   display: flex;
   min-width: max-content;
   align-items: center;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
   font-weight: 700;
   letter-spacing: 0.04em;
   gap: 6px;
 }
 
 .mobile-benefit-bar i {
-  font-size: 13px;
+  font-size: calc(13px * var(--cozy-font-scale, 1.15));
 }
 
 .mobile-benefit-bar.is-announcement {
@@ -5411,13 +5433,13 @@ textarea:focus-visible {
 
 .mobile-benefit-bar .live-announcement b {
   color: #ddc6a8;
-  font-size: 7px;
+  font-size: calc(7px * var(--cozy-font-scale, 1.15));
   letter-spacing: .12em;
 }
 
 .mobile-benefit-bar .live-announcement em {
   color: #e9d8c2;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
   font-style: normal;
   text-decoration: underline;
 }
@@ -5428,7 +5450,7 @@ textarea:focus-visible {
   display: grid;
   place-items: center;
   color: white;
-  font-size: 6px;
+  font-size: calc(6px * var(--cozy-font-scale, 1.15));
   font-style: normal;
   font-weight: 800;
 }
@@ -5466,7 +5488,7 @@ textarea:focus-visible {
   border-radius: 999px;
   background: var(--cozy-card);
   color: var(--cozy-ink);
-  font-size: 10px;
+  font-size: calc(10px * var(--cozy-font-scale, 1.15));
   font-weight: 700;
 }
 
@@ -5504,7 +5526,7 @@ textarea:focus-visible {
 .member-editorial h2 {
   margin: 8px 0 10px;
   font-family: "DM Serif Display", serif;
-  font-size: clamp(27px, 8vw, 38px);
+  font-size: clamp(calc(27px * var(--cozy-font-scale, 1.15)), 8vw, calc(38px * var(--cozy-font-scale, 1.15)));
   font-weight: 400;
   line-height: 0.98;
 }
@@ -5513,7 +5535,7 @@ textarea:focus-visible {
   display: block;
   max-width: 250px;
   color: rgba(255, 255, 255, 0.64);
-  font-size: 10px;
+  font-size: calc(10px * var(--cozy-font-scale, 1.15));
   line-height: 1.5;
 }
 
@@ -5524,7 +5546,7 @@ textarea:focus-visible {
   border-bottom: 1px solid rgba(255, 255, 255, 0.5);
   background: none;
   color: white;
-  font-size: 10px;
+  font-size: calc(10px * var(--cozy-font-scale, 1.15));
   font-weight: 800;
 }
 
@@ -5536,13 +5558,13 @@ textarea:focus-visible {
   align-self: end;
   flex-direction: column;
   font-family: "DM Serif Display", serif;
-  font-size: 25px;
+  font-size: calc(25px * var(--cozy-font-scale, 1.15));
   font-weight: 400;
 }
 
 .member-editorial > b small {
   font-family: "DM Sans", sans-serif;
-  font-size: 7px;
+  font-size: calc(7px * var(--cozy-font-scale, 1.15));
   letter-spacing: 0.16em;
 }
 
@@ -5584,7 +5606,7 @@ textarea:focus-visible {
 .membership-page > header p {
   margin: 0;
   color: #6f665d;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
   font-weight: 800;
   letter-spacing: .16em;
 }
@@ -5595,7 +5617,7 @@ textarea:focus-visible {
   border-radius: 999px;
   background: #282521;
   color: white;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -5625,31 +5647,31 @@ textarea:focus-visible {
   content: "";
 }
 
-.membership-hero-card p { margin: 0; color: #d9c7b1; font-size: 8px; font-weight: 800; letter-spacing: .15em; }
-.membership-hero-card h1 { margin: 15px 0 22px; font: 400 42px/1 "DM Serif Display",serif; }
-.membership-hero-card h1 small { font: 500 11px "DM Sans",sans-serif; color: #c8beb3; }
+.membership-hero-card p { margin: 0; color: #d9c7b1; font-size: calc(8px * var(--cozy-font-scale, 1.15)); font-weight: 800; letter-spacing: .15em; }
+.membership-hero-card h1 { margin: 15px 0 22px; font: 400 calc(42px * var(--cozy-font-scale, 1.15))/1 "DM Serif Display",serif; }
+.membership-hero-card h1 small { font: 500 calc(11px * var(--cozy-font-scale, 1.15)) "DM Sans",sans-serif; color: #c8beb3; }
 .membership-hero-card > div { height: 6px; overflow: hidden; border-radius: 99px; background: rgba(255,255,255,.14); }
 .membership-hero-card > div i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg,#d5b690,#f2e4d0); }
-.membership-hero-card > span { display: block; margin-top: 10px; color: #bbb1a6; font-size: 9px; }
+.membership-hero-card > span { display: block; margin-top: 10px; color: #bbb1a6; font-size: calc(9px * var(--cozy-font-scale, 1.15)); }
 
 .membership-how { margin-top: 16px; padding: 24px 20px; border: 1px solid #ddd6cd; border-radius: 28px; background: rgba(255,255,255,.72); }
-.membership-how h2 { margin: 8px 0 22px; font: 400 29px/.98 "DM Serif Display",serif; }
+.membership-how h2 { margin: 8px 0 22px; font: 400 calc(29px * var(--cozy-font-scale, 1.15))/.98 "DM Serif Display",serif; }
 .membership-how h2 em { font-style: italic; }
 .membership-how article { display: grid; grid-template-columns: 34px 1fr; gap: 12px; padding: 14px 0; border-top: 1px solid #e2dcd4; }
-.membership-how article > b { display: grid; place-items: center; width: 31px; height: 31px; border-radius: 11px; background: #ede7df; color: #786b5e; font-size: 9px; }
+.membership-how article > b { display: grid; place-items: center; width: 31px; height: 31px; border-radius: 11px; background: #ede7df; color: #786b5e; font-size: calc(9px * var(--cozy-font-scale, 1.15)); }
 .membership-how article div { display: grid; gap: 4px; }
-.membership-how strong { font-size: 11px; }
-.membership-how article span { color: #756d64; font-size: 9px; line-height: 1.45; }
+.membership-how strong { font-size: calc(11px * var(--cozy-font-scale, 1.15)); }
+.membership-how article span { color: #756d64; font-size: calc(9px * var(--cozy-font-scale, 1.15)); line-height: 1.45; }
 .membership-shop { width: 100%; min-height: 55px; margin-top: 14px; padding: 0 18px; border: 0; border-radius: 18px; background: #282521; color: white; text-align: left; font-weight: 800; }
 .membership-shop b { float: right; }
-.membership-fineprint { margin: 14px 10px 0; color: #857c72; font-size: 8px; line-height: 1.5; text-align: center; }
+.membership-fineprint { margin: 14px 10px 0; color: #857c72; font-size: calc(8px * var(--cozy-font-scale, 1.15)); line-height: 1.5; text-align: center; }
 
 /* Home Circle editorial dashboard */
 .membership-page { background: radial-gradient(circle at 100% 0, rgba(211,188,158,.28), transparent 28%), #f5f2ed; }
 .membership-page > main { max-width: 520px; margin: 0 auto; padding: 16px 16px calc(38px + env(safe-area-inset-bottom)); }
 .membership-page > header { min-height: 76px; padding-right: 16px; padding-left: 16px; }
 .membership-page > header button { display: inline-flex; align-items: center; gap: 6px; min-width: 52px; padding: 0; }
-.membership-page > header button span { font-size: 9px; }
+.membership-page > header button span { font-size: calc(9px * var(--cozy-font-scale, 1.15)); }
 .membership-page > header > span { max-width: 116px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .membership-hero-card {
@@ -5669,64 +5691,64 @@ textarea:focus-visible {
   border-radius:0;
   background:none;
 }
-.membership-hero-head > span { color:#c4b7a7; font-size:7px; font-weight:800; letter-spacing:.15em; }
+.membership-hero-head > span { color:#c4b7a7; font-size: calc(7px * var(--cozy-font-scale, 1.15)); font-weight:800; letter-spacing:.15em; }
 .membership-balance-row { margin:31px 0 27px; }
 .membership-balance-row > span:first-child { display:grid; min-width:0; }
-.membership-balance-row strong { color:#fbf7f0; font:400 47px/.9 "DM Serif Display",serif; letter-spacing:-.04em; }
-.membership-balance-row small { margin-top:9px; color:#c9beb2; font-size:8px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; }
-.membership-monogram { display:grid; place-items:center; width:50px; height:50px; border:1px solid rgba(235,211,181,.28); border-radius:18px; background:rgba(255,255,255,.07); color:#e9cfad; font:400 18px "DM Serif Display",serif; }
-.membership-progress-label { margin-bottom:8px; color:#d5cabd; font-size:8px; font-weight:750; }
+.membership-balance-row strong { color:#fbf7f0; font: 400 calc(47px * var(--cozy-font-scale, 1.15))/.9 "DM Serif Display",serif; letter-spacing:-.04em; }
+.membership-balance-row small { margin-top:9px; color:#c9beb2; font-size: calc(8px * var(--cozy-font-scale, 1.15)); font-weight:700; letter-spacing:.1em; text-transform:uppercase; }
+.membership-monogram { display:grid; place-items:center; width:50px; height:50px; border:1px solid rgba(235,211,181,.28); border-radius:18px; background:rgba(255,255,255,.07); color:#e9cfad; font: 400 calc(18px * var(--cozy-font-scale, 1.15)) "DM Serif Display",serif; }
+.membership-progress-label { margin-bottom:8px; color:#d5cabd; font-size: calc(8px * var(--cozy-font-scale, 1.15)); font-weight:750; }
 .membership-progress-label b { color:#e8cfaf; }
 .membership-hero-card .membership-hero-progress { position:relative; z-index:1; height:5px; background:rgba(255,255,255,.13); }
 .membership-hero-card .membership-next-note { position:relative; z-index:1; margin-top:10px; color:#a99f94; }
 
 .membership-snapshot { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:10px 0 25px; }
 .membership-snapshot article { min-width:0; padding:15px 12px; border:1px solid rgba(48,41,35,.08); border-radius:20px; background:rgba(255,255,255,.7); box-shadow:0 10px 24px rgba(45,37,30,.05); }
-.membership-snapshot strong { display:block; color:#28231f; font:400 24px "DM Serif Display",serif; }
-.membership-snapshot span { display:block; margin-top:4px; color:#7c736a; font-size:7px; line-height:1.3; }
+.membership-snapshot strong { display:block; color:#28231f; font: 400 calc(24px * var(--cozy-font-scale, 1.15)) "DM Serif Display",serif; }
+.membership-snapshot span { display:block; margin-top:4px; color:#7c736a; font-size: calc(7px * var(--cozy-font-scale, 1.15)); line-height:1.3; }
 .membership-section-heading { display:flex; align-items:flex-end; justify-content:space-between; gap:12px; margin:0 3px 11px; }
-.membership-section-heading span { color:#2d2823; font-size:8px; font-weight:800; letter-spacing:.16em; }
-.membership-section-heading small { color:#8b8279; font-size:7px; }
+.membership-section-heading span { color:#2d2823; font-size: calc(8px * var(--cozy-font-scale, 1.15)); font-weight:800; letter-spacing:.16em; }
+.membership-section-heading small { color:#8b8279; font-size: calc(7px * var(--cozy-font-scale, 1.15)); }
 
 .membership-page .membership-levels { position:relative; gap:8px; margin:0; padding:8px; border-radius:27px; background:rgba(255,255,255,.72); }
 .membership-page .membership-levels article { grid-template-columns:34px minmax(0,1fr) auto; align-items:center; gap:10px; padding:13px 11px; border:1px solid transparent; border-radius:19px; background:transparent; }
 .membership-page .membership-levels article.active { border-color:rgba(232,207,176,.18); background:linear-gradient(135deg,#22201d,#38322c); box-shadow:0 13px 25px rgba(40,33,27,.16); }
 .membership-page .membership-levels article.complete { background:#eee9e1; }
-.membership-level-number { display:grid; place-items:center; width:31px; height:31px; border-radius:11px; background:#e9e2d9; color:#74685c; font-size:8px; font-weight:800; }
+.membership-level-number { display:grid; place-items:center; width:31px; height:31px; border-radius:11px; background:#e9e2d9; color:#74685c; font-size: calc(8px * var(--cozy-font-scale, 1.15)); font-weight:800; }
 .membership-levels article.active .membership-level-number { background:rgba(255,255,255,.1); color:#efd5b3; }
 .membership-level-copy { display:grid; min-width:0; gap:3px; }
-.membership-level-copy b { font-size:10px; }
-.membership-page .membership-level-copy small { grid-column:auto; overflow:hidden; color:#776f67; font-size:7px; line-height:1.35; text-overflow:ellipsis; white-space:nowrap; }
+.membership-level-copy b { font-size: calc(10px * var(--cozy-font-scale, 1.15)); }
+.membership-page .membership-level-copy small { grid-column:auto; overflow:hidden; color:#776f67; font-size: calc(7px * var(--cozy-font-scale, 1.15)); line-height:1.35; text-overflow:ellipsis; white-space:nowrap; }
 .membership-levels article.active .membership-level-copy small { color:#c7bdb2; }
-.membership-level-threshold { color:#8b8176; font-size:6px; font-weight:800; letter-spacing:.08em; }
+.membership-level-threshold { color:#8b8176; font-size: calc(6px * var(--cozy-font-scale, 1.15)); font-weight:800; letter-spacing:.08em; }
 .membership-levels article.active .membership-level-threshold { color:#e8cfad; }
 
 .membership-page .membership-redeem,.membership-page .membership-activity { margin:16px 0 0; padding:20px; }
 .membership-redeem-title { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
 .membership-redeem-title > span { min-width:0; }
-.membership-redeem-title h2 { margin:7px 0 18px; font:400 29px/.95 "DM Serif Display",serif; }
+.membership-redeem-title h2 { margin:7px 0 18px; font: 400 calc(29px * var(--cozy-font-scale, 1.15))/.95 "DM Serif Display",serif; }
 .membership-redeem-title h2 em { color:#9d7657; font-style:italic; }
-.membership-redeem-title > small { padding:7px 9px; border-radius:999px; background:#292621; color:#f3e5d2; font-size:7px; font-weight:800; }
+.membership-redeem-title > small { padding:7px 9px; border-radius:999px; background:#292621; color:#f3e5d2; font-size: calc(7px * var(--cozy-font-scale, 1.15)); font-weight:800; }
 .membership-page .membership-redeem > div:last-of-type { gap:7px; }
 .membership-page .membership-redeem button { display:grid; justify-items:start; min-height:98px; padding:13px 11px; border:1px solid #ddd5cb; border-radius:19px; background:linear-gradient(145deg,#faf8f4,#eee8df); text-align:left; }
-.membership-page .membership-redeem button > small { color:#8a8076; font-size:6px; font-weight:800; letter-spacing:.1em; }
-.membership-page .membership-redeem button b { align-self:end; font:400 22px "DM Serif Display",serif; }
-.membership-page .membership-redeem button span { width:100%; color:#756d64; font-size:7px; }
+.membership-page .membership-redeem button > small { color:#8a8076; font-size: calc(6px * var(--cozy-font-scale, 1.15)); font-weight:800; letter-spacing:.1em; }
+.membership-page .membership-redeem button b { align-self:end; font: 400 calc(22px * var(--cozy-font-scale, 1.15)) "DM Serif Display",serif; }
+.membership-page .membership-redeem button span { width:100%; color:#756d64; font-size: calc(7px * var(--cozy-font-scale, 1.15)); }
 .membership-page .membership-redeem button span i { float:right; color:#2d2823; font-style:normal; }
-.membership-redeem-note { display:block; margin-top:12px; color:#827970; font-size:7px; line-height:1.45; }
+.membership-redeem-note { display:block; margin-top:12px; color:#827970; font-size: calc(7px * var(--cozy-font-scale, 1.15)); line-height:1.45; }
 
 .membership-list-title { display:flex; align-items:center; justify-content:space-between; padding-bottom:8px; }
 .membership-list-title p { margin:0; }
-.membership-list-title > small { color:#8c837a; font-size:7px; }
+.membership-list-title > small { color:#8c837a; font-size: calc(7px * var(--cozy-font-scale, 1.15)); }
 .membership-page .membership-activity article { padding:14px 2px; }
-.membership-page .membership-activity article > span { min-width:0; color:#39332e; font-size:9px; }
-.membership-page .membership-activity article > b { flex:0 0 auto; padding:6px 8px; border-radius:999px; background:#eef1e9; font-size:8px; }
+.membership-page .membership-activity article > span { min-width:0; color:#39332e; font-size: calc(9px * var(--cozy-font-scale, 1.15)); }
+.membership-page .membership-activity article > b { flex:0 0 auto; padding:6px 8px; border-radius:999px; background:#eef1e9; font-size: calc(8px * var(--cozy-font-scale, 1.15)); }
 .membership-page .membership-shop { min-height:58px; margin-top:17px; border-radius:19px; box-shadow:0 14px 28px rgba(39,32,26,.15); }
 
 @media (max-width:359px) {
   .membership-page > main { padding-right:12px; padding-left:12px; }
   .membership-hero-card { min-height:232px; padding:19px; }
-  .membership-balance-row strong { font-size:42px; }
+  .membership-balance-row strong { font-size: calc(42px * var(--cozy-font-scale, 1.15)); }
   .membership-page .membership-level-copy small { max-width:125px; }
   .membership-page .membership-redeem { padding:17px 14px; }
   .membership-page .membership-redeem button { padding:12px 8px; }
@@ -5760,7 +5782,7 @@ textarea:focus-visible {
   place-items: center;
   border-radius: 14px;
   background: var(--cozy-sand);
-  font-size: 20px;
+  font-size: calc(20px * var(--cozy-font-scale, 1.15));
 }
 
 .home-service-grid article div {
@@ -5770,12 +5792,12 @@ textarea:focus-visible {
 }
 
 .home-service-grid b {
-  font-size: 11px;
+  font-size: calc(11px * var(--cozy-font-scale, 1.15));
 }
 
 .home-service-grid small {
   color: var(--cozy-muted);
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
 }
 
 .horizontal-product-rail {
@@ -5810,13 +5832,13 @@ textarea:focus-visible {
 
 .catalog-toolbar b {
   font-family: "DM Serif Display", serif;
-  font-size: 21px;
+  font-size: calc(21px * var(--cozy-font-scale, 1.15));
   font-weight: 400;
 }
 
 .catalog-toolbar small {
   color: var(--cozy-muted);
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
 }
 
 .catalog-toolbar > button {
@@ -5827,13 +5849,13 @@ textarea:focus-visible {
   border: 1px solid var(--cozy-line);
   border-radius: 13px;
   background: var(--cozy-card);
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
   font-weight: 700;
   gap: 5px;
 }
 
 .catalog-toolbar > button span {
-  font-size: 17px;
+  font-size: calc(17px * var(--cozy-font-scale, 1.15));
 }
 
 .sort-chips {
@@ -5864,7 +5886,7 @@ textarea:focus-visible {
 .catalog-filters h2 {
   margin: 4px 0 15px;
   font-family: "DM Serif Display", serif;
-  font-size: 26px;
+  font-size: calc(26px * var(--cozy-font-scale, 1.15));
   font-weight: 400;
 }
 
@@ -5873,14 +5895,14 @@ textarea:focus-visible {
   border: 0;
   border-bottom: 1px solid currentColor;
   background: none;
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
 }
 
 .catalog-filters label {
   display: grid;
   margin-bottom: 16px;
   gap: 10px;
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
 }
 
 .catalog-filters input {
@@ -5900,7 +5922,7 @@ textarea:focus-visible {
   border: 1px solid var(--cozy-line);
   border-radius: 999px;
   background: white;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
 }
 
 .catalog-filters > div:last-child button.active {
@@ -5956,7 +5978,7 @@ textarea:focus-visible {
   place-items: center;
   border-radius: 20px;
   background: var(--cozy-sand);
-  font-size: 27px;
+  font-size: calc(27px * var(--cozy-font-scale, 1.15));
 }
 
 .catalog-empty h2,
@@ -5964,7 +5986,7 @@ textarea:focus-visible {
 .notification-empty h2 {
   margin: 15px 0 6px;
   font-family: "DM Serif Display", serif;
-  font-size: 27px;
+  font-size: calc(27px * var(--cozy-font-scale, 1.15));
   font-weight: 400;
 }
 
@@ -5974,7 +5996,7 @@ textarea:focus-visible {
   max-width: 250px;
   margin: 0 0 16px;
   color: var(--cozy-muted);
-  font-size: 10px;
+  font-size: calc(10px * var(--cozy-font-scale, 1.15));
   line-height: 1.5;
 }
 
@@ -5986,7 +6008,7 @@ textarea:focus-visible {
   border-radius: 999px;
   background: var(--cozy-ink);
   color: white;
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
   font-weight: 800;
 }
 
@@ -5997,7 +6019,7 @@ textarea:focus-visible {
 
 .search-discovery > p {
   color: var(--cozy-muted);
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
   font-weight: 800;
   letter-spacing: 0.16em;
 }
@@ -6023,14 +6045,14 @@ textarea:focus-visible {
   box-shadow: 0 8px 24px rgba(42, 36, 28, 0.045);
   color: var(--cozy-ink);
   font-family: "DM Sans", sans-serif;
-  font-size: 11px;
+  font-size: calc(11px * var(--cozy-font-scale, 1.15));
   font-weight: 700;
   text-align: left;
 }
 
 .search-discovery button span {
   flex: 0 0 auto;
-  font-size: 18px;
+  font-size: calc(18px * var(--cozy-font-scale, 1.15));
 }
 
 /* Search is a full-height mobile workspace. Keep its controls visible while
@@ -6074,7 +6096,7 @@ textarea:focus-visible {
 }
 
 .search-premium-header .dismiss span {
-  font-size: 22px;
+  font-size: calc(22px * var(--cozy-font-scale, 1.15));
 }
 
 .search-premium-header > div {
@@ -6084,7 +6106,7 @@ textarea:focus-visible {
 .search-premium-header p {
   margin: 0 0 5px;
   color: var(--cozy-muted);
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
   font-weight: 800;
   letter-spacing: 0.17em;
   white-space: nowrap;
@@ -6096,7 +6118,7 @@ textarea:focus-visible {
   overflow: hidden;
   color: var(--cozy-ink);
   font-family: "DM Serif Display", serif;
-  font-size: clamp(27px, 8vw, 36px);
+  font-size: clamp(calc(27px * var(--cozy-font-scale, 1.15)), 8vw, calc(36px * var(--cozy-font-scale, 1.15)));
   font-weight: 400;
   line-height: 1.08;
   text-overflow: ellipsis;
@@ -6126,7 +6148,7 @@ textarea:focus-visible {
   border-radius: 16px;
   background: var(--cozy-ink);
   color: white;
-  font-size: 22px;
+  font-size: calc(22px * var(--cozy-font-scale, 1.15));
   box-shadow: 0 10px 26px rgba(28, 25, 22, 0.14);
 }
 
@@ -6152,7 +6174,7 @@ textarea:focus-visible {
 
 .search-input-shell > span {
   color: var(--cozy-muted);
-  font-size: 22px;
+  font-size: calc(22px * var(--cozy-font-scale, 1.15));
 }
 
 .search-input-shell input {
@@ -6163,7 +6185,7 @@ textarea:focus-visible {
   outline: 0;
   background: transparent;
   color: var(--cozy-ink);
-  font: 600 16px/1.2 "DM Sans", sans-serif;
+  font: 600 calc(16px * var(--cozy-font-scale, 1.15))/1.2 "DM Sans", sans-serif;
 }
 
 .search-input-shell input::placeholder {
@@ -6183,14 +6205,14 @@ textarea:focus-visible {
 }
 
 .search-input-shell button span {
-  font-size: 18px;
+  font-size: calc(18px * var(--cozy-font-scale, 1.15));
 }
 
 .search-result-meta {
   flex: 0 0 auto;
   margin: 18px 2px 2px;
   color: var(--cozy-muted);
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
   font-weight: 800;
   letter-spacing: 0.15em;
   text-transform: uppercase;
@@ -6271,13 +6293,13 @@ textarea:focus-visible {
 
 .search-overlay .search-list b {
   flex: 0 0 auto;
-  font-size: clamp(11px, 3.2vw, 14px);
+  font-size: clamp(calc(11px * var(--cozy-font-scale, 1.15)), 3.2vw, calc(14px * var(--cozy-font-scale, 1.15)));
   white-space: nowrap;
 }
 
 .search-overlay .search-list i {
   color: var(--cozy-muted);
-  font-size: 18px;
+  font-size: calc(18px * var(--cozy-font-scale, 1.15));
   font-style: normal;
 }
 
@@ -6306,11 +6328,11 @@ textarea:focus-visible {
   }
 
   .search-premium-header h1 {
-    font-size: 25px;
+    font-size: calc(25px * var(--cozy-font-scale, 1.15));
   }
 
   .search-premium-header p {
-    font-size: 7px;
+    font-size: calc(7px * var(--cozy-font-scale, 1.15));
   }
 
   .search-input-shell {
@@ -6325,7 +6347,7 @@ textarea:focus-visible {
   .search-discovery button {
     min-height: 54px;
     padding: 0 10px;
-    font-size: 10px;
+    font-size: calc(10px * var(--cozy-font-scale, 1.15));
   }
 
   .search-overlay .search-list > button {
@@ -6358,7 +6380,7 @@ textarea:focus-visible {
   }
 
   .search-premium-header h1 {
-    font-size: 24px;
+    font-size: calc(24px * var(--cozy-font-scale, 1.15));
   }
 
   .search-input-shell {
@@ -6386,7 +6408,7 @@ textarea:focus-visible {
   border: 0;
   border-radius: 11px;
   background: transparent;
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
   font-weight: 800;
 }
 
@@ -6404,7 +6426,7 @@ textarea:focus-visible {
   border-radius: 50%;
   background: var(--cozy-ink);
   color: white;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
 }
 
 .guest-entry {
@@ -6417,7 +6439,7 @@ textarea:focus-visible {
   align-items: center;
   justify-content: center;
   color: inherit;
-  font-size: 10px;
+  font-size: calc(10px * var(--cozy-font-scale, 1.15));
   font-weight: 700;
   text-decoration: none;
   gap: 8px;
@@ -6453,7 +6475,7 @@ textarea:focus-visible {
 
 .password-strength span {
   color: var(--cozy-muted);
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
 }
 
 /* Account hub and its detail pages share one responsive, top-aligned sheet.
@@ -6482,7 +6504,7 @@ textarea:focus-visible {
   place-items: center;
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.7);
-  font-size: 22px;
+  font-size: calc(22px * var(--cozy-font-scale, 1.15));
 }
 
 .atelier-account .signout-copy {
@@ -6492,17 +6514,17 @@ textarea:focus-visible {
 }
 
 .atelier-account .signout-copy b {
-  font-size: 11px;
+  font-size: calc(11px * var(--cozy-font-scale, 1.15));
 }
 
 .atelier-account .signout-copy small {
   color: #8a756b;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
 }
 
 .atelier-account .signout > i {
   justify-self: center;
-  font-size: 19px;
+  font-size: calc(19px * var(--cozy-font-scale, 1.15));
   font-style: normal;
 }
 
@@ -6548,7 +6570,7 @@ textarea:focus-visible {
 }
 
 .atelier-account .account-sheet-close .material-symbols-rounded {
-  font-size: 22px;
+  font-size: calc(22px * var(--cozy-font-scale, 1.15));
 }
 
 .atelier-account .account-sheet > .account-sheet-icon {
@@ -6561,7 +6583,7 @@ textarea:focus-visible {
   border-radius: 20px;
   background: #e9e2d9;
   color: #675a4e;
-  font-size: 27px;
+  font-size: calc(27px * var(--cozy-font-scale, 1.15));
   box-shadow: 0 10px 25px rgba(50, 43, 36, 0.07);
 }
 
@@ -6628,13 +6650,13 @@ textarea:focus-visible {
 
 .address-workspace-header small {
   color: #81786e;
-  font-size: 7px;
+  font-size: calc(7px * var(--cozy-font-scale, 1.15));
   font-weight: 800;
   letter-spacing: 0.15em;
 }
 
 .address-workspace-header b {
-  font: 400 18px "DM Serif Display", serif;
+  font: 400 calc(18px * var(--cozy-font-scale, 1.15)) "DM Serif Display", serif;
   letter-spacing: -0.02em;
 }
 
@@ -6648,13 +6670,13 @@ textarea:focus-visible {
   border-radius: 13px;
   background: #292621;
   color: #fff;
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
   font-weight: 700;
   gap: 5px;
 }
 
 .address-workspace-header > button span {
-  font-size: 16px;
+  font-size: calc(16px * var(--cozy-font-scale, 1.15));
 }
 
 .atelier-account .mobile-address-card {
@@ -6683,7 +6705,7 @@ textarea:focus-visible {
   border-radius: 14px;
   background: #ece6de;
   color: #5e554c;
-  font-size: 20px;
+  font-size: calc(20px * var(--cozy-font-scale, 1.15));
 }
 
 .atelier-account .mobile-address-card header > div {
@@ -6694,7 +6716,7 @@ textarea:focus-visible {
 
 .atelier-account .mobile-address-card header b {
   overflow: hidden;
-  font-size: 12px;
+  font-size: calc(12px * var(--cozy-font-scale, 1.15));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -6702,7 +6724,7 @@ textarea:focus-visible {
 .atelier-account .mobile-address-card header small {
   overflow: hidden;
   color: #7b7369;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -6712,7 +6734,7 @@ textarea:focus-visible {
   border-radius: 999px;
   background: #e5eee1;
   color: #50694b;
-  font-size: 6px;
+  font-size: calc(6px * var(--cozy-font-scale, 1.15));
   font-style: normal;
   font-weight: 800;
   letter-spacing: 0.1em;
@@ -6721,7 +6743,7 @@ textarea:focus-visible {
 .atelier-account .mobile-address-card > p {
   margin: 0;
   color: #514b44;
-  font-size: 10px;
+  font-size: calc(10px * var(--cozy-font-scale, 1.15));
   line-height: 1.55;
   overflow-wrap: anywhere;
 }
@@ -6737,11 +6759,11 @@ textarea:focus-visible {
 }
 
 .atelier-account .mobile-address-card > aside span {
-  font-size: 15px;
+  font-size: calc(15px * var(--cozy-font-scale, 1.15));
 }
 
 .atelier-account .mobile-address-card > aside small {
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
   line-height: 1.45;
 }
 
@@ -6764,14 +6786,14 @@ textarea:focus-visible {
   border-radius: 11px;
   background: #faf8f4;
   color: #5f574e;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
   font-weight: 700;
   text-decoration: none;
   gap: 5px;
 }
 
 .atelier-account .mobile-address-card footer button span {
-  font-size: 14px;
+  font-size: calc(14px * var(--cozy-font-scale, 1.15));
 }
 
 .atelier-account .mobile-address-card footer .address-card-edit {
@@ -6805,19 +6827,19 @@ textarea:focus-visible {
   border-radius: 19px;
   background: #eae3da;
   color: #675a4d;
-  font-size: 26px;
+  font-size: calc(26px * var(--cozy-font-scale, 1.15));
 }
 
 .address-workspace-empty h3 {
   margin: 15px 0 6px;
-  font: 400 23px "DM Serif Display", serif;
+  font: 400 calc(23px * var(--cozy-font-scale, 1.15)) "DM Serif Display", serif;
 }
 
 .address-workspace-empty p {
   max-width: 250px;
   margin: 0;
   color: #776f65;
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
   line-height: 1.5;
 }
 
@@ -6829,7 +6851,7 @@ textarea:focus-visible {
   border-radius: 14px;
   background: #292621;
   color: #fff;
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
   font-weight: 700;
 }
 
@@ -6858,13 +6880,13 @@ textarea:focus-visible {
 
 .atelier-account .mobile-address-form > header small {
   color: #81786e;
-  font-size: 7px;
+  font-size: calc(7px * var(--cozy-font-scale, 1.15));
   font-weight: 800;
   letter-spacing: 0.14em;
 }
 
 .atelier-account .mobile-address-form > header b {
-  font: 400 23px/1 "DM Serif Display", serif;
+  font: 400 calc(23px * var(--cozy-font-scale, 1.15))/1 "DM Serif Display", serif;
   letter-spacing: -0.025em;
 }
 
@@ -6881,13 +6903,13 @@ textarea:focus-visible {
 }
 
 .atelier-account .mobile-address-form > header > button span {
-  font-size: 19px;
+  font-size: calc(19px * var(--cozy-font-scale, 1.15));
 }
 
 .atelier-account .mobile-address-form > p {
   margin: -4px 0 0;
   color: #776f65;
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
   line-height: 1.5;
 }
 
@@ -6910,7 +6932,7 @@ textarea:focus-visible {
 .mobile-address-form-grid label > span {
   padding-left: 2px;
   color: #766e64;
-  font-size: 7px;
+  font-size: calc(7px * var(--cozy-font-scale, 1.15));
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -6919,7 +6941,7 @@ textarea:focus-visible {
 .mobile-address-form-grid label > span small {
   margin-left: 4px;
   color: #a0988e;
-  font-size: 6px;
+  font-size: calc(6px * var(--cozy-font-scale, 1.15));
 }
 
 .mobile-address-form-grid input,
@@ -6933,7 +6955,7 @@ textarea:focus-visible {
   outline: 0;
   background: #faf8f4;
   color: #292621;
-  font: 400 10px "DM Sans", sans-serif;
+  font: 400 calc(10px * var(--cozy-font-scale, 1.15)) "DM Sans", sans-serif;
 }
 
 .mobile-address-form-grid select {
@@ -6978,12 +7000,12 @@ textarea:focus-visible {
 }
 
 .atelier-account .mobile-address-form .address-default-check b {
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
 }
 
 .atelier-account .mobile-address-form .address-default-check small {
   color: #7d756b;
-  font-size: 7px;
+  font-size: calc(7px * var(--cozy-font-scale, 1.15));
   font-weight: 400;
 }
 
@@ -6999,7 +7021,7 @@ textarea:focus-visible {
   border-radius: 15px;
   background: transparent;
   color: #5f574e;
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
   font-weight: 700;
 }
 
@@ -7011,7 +7033,7 @@ textarea:focus-visible {
 
 .mobile-address-form-actions button[type="submit"] b {
   margin-left: 8px;
-  font-size: 13px;
+  font-size: calc(13px * var(--cozy-font-scale, 1.15));
 }
 
 .mobile-address-form-actions button:disabled {
@@ -7162,7 +7184,7 @@ html.cozy-chat-open body {
   }
 
   .ai-welcome h2 {
-    font-size: 23px;
+    font-size: calc(23px * var(--cozy-font-scale, 1.15));
   }
 }
 
@@ -7172,7 +7194,7 @@ html.cozy-chat-open body {
   }
 
   .atelier-account .account-sheet > h2 {
-    font-size: 27px;
+    font-size: calc(27px * var(--cozy-font-scale, 1.15));
   }
 }
 
@@ -7222,7 +7244,7 @@ html.cozy-chat-open body {
   border-radius: 17px;
   background: #ece5dc;
   color: #765b4c;
-  font-size: 24px;
+  font-size: calc(24px * var(--cozy-font-scale, 1.15));
 }
 
 .atelier-account .signout-confirm .hello {
@@ -7231,14 +7253,14 @@ html.cozy-chat-open body {
 
 .atelier-account .signout-confirm h2 {
   margin: 0;
-  font-size: clamp(27px, 8vw, 34px);
+  font-size: clamp(calc(27px * var(--cozy-font-scale, 1.15)), 8vw, calc(34px * var(--cozy-font-scale, 1.15)));
   line-height: 0.98;
 }
 
 .atelier-account .signout-confirm p:not(.hello) {
   margin: 13px auto 18px;
   max-width: 285px;
-  font-size: 10px;
+  font-size: calc(10px * var(--cozy-font-scale, 1.15));
   line-height: 1.5;
 }
 
@@ -7351,7 +7373,7 @@ html.cozy-chat-open body {
 
 .saved-grid .card-add.has-action-label small {
   display: none;
-  font-size: 6px;
+  font-size: calc(6px * var(--cozy-font-scale, 1.15));
   font-weight: 820;
   letter-spacing: .08em;
   white-space: nowrap;
@@ -7402,7 +7424,7 @@ html.cozy-chat-open body {
   gap: 9px;
   background: rgba(36, 34, 31, .96);
   color: #fff;
-  font-size: clamp(10px, 2.8vw, 12px);
+  font-size: clamp(calc(10px * var(--cozy-font-scale, 1.15)), 2.8vw, calc(12px * var(--cozy-font-scale, 1.15)));
   line-height: 1.35;
   box-shadow: 0 18px 46px rgba(35, 29, 24, .28);
   -webkit-backdrop-filter: blur(18px) saturate(1.15);
@@ -7459,11 +7481,11 @@ html.cozy-chat-open body {
   height: 34px;
   border-radius: 12px;
   background: rgba(255,255,255,.12);
-  font-size: 19px;
+  font-size: calc(19px * var(--cozy-font-scale, 1.15));
 }
 .connection-banner > div { display: grid; gap: 2px; min-width: 0; }
-.connection-banner b { font-size: 10px; letter-spacing: .02em; }
-.connection-banner small { font-size: 8px; line-height: 1.3; color: rgba(255,255,255,.76); }
+.connection-banner b { font-size: calc(10px * var(--cozy-font-scale, 1.15)); letter-spacing: .02em; }
+.connection-banner small { font-size: calc(8px * var(--cozy-font-scale, 1.15)); line-height: 1.3; color: rgba(255,255,255,.76); }
 @keyframes cozy-connection-in {
   from { opacity: 0; transform: translate(-50%, -12px); }
   to { opacity: 1; transform: translate(-50%, 0); }
@@ -7566,7 +7588,7 @@ html.cozy-chat-open body {
 .account-page-heading h1 {
   margin: 0;
   color: #24211e;
-  font: 400 clamp(31px, 9vw, 40px)/.95 "DM Serif Display", serif;
+  font: 400 clamp(calc(31px * var(--cozy-font-scale, 1.15)), 9vw, calc(40px * var(--cozy-font-scale, 1.15)))/.95 "DM Serif Display", serif;
   letter-spacing: -.045em;
 }
 
@@ -7574,7 +7596,7 @@ html.cozy-chat-open body {
   display: block;
   margin-top: 9px;
   color: #786f65;
-  font-size: 10px;
+  font-size: calc(10px * var(--cozy-font-scale, 1.15));
 }
 
 .account-profile {
@@ -7694,7 +7716,7 @@ html.cozy-chat-open body {
 }
 
 .rewards-card-head { align-items: center; justify-content: space-between; gap: 10px; }
-.rewards-eyebrow { color: #d6c9b8; font-size: 8px; font-weight: 800; letter-spacing: .16em; }
+.rewards-eyebrow { color: #d6c9b8; font-size: calc(8px * var(--cozy-font-scale, 1.15)); font-weight: 800; letter-spacing: .16em; }
 .rewards-tier-badge {
   flex: 0 0 auto;
   padding: 7px 9px;
@@ -7702,21 +7724,21 @@ html.cozy-chat-open body {
   border-radius: 999px;
   background: rgba(255,255,255,.07);
   color: #ead1af;
-  font-size: 7px;
+  font-size: calc(7px * var(--cozy-font-scale, 1.15));
   font-weight: 800;
   letter-spacing: .11em;
 }
 
 .rewards-card-body { align-items: flex-end; justify-content: space-between; gap: 14px; margin-top: 23px; }
 .rewards-card-copy { display: grid; min-width: 0; padding: 0; background: none; }
-.rewards-title { max-width: 178px; padding: 0; background: none; font: 400 28px/.96 "DM Serif Display"; letter-spacing: -.035em; }
+.rewards-title { max-width: 178px; padding: 0; background: none; font: 400 calc(28px * var(--cozy-font-scale, 1.15))/.96 "DM Serif Display"; letter-spacing: -.035em; }
 .rewards-title em { display: block; color: #ead1af; font-style: italic; }
-.rewards-subtitle { max-width: 175px; margin-top: 9px; padding: 0; background: none; color: #bbb2a7; font-size: 8px; line-height: 1.4; }
+.rewards-subtitle { max-width: 175px; margin-top: 9px; padding: 0; background: none; color: #bbb2a7; font-size: calc(8px * var(--cozy-font-scale, 1.15)); line-height: 1.4; }
 .rewards-points-block { display: grid; flex: 0 0 auto; padding: 0; background: none; text-align: right; }
-.rewards-points-block strong { color: #fff; font: 400 28px/1 "DM Serif Display"; }
-.rewards-points-block small { margin-top: 5px; color: #bdb3a7; font-size: 6px; font-weight: 800; letter-spacing: .12em; }
+.rewards-points-block strong { color: #fff; font: 400 calc(28px * var(--cozy-font-scale, 1.15))/1 "DM Serif Display"; }
+.rewards-points-block small { margin-top: 5px; color: #bdb3a7; font-size: calc(6px * var(--cozy-font-scale, 1.15)); font-weight: 800; letter-spacing: .12em; }
 
-.rewards-progress-row { justify-content: space-between; margin-top: 22px; color: #c8bfb4; font-size: 7px; font-weight: 700; }
+.rewards-progress-row { justify-content: space-between; margin-top: 22px; color: #c8bfb4; font-size: calc(7px * var(--cozy-font-scale, 1.15)); font-weight: 700; }
 .rewards-card-premium .tier-progress {
   position: relative;
   inset: auto;
@@ -7735,7 +7757,7 @@ html.cozy-chat-open body {
   min-width: 0;
   overflow: hidden;
   color: #aaa197;
-  font-size: 7px;
+  font-size: calc(7px * var(--cozy-font-scale, 1.15));
   line-height: 1.3;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -7749,10 +7771,10 @@ html.cozy-chat-open body {
   padding: 0;
   background: none;
   color: #f7f1e8;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
   font-weight: 800;
 }
-.rewards-card-premium .rewards-open b { color: #ead1af; font-size: 12px; }
+.rewards-card-premium .rewards-open b { color: #ead1af; font-size: calc(12px * var(--cozy-font-scale, 1.15)); }
 
 .rewards-card h2 {
   margin-bottom: 16px;
@@ -7790,7 +7812,7 @@ html.cozy-chat-open body {
   left: 21px;
   overflow: hidden;
   color: #c8c0b5;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
   line-height: 1.3;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -7821,7 +7843,7 @@ html.cozy-chat-open body {
 }
 
 .account-action-icon.material-symbols-rounded {
-  font-size: 19px;
+  font-size: calc(19px * var(--cozy-font-scale, 1.15));
   font-variation-settings: "FILL" 0, "wght" 440, "GRAD" 0, "opsz" 22;
 }
 
@@ -7842,7 +7864,7 @@ html.cozy-chat-open body {
   outline: 0;
   background: #fff;
   color: #292622;
-  font: 11px/1.5 "DM Sans", sans-serif;
+  font: calc(11px * var(--cozy-font-scale, 1.15))/1.5 "DM Sans", sans-serif;
 }
 
 .mobile-support-form textarea:focus {
@@ -7857,7 +7879,7 @@ html.cozy-chat-open body {
   border-radius: 17px;
   background: #292622;
   color: #fff;
-  font-size: 10px;
+  font-size: calc(10px * var(--cozy-font-scale, 1.15));
   font-weight: 700;
 }
 
@@ -8052,7 +8074,7 @@ html.cozy-chat-open body {
 
     .notifications-page .notification-mark::before {
       content: "notifications";
-      font-size: 20px;
+      font-size: calc(20px * var(--cozy-font-scale, 1.15));
       line-height: 1;
     }
 
@@ -8189,18 +8211,18 @@ body.review-dialog-open .order-detail-portal .order-review-dialog form {
   gap: 4px;
   margin: 0;
   color: #5f7758;
-  font-size: 7px;
+  font-size: calc(7px * var(--cozy-font-scale, 1.15));
 }
 
 .order-review-header .hello .material-symbols-rounded {
-  font-size: 14px;
+  font-size: calc(14px * var(--cozy-font-scale, 1.15));
 }
 
 .order-review-header h3 {
   margin: 0;
   overflow: hidden;
   color: #27241f;
-  font: 400 23px/1.05 "DM Serif Display", serif;
+  font: 400 calc(23px * var(--cozy-font-scale, 1.15))/1.05 "DM Serif Display", serif;
   letter-spacing: -0.035em;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -8209,7 +8231,7 @@ body.review-dialog-open .order-detail-portal .order-review-dialog form {
 .order-review-header div > small {
   overflow: hidden;
   color: #7b746a;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -8231,7 +8253,7 @@ body.review-dialog-open .order-detail-portal .order-review-dialog form {
 .order-review-close .material-symbols-rounded {
   display: grid;
   place-items: center;
-  font-size: 21px;
+  font-size: calc(21px * var(--cozy-font-scale, 1.15));
 }
 
 .order-review-intro {
@@ -8240,19 +8262,19 @@ body.review-dialog-open .order-detail-portal .order-review-dialog form {
 
 .order-review-intro .hello {
   margin: 0 0 8px;
-  font-size: 7px;
+  font-size: calc(7px * var(--cozy-font-scale, 1.15));
 }
 
 .order-review-intro h4 {
   margin: 0;
-  font: 400 clamp(27px, 7vw, 34px)/0.98 "DM Serif Display", serif;
+  font: 400 clamp(calc(27px * var(--cozy-font-scale, 1.15)), 7vw, calc(34px * var(--cozy-font-scale, 1.15)))/0.98 "DM Serif Display", serif;
   letter-spacing: -0.045em;
 }
 
 .order-review-intro > p:last-child {
   margin: 9px 0 0;
   color: #756e65;
-  font-size: 10px;
+  font-size: calc(10px * var(--cozy-font-scale, 1.15));
   line-height: 1.5;
 }
 
@@ -8273,7 +8295,7 @@ body.review-dialog-open .order-detail-portal .order-review-dialog form {
   grid-column: 1 / -1;
   padding: 0;
   color: #3d3831;
-  font-size: 10px;
+  font-size: calc(10px * var(--cozy-font-scale, 1.15));
   font-weight: 800;
 }
 
@@ -8295,7 +8317,7 @@ body.review-dialog-open .order-detail-portal .order-review-dialog form {
   border-radius: 13px;
   background: #eee8df;
   color: #c7bbae;
-  font-size: 25px;
+  font-size: calc(25px * var(--cozy-font-scale, 1.15));
   line-height: 1;
 }
 
@@ -8307,7 +8329,7 @@ body.review-dialog-open .order-detail-portal .order-review-dialog form {
 .rating-field > small {
   align-self: center;
   color: #87634f;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
   font-weight: 800;
   white-space: nowrap;
 }
@@ -8325,13 +8347,13 @@ body.review-dialog-open .order-detail-portal .order-review-dialog form {
   justify-content: space-between;
   gap: 10px;
   color: #37332d;
-  font-size: 10px;
+  font-size: calc(10px * var(--cozy-font-scale, 1.15));
   font-weight: 800;
 }
 
 .order-review-copy > span small {
   color: #847b70;
-  font-size: 7px;
+  font-size: calc(7px * var(--cozy-font-scale, 1.15));
   font-weight: 600;
 }
 
@@ -8346,7 +8368,7 @@ body.review-dialog-open .order-detail-portal .order-review-dialog form {
   outline: 0;
   background: #fff;
   color: #25221e;
-  font: 400 12px/1.55 "DM Sans", sans-serif;
+  font: 400 calc(12px * var(--cozy-font-scale, 1.15))/1.55 "DM Sans", sans-serif;
 }
 
 .order-detail-portal .order-review-copy textarea:focus {
@@ -8359,7 +8381,7 @@ body.review-dialog-open .order-detail-portal .order-review-dialog form {
   right: 12px;
   bottom: 10px;
   color: #81796f;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
 }
 
 .order-detail-portal .order-review-photos {
@@ -8387,7 +8409,7 @@ body.review-dialog-open .order-detail-portal .order-review-dialog form {
   border-radius: 13px;
   background: #fff;
   color: #635a50;
-  font-size: 21px;
+  font-size: calc(21px * var(--cozy-font-scale, 1.15));
 }
 
 .order-review-photos > span:nth-child(2) {
@@ -8397,18 +8419,18 @@ body.review-dialog-open .order-detail-portal .order-review-dialog form {
 }
 
 .order-review-photos b {
-  font-size: 10px;
+  font-size: calc(10px * var(--cozy-font-scale, 1.15));
 }
 
 .order-review-photos small {
   color: #776f65;
-  font-size: 7px;
+  font-size: calc(7px * var(--cozy-font-scale, 1.15));
   line-height: 1.35;
 }
 
 .order-review-photos > em {
   color: #665d53;
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
   font-style: normal;
   font-weight: 800;
 }
@@ -8444,18 +8466,18 @@ body.review-dialog-open .order-detail-portal .order-review-dialog form {
 }
 
 .order-review-photo-list .material-symbols-rounded {
-  font-size: 17px;
+  font-size: calc(17px * var(--cozy-font-scale, 1.15));
 }
 
 .order-review-photo-list button > span:nth-child(2) {
   overflow: hidden;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .order-review-photo-list button > b {
-  font-size: 17px;
+  font-size: calc(17px * var(--cozy-font-scale, 1.15));
   text-align: center;
 }
 
@@ -8465,7 +8487,7 @@ body.review-dialog-open .order-detail-portal .order-review-dialog form {
   border-radius: 13px;
   background: #e4eddf;
   color: #486043;
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
   font-weight: 700;
   line-height: 1.45;
 }
@@ -8491,7 +8513,7 @@ body.review-dialog-open .order-detail-portal .order-review-dialog form {
 
 .order-review-footer > small {
   color: #7e766c;
-  font-size: 7px;
+  font-size: calc(7px * var(--cozy-font-scale, 1.15));
   line-height: 1.4;
   text-align: center;
 }
@@ -8511,12 +8533,12 @@ body.review-dialog-open .order-review-dialog .order-review-footer > button[type=
   border-radius: 17px;
   background: #25221e;
   color: #fff;
-  font-size: 10px;
+  font-size: calc(10px * var(--cozy-font-scale, 1.15));
   font-weight: 800;
 }
 
 .order-review-footer button[type="submit"] .material-symbols-rounded {
-  font-size: 18px;
+  font-size: calc(18px * var(--cozy-font-scale, 1.15));
 }
 
 .order-review-footer button[type="submit"]:disabled {
@@ -8557,7 +8579,7 @@ body.review-dialog-open .order-review-dialog .order-review-footer > button[type=
   place-items: center;
   border-radius: 8px;
   background: #fff;
-  font-size: 15px;
+  font-size: calc(15px * var(--cozy-font-scale, 1.15));
 }
 
 .order-review-complete > span:last-child {
@@ -8566,12 +8588,12 @@ body.review-dialog-open .order-review-dialog .order-review-footer > button[type=
 }
 
 .order-review-complete b {
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
 }
 
 .order-review-complete small {
   color: #6d8169;
-  font-size: 7px;
+  font-size: calc(7px * var(--cozy-font-scale, 1.15));
 }
 
 .order-review-success {
@@ -8608,7 +8630,7 @@ body.review-dialog-open .order-review-dialog .order-review-footer > button[type=
   border-radius: 21px;
   background: #dfeadc;
   color: #4f704d;
-  font-size: 31px;
+  font-size: calc(31px * var(--cozy-font-scale, 1.15));
 }
 
 .order-review-success .hello {
@@ -8618,14 +8640,14 @@ body.review-dialog-open .order-review-dialog .order-review-footer > button[type=
 
 .order-review-success h3 {
   margin: 0;
-  font: 400 31px/1 "DM Serif Display", serif;
+  font: 400 calc(31px * var(--cozy-font-scale, 1.15))/1 "DM Serif Display", serif;
   letter-spacing: -0.04em;
 }
 
 .order-review-success > div > p:not(.hello) {
   margin: 13px auto 17px;
   color: #716a61;
-  font-size: 10px;
+  font-size: calc(10px * var(--cozy-font-scale, 1.15));
   line-height: 1.55;
 }
 
@@ -8648,7 +8670,7 @@ body.review-dialog-open .order-review-dialog .order-review-footer > button[type=
   place-items: center;
   border-radius: 12px;
   background: #fff;
-  font-size: 20px;
+  font-size: calc(20px * var(--cozy-font-scale, 1.15));
 }
 
 .order-review-success aside div {
@@ -8657,12 +8679,12 @@ body.review-dialog-open .order-review-dialog .order-review-footer > button[type=
 }
 
 .order-review-success aside b {
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
 }
 
 .order-review-success aside small {
   color: #697f64;
-  font-size: 7px;
+  font-size: calc(7px * var(--cozy-font-scale, 1.15));
   line-height: 1.4;
 }
 
@@ -8677,12 +8699,12 @@ body.review-dialog-open .order-review-dialog .order-review-footer > button[type=
   border-radius: 17px;
   background: #25221e;
   color: #fff;
-  font-size: 10px;
+  font-size: calc(10px * var(--cozy-font-scale, 1.15));
   font-weight: 800;
 }
 
 .order-review-success button .material-symbols-rounded {
-  font-size: 17px;
+  font-size: calc(17px * var(--cozy-font-scale, 1.15));
 }
 
 @media (max-width: 360px) {
@@ -8714,7 +8736,7 @@ body.review-dialog-open .order-review-dialog .order-review-footer > button[type=
   }
 
   .order-review-header h3 {
-    font-size: 20px;
+    font-size: calc(20px * var(--cozy-font-scale, 1.15));
   }
 
   .order-detail-portal .order-review-close {
@@ -8848,7 +8870,7 @@ body.review-dialog-open .order-review-dialog .order-review-footer > button[type=
   border-radius: 17px;
   background: rgba(255, 255, 255, 0.1);
   color: #dce8d6;
-  font-size: 25px;
+  font-size: calc(25px * var(--cozy-font-scale, 1.15));
   line-height: 1;
   text-align: center;
   font-variation-settings: "FILL" 0, "wght" 430, "GRAD" 0, "opsz" 24;
@@ -8862,21 +8884,21 @@ body.review-dialog-open .order-review-dialog .order-review-footer > button[type=
 
 .atelier-account .payment-preference-hero small {
   color: #cbd7c5;
-  font-size: 7px;
+  font-size: calc(7px * var(--cozy-font-scale, 1.15));
   font-weight: 800;
   letter-spacing: 0.17em;
 }
 
 .atelier-account .payment-preference-hero h3 {
   margin: 0;
-  font: 400 clamp(22px, 6.5vw, 29px)/1.04 "DM Serif Display", serif;
+  font: 400 clamp(calc(22px * var(--cozy-font-scale, 1.15)), 6.5vw, calc(29px * var(--cozy-font-scale, 1.15)))/1.04 "DM Serif Display", serif;
   letter-spacing: -0.025em;
 }
 
 .atelier-account .payment-preference-hero p {
   margin: 1px 0 0;
   color: rgba(250, 248, 243, 0.7);
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
   line-height: 1.55;
 }
 
@@ -8895,13 +8917,13 @@ body.review-dialog-open .order-review-dialog .order-review-footer > button[type=
 
 .atelier-account .payment-method-heading small {
   color: #837a70;
-  font-size: 7px;
+  font-size: calc(7px * var(--cozy-font-scale, 1.15));
   font-weight: 800;
   letter-spacing: 0.15em;
 }
 
 .atelier-account .payment-method-heading b {
-  font: 400 18px "DM Serif Display", serif;
+  font: 400 calc(18px * var(--cozy-font-scale, 1.15)) "DM Serif Display", serif;
   letter-spacing: -0.015em;
 }
 
@@ -8912,7 +8934,7 @@ body.review-dialog-open .order-review-dialog .order-review-footer > button[type=
   gap: 5px;
   padding-bottom: 2px;
   color: #687662;
-  font-size: 7px;
+  font-size: calc(7px * var(--cozy-font-scale, 1.15));
   font-weight: 700;
 }
 
@@ -8976,7 +8998,7 @@ body.review-dialog-open .order-review-dialog .order-review-footer > button[type=
   border-radius: 16px;
   background: #eee8df;
   color: #62584c;
-  font-size: 24px;
+  font-size: calc(24px * var(--cozy-font-scale, 1.15));
   line-height: 1;
   text-align: center;
   font-variation-settings: "FILL" 0, "wght" 430, "GRAD" 0, "opsz" 24;
@@ -9002,7 +9024,7 @@ body.review-dialog-open .order-review-dialog .order-review-footer > button[type=
 }
 
 .atelier-account .payment-method-copy b {
-  font-size: 11px;
+  font-size: calc(11px * var(--cozy-font-scale, 1.15));
   line-height: 1.25;
 }
 
@@ -9011,7 +9033,7 @@ body.review-dialog-open .order-review-dialog .order-review-footer > button[type=
   border-radius: 999px;
   background: #dce9d7;
   color: #4b6745;
-  font-size: 6px;
+  font-size: calc(6px * var(--cozy-font-scale, 1.15));
   font-style: normal;
   font-weight: 850;
   letter-spacing: 0.08em;
@@ -9020,14 +9042,14 @@ body.review-dialog-open .order-review-dialog .order-review-footer > button[type=
 
 .atelier-account .payment-method-copy > small {
   color: #7e756b;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
   line-height: 1.4;
 }
 
 .atelier-account .payment-method-copy > i {
   width: max-content;
   color: #8b8176;
-  font-size: 6px;
+  font-size: calc(6px * var(--cozy-font-scale, 1.15));
   font-style: normal;
   font-weight: 850;
   letter-spacing: 0.12em;
@@ -9044,7 +9066,7 @@ body.review-dialog-open .order-review-dialog .order-review-footer > button[type=
   border: 1px solid #d6cec4;
   border-radius: 50%;
   color: #a49c92;
-  font-size: 15px;
+  font-size: calc(15px * var(--cozy-font-scale, 1.15));
   line-height: 1;
   text-align: center;
   font-variation-settings: "FILL" 0, "wght" 500, "GRAD" 0, "opsz" 18;
@@ -9083,7 +9105,7 @@ body.review-dialog-open .order-review-dialog .order-review-footer > button[type=
   border-radius: 13px;
   background: rgba(255, 255, 255, 0.72);
   color: #5d7357;
-  font-size: 19px;
+  font-size: calc(19px * var(--cozy-font-scale, 1.15));
   line-height: 1;
 }
 
@@ -9094,12 +9116,12 @@ body.review-dialog-open .order-review-dialog .order-review-footer > button[type=
 }
 
 .atelier-account .payment-privacy-note b {
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
 }
 
 .atelier-account .payment-privacy-note small {
   color: #7c746b;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
   line-height: 1.5;
 }
 
@@ -9115,7 +9137,7 @@ body.review-dialog-open .order-review-dialog .order-review-footer > button[type=
     width: 44px;
     height: 44px;
     border-radius: 14px;
-    font-size: 22px;
+    font-size: calc(22px * var(--cozy-font-scale, 1.15));
   }
 
   .atelier-account .payment-method-heading {
@@ -9134,13 +9156,13 @@ body.review-dialog-open .order-review-dialog .order-review-footer > button[type=
     width: 44px;
     height: 44px;
     border-radius: 14px;
-    font-size: 21px;
+    font-size: calc(21px * var(--cozy-font-scale, 1.15));
   }
 
   .atelier-account .payment-method-check.material-symbols-rounded {
     width: 25px;
     height: 25px;
-    font-size: 14px;
+    font-size: calc(14px * var(--cozy-font-scale, 1.15));
   }
 }
 
@@ -9215,7 +9237,7 @@ body.review-dialog-open .order-review-dialog .order-review-footer > button[type=
   height: 34px;
   place-items: center;
   overflow: visible;
-  font-size: clamp(26px, 7vw, 30px);
+  font-size: clamp(calc(26px * var(--cozy-font-scale, 1.15)), 7vw, calc(30px * var(--cozy-font-scale, 1.15)));
   line-height: 34px;
   font-variation-settings: "FILL" 0, "wght" 500, "GRAD" 0, "opsz" 28;
 }
@@ -9263,7 +9285,7 @@ body.review-dialog-open .order-review-dialog .order-review-footer > button[type=
   .lux-nav button > span {
     width: 31px;
     height: 31px;
-    font-size: 26px;
+    font-size: calc(26px * var(--cozy-font-scale, 1.15));
     line-height: 31px;
   }
 }
@@ -9431,7 +9453,7 @@ html.cozy-platform-ios26 .lux-nav.is-glass-scrubbing button.glass-target {
 html.cozy-platform-ios26 .lux-nav button > span {
   width: 32px;
   height: 32px;
-  font-size: clamp(25px, 6.8vw, 29px);
+  font-size: clamp(calc(25px * var(--cozy-font-scale, 1.15)), 6.8vw, calc(29px * var(--cozy-font-scale, 1.15)));
   line-height: 32px;
   font-variation-settings: "FILL" 0, "wght" 510, "GRAD" 0, "opsz" 27;
 }
@@ -9524,7 +9546,7 @@ body.profile-crop-open {
 .profile-crop-dialog > header p {
   margin: 0 0 7px;
   color: #6e7f68;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
   font-weight: 850;
   letter-spacing: .17em;
 }
@@ -9532,7 +9554,7 @@ body.profile-crop-open {
 .profile-crop-dialog > header h2 {
   margin: 0;
   color: #25221e;
-  font: 400 clamp(25px, 7vw, 31px)/1 "DM Serif Display", serif;
+  font: 400 clamp(calc(25px * var(--cozy-font-scale, 1.15)), 7vw, calc(31px * var(--cozy-font-scale, 1.15)))/1 "DM Serif Display", serif;
   letter-spacing: -.035em;
 }
 
@@ -9546,7 +9568,7 @@ body.profile-crop-open {
   border-radius: 15px;
   background: rgba(255, 255, 255, 0.76);
   color: #292621;
-  font-size: 25px;
+  font-size: calc(25px * var(--cozy-font-scale, 1.15));
   line-height: 1;
   box-shadow: 0 7px 18px rgba(46, 39, 32, 0.09);
 }
@@ -9607,7 +9629,7 @@ body.profile-crop-open {
   padding: 20px;
   color: #756c62;
   text-align: center;
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
   font-weight: 700;
 }
 
@@ -9619,13 +9641,13 @@ body.profile-crop-open {
   margin: 14px 0 10px;
   color: #746c63;
   text-align: center;
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
   line-height: 1.4;
 }
 
 .profile-crop-help .material-symbols-rounded {
   color: #66775f;
-  font-size: 16px;
+  font-size: calc(16px * var(--cozy-font-scale, 1.15));
 }
 
 .profile-crop-zoom {
@@ -9648,7 +9670,7 @@ body.profile-crop-open {
   border-radius: 11px;
   background: #ece6dd;
   color: #544c43;
-  font-size: 17px;
+  font-size: calc(17px * var(--cozy-font-scale, 1.15));
 }
 
 .profile-crop-zoom input {
@@ -9666,7 +9688,7 @@ body.profile-crop-open {
   border-radius: 14px;
   background: #f2dfda;
   color: #844f43;
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
   font-weight: 700;
   line-height: 1.45;
 }
@@ -9690,7 +9712,7 @@ body.profile-crop-open {
   height: 36px;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.8);
-  font-size: 18px;
+  font-size: calc(18px * var(--cozy-font-scale, 1.15));
 }
 
 .profile-crop-dialog > main > aside p {
@@ -9701,12 +9723,12 @@ body.profile-crop-open {
 }
 
 .profile-crop-dialog > main > aside b {
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
 }
 
 .profile-crop-dialog > main > aside small {
   color: #6f7d6b;
-  font-size: 7px;
+  font-size: calc(7px * var(--cozy-font-scale, 1.15));
   line-height: 1.4;
 }
 
@@ -9729,7 +9751,7 @@ body.profile-crop-open {
   min-height: 50px;
   padding: 0 14px;
   border-radius: 17px;
-  font-size: 10px;
+  font-size: calc(10px * var(--cozy-font-scale, 1.15));
   font-weight: 800;
 }
 
@@ -9756,7 +9778,7 @@ body.profile-crop-open {
 }
 
 .profile-crop-apply .material-symbols-rounded {
-  font-size: 18px;
+  font-size: calc(18px * var(--cozy-font-scale, 1.15));
 }
 
 @keyframes profile-crop-backdrop {
@@ -9797,7 +9819,7 @@ body.profile-crop-open {
 
   .profile-crop-dialog > footer > button {
     padding-inline: 9px;
-    font-size: 9px;
+    font-size: calc(9px * var(--cozy-font-scale, 1.15));
   }
 }
 
@@ -9844,12 +9866,12 @@ body.profile-crop-open {
 }
 
 .mobile-ai-launcher span {
-  font-size: 19px;
+  font-size: calc(19px * var(--cozy-font-scale, 1.15));
   font-variation-settings: "FILL" 0, "wght" 420;
 }
 
 .mobile-ai-launcher b {
-  font-size: 11px;
+  font-size: calc(11px * var(--cozy-font-scale, 1.15));
   font-weight: 720;
   letter-spacing: 0.01em;
 }
@@ -9908,7 +9930,7 @@ body.profile-crop-open {
 }
 
 .mobile-ai-chat > header > button .material-symbols-rounded {
-  font-size: 21px;
+  font-size: calc(21px * var(--cozy-font-scale, 1.15));
   font-variation-settings: "FILL" 0, "wght" 420;
 }
 
@@ -9929,7 +9951,7 @@ body.profile-crop-open {
   border-radius: 13px;
   background: #ebe5dc;
   color: #32302b;
-  font: 400 20px/1 "DM Serif Display", serif;
+  font: 400 calc(20px * var(--cozy-font-scale, 1.15))/1 "DM Serif Display", serif;
 }
 
 .mobile-ai-chat > header .ai-care-brand p {
@@ -9942,7 +9964,7 @@ body.profile-crop-open {
 .mobile-ai-chat > header .ai-care-brand b {
   overflow: hidden;
   color: #1c1b19;
-  font: 700 14px/1.1 inherit;
+  font: 700 calc(14px * var(--cozy-font-scale, 1.15))/1.1 inherit;
   letter-spacing: -0.01em;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -9955,7 +9977,7 @@ body.profile-crop-open {
   gap: 5px;
   overflow: hidden;
   color: #79746d;
-  font-size: 8.5px;
+  font-size: calc(8.5px * var(--cozy-font-scale, 1.15));
   line-height: 1.2;
   letter-spacing: 0;
   text-overflow: ellipsis;
@@ -10000,7 +10022,7 @@ body.profile-crop-open {
   right: -10px;
   bottom: -45px;
   color: rgba(255, 255, 255, 0.46);
-  font: 400 150px/1 "DM Serif Display", serif;
+  font: 400 calc(150px * var(--cozy-font-scale, 1.15))/1 "DM Serif Display", serif;
   pointer-events: none;
 }
 
@@ -10010,7 +10032,7 @@ body.profile-crop-open {
 .mobile-ai-chat .ai-product-rail > .hello {
   margin: 0;
   color: #767069;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
   font-weight: 800;
   line-height: 1.2;
   letter-spacing: 0.17em;
@@ -10020,7 +10042,7 @@ body.profile-crop-open {
   max-width: 310px;
   margin: 11px 0 10px;
   color: #1c1b19;
-  font: 400 clamp(29px, 8.2vw, 36px)/0.98 "DM Serif Display", serif;
+  font: 400 clamp(calc(29px * var(--cozy-font-scale, 1.15)), 8.2vw, calc(36px * var(--cozy-font-scale, 1.15)))/0.98 "DM Serif Display", serif;
   letter-spacing: -0.025em;
 }
 
@@ -10032,7 +10054,7 @@ body.profile-crop-open {
   display: block;
   max-width: 310px;
   color: #68635c;
-  font-size: 10.5px;
+  font-size: calc(10.5px * var(--cozy-font-scale, 1.15));
   line-height: 1.55;
 }
 
@@ -10086,13 +10108,13 @@ body.profile-crop-open {
   border-radius: 10px;
   background: #eee9e2;
   color: #5e574f;
-  font-size: 16px;
+  font-size: calc(16px * var(--cozy-font-scale, 1.15));
   font-variation-settings: "FILL" 0, "wght" 380;
 }
 
 .mobile-ai-chat .ai-quick-prompts button > b {
   min-width: 0;
-  font-size: 9.5px;
+  font-size: calc(9.5px * var(--cozy-font-scale, 1.15));
   font-weight: 700;
   line-height: 1.25;
   overflow-wrap: anywhere;
@@ -10100,7 +10122,7 @@ body.profile-crop-open {
 
 .mobile-ai-chat .ai-quick-prompts button > i {
   color: #8a837a;
-  font-size: 15px;
+  font-size: calc(15px * var(--cozy-font-scale, 1.15));
   font-style: normal;
   font-variation-settings: "wght" 350;
 }
@@ -10168,14 +10190,14 @@ body.profile-crop-open {
   border-radius: 9px;
   background: #eee9e2;
   color: #4c4842;
-  font: 400 13px/1 "DM Serif Display", serif;
+  font: 400 calc(13px * var(--cozy-font-scale, 1.15))/1 "DM Serif Display", serif;
 }
 
 .mobile-ai-chat .ai-message-list article small {
   min-width: 0;
   overflow: hidden;
   color: #6e675f;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
   font-weight: 760;
   line-height: 1.2;
   letter-spacing: 0.04em;
@@ -10187,7 +10209,7 @@ body.profile-crop-open {
   flex: 0 0 auto;
   margin-left: auto;
   color: #979087;
-  font-size: 7.5px;
+  font-size: calc(7.5px * var(--cozy-font-scale, 1.15));
   line-height: 1.2;
 }
 
@@ -10200,7 +10222,7 @@ body.profile-crop-open {
   margin: 0;
   white-space: pre-wrap;
   color: inherit;
-  font-size: 12px;
+  font-size: calc(12px * var(--cozy-font-scale, 1.15));
   line-height: 1.58;
   overflow-wrap: anywhere;
 }
@@ -10272,12 +10294,12 @@ body.profile-crop-open {
 }
 
 .mobile-ai-chat .ai-product-rail span b {
-  font-size: 11px;
+  font-size: calc(11px * var(--cozy-font-scale, 1.15));
 }
 
 .mobile-ai-chat .ai-product-rail span small {
   color: #756e65;
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
 }
 
 .mobile-ai-chat .ai-product-rail button > i {
@@ -10301,7 +10323,7 @@ body.profile-crop-open {
   border-radius: 16px;
   background: #292824;
   color: #fff;
-  font-size: 11px;
+  font-size: calc(11px * var(--cozy-font-scale, 1.15));
   font-weight: 720;
   text-align: left;
 }
@@ -10317,7 +10339,7 @@ body.profile-crop-open {
   border-radius: 15px;
   background: #f5e5dc;
   color: #815541;
-  font-size: 9.5px;
+  font-size: calc(9.5px * var(--cozy-font-scale, 1.15));
   line-height: 1.45;
 }
 
@@ -10328,7 +10350,7 @@ body.profile-crop-open {
   border-radius: 10px;
   background: transparent;
   color: inherit;
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
   font-weight: 750;
   text-decoration: none;
 }
@@ -10381,7 +10403,7 @@ body.profile-crop-open {
   outline: 0;
   background: transparent;
   color: #292824;
-  font: 400 16px/1.42 inherit;
+  font: 400 calc(16px * var(--cozy-font-scale, 1.15))/1.42 inherit;
 }
 
 .mobile-ai-chat > form textarea::placeholder {
@@ -10418,7 +10440,7 @@ body.profile-crop-open {
 }
 
 .mobile-ai-chat > form button .material-symbols-rounded {
-  font-size: 19px;
+  font-size: calc(19px * var(--cozy-font-scale, 1.15));
   font-variation-settings: "wght" 500;
 }
 
@@ -10426,7 +10448,7 @@ body.profile-crop-open {
   margin: 0;
   padding: 0 5px;
   color: #878179;
-  font-size: 7.5px;
+  font-size: calc(7.5px * var(--cozy-font-scale, 1.15));
   line-height: 1.35;
   text-align: center;
 }
@@ -10436,7 +10458,7 @@ body.profile-crop-open {
   padding: 0 12px max(7px, env(safe-area-inset-bottom));
   background: #fcfbf8;
   color: #918b83;
-  font-size: 7px;
+  font-size: calc(7px * var(--cozy-font-scale, 1.15));
   line-height: 1.3;
   text-align: center;
 }
@@ -10523,7 +10545,7 @@ body.profile-crop-open {
 
   .mobile-ai-chat .ai-welcome h2 {
     margin-block: 8px;
-    font-size: 27px;
+    font-size: calc(27px * var(--cozy-font-scale, 1.15));
   }
 
   .mobile-ai-chat .ai-quick-prompts {
@@ -10584,7 +10606,7 @@ body.profile-crop-open {
   border-radius: 11px;
   background: rgba(255, 255, 255, 0.1);
   color: #d9c3a6;
-  font-size: 18px;
+  font-size: calc(18px * var(--cozy-font-scale, 1.15));
   font-variation-settings: "FILL" 0, "wght" 380;
 }
 
@@ -10597,7 +10619,7 @@ body.profile-crop-open {
 
 .atelier-bag .bag-delivery b {
   overflow: hidden;
-  font-size: 10px;
+  font-size: calc(10px * var(--cozy-font-scale, 1.15));
   line-height: 1.3;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -10605,7 +10627,7 @@ body.profile-crop-open {
 
 .atelier-bag .bag-delivery small {
   color: #c9c2b8;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
   line-height: 1.42;
   overflow-wrap: anywhere;
 }
@@ -10613,7 +10635,7 @@ body.profile-crop-open {
 .atelier-bag .bag-delivery strong {
   max-width: 76px;
   color: #dce9d7;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
   line-height: 1.25;
   text-align: right;
   overflow-wrap: anywhere;
@@ -10635,7 +10657,7 @@ body.profile-crop-open {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
 }
 
 .bag-free-delivery-progress > div span {
@@ -10645,7 +10667,7 @@ body.profile-crop-open {
 
 .bag-free-delivery-progress > div b {
   color: #56714f;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
 }
 
 .bag-free-delivery-progress > i {
@@ -10666,7 +10688,7 @@ body.profile-crop-open {
 
 .bag-free-delivery-progress > small {
   color: #817a71;
-  font-size: 7.5px;
+  font-size: calc(7.5px * var(--cozy-font-scale, 1.15));
   line-height: 1.4;
 }
 
@@ -10691,7 +10713,7 @@ body.profile-crop-open {
   place-items: center;
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.72);
-  font-size: 21px;
+  font-size: calc(21px * var(--cozy-font-scale, 1.15));
   font-variation-settings: "FILL" 0, "wght" 380;
 }
 
@@ -10703,27 +10725,27 @@ body.profile-crop-open {
 
 .checkout-delivery-promise > div small {
   color: #60755b;
-  font-size: 6.5px;
+  font-size: calc(6.5px * var(--cozy-font-scale, 1.15));
   font-weight: 800;
   line-height: 1.25;
   letter-spacing: 0.12em;
 }
 
 .checkout-delivery-promise > div b {
-  font-size: 10px;
+  font-size: calc(10px * var(--cozy-font-scale, 1.15));
   line-height: 1.3;
 }
 
 .checkout-delivery-promise > div p {
   margin: 0;
   color: #60755b;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
   line-height: 1.42;
 }
 
 .checkout-delivery-promise > strong {
   color: #486242;
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
   text-align: right;
   white-space: nowrap;
 }
@@ -10738,7 +10760,7 @@ body.profile-crop-open {
 
 .checkout-delivery-promise > aside > span {
   color: #526a4d;
-  font-size: 7.5px;
+  font-size: calc(7.5px * var(--cozy-font-scale, 1.15));
   font-weight: 700;
 }
 
@@ -10785,7 +10807,7 @@ body.profile-crop-open {
 .checkout-next:disabled {
   min-width: 0;
   padding-inline: 11px;
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
   line-height: 1.25;
   overflow-wrap: anywhere;
 }
@@ -10851,7 +10873,7 @@ body.profile-crop-open {
   margin: 0;
   color: #211f1b;
   font-family: "Cormorant Garamond", Georgia, serif;
-  font-size: clamp(28px, 8.5vw, 42px);
+  font-size: clamp(calc(28px * var(--cozy-font-scale, 1.15)), 8.5vw, calc(42px * var(--cozy-font-scale, 1.15)));
   font-weight: 560;
   line-height: .92;
   letter-spacing: -.035em;
@@ -10864,7 +10886,7 @@ body.profile-crop-open {
 .home-recommendations > header small {
   max-width: 270px;
   color: #777068;
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
   line-height: 1.5;
 }
 
@@ -10874,7 +10896,7 @@ body.profile-crop-open {
   border: 0;
   background: transparent;
   color: #52684d;
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
   font-weight: 760;
   white-space: nowrap;
 }
@@ -10909,14 +10931,14 @@ body.profile-crop-open {
   min-width: 0;
   gap: 5px;
   color: #65765f;
-  font-size: 7.5px;
+  font-size: calc(7.5px * var(--cozy-font-scale, 1.15));
   font-weight: 720;
   line-height: 1.3;
 }
 
 .home-recommendation-rail .recommendation-reason i {
   flex: none;
-  font-size: 13px;
+  font-size: calc(13px * var(--cozy-font-scale, 1.15));
   font-variation-settings: "FILL" 1, "wght" 420;
 }
 
@@ -10982,7 +11004,7 @@ body.profile-crop-open {
 
 .atelier-account .support-faq > header small {
   color: #667b60;
-  font-size: 7px;
+  font-size: calc(7px * var(--cozy-font-scale, 1.15));
   font-weight: 850;
   letter-spacing: .17em;
 }
@@ -10990,14 +11012,14 @@ body.profile-crop-open {
 .atelier-account .support-faq > header h3 {
   margin: 0;
   color: #292621;
-  font: 400 clamp(21px, 6.4vw, 28px)/1.05 "DM Serif Display", serif;
+  font: 400 clamp(calc(21px * var(--cozy-font-scale, 1.15)), 6.4vw, calc(28px * var(--cozy-font-scale, 1.15)))/1.05 "DM Serif Display", serif;
   letter-spacing: -.025em;
 }
 
 .atelier-account .support-faq > header p {
   margin: 2px 0 0;
   color: #7c746b;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
   line-height: 1.5;
 }
 
@@ -11010,7 +11032,7 @@ body.profile-crop-open {
   border-radius: 15px;
   background: #e9f0e6;
   color: #557050;
-  font-size: 23px;
+  font-size: calc(23px * var(--cozy-font-scale, 1.15));
   font-variation-settings: "FILL" 0, "wght" 430, "GRAD" 0, "opsz" 24;
 }
 
@@ -11028,7 +11050,7 @@ body.profile-crop-open {
 }
 
 .atelier-account .support-faq-search > .material-symbols-rounded {
-  font-size: 19px;
+  font-size: calc(19px * var(--cozy-font-scale, 1.15));
 }
 
 .atelier-account .support-faq-search input {
@@ -11039,7 +11061,7 @@ body.profile-crop-open {
   outline: 0;
   background: transparent;
   color: #292621;
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
 }
 
 .atelier-account .support-faq-search button {
@@ -11054,7 +11076,7 @@ body.profile-crop-open {
 }
 
 .atelier-account .support-faq-search button span {
-  font-size: 16px;
+  font-size: calc(16px * var(--cozy-font-scale, 1.15));
 }
 
 .atelier-account .support-faq-list {
@@ -11092,17 +11114,17 @@ body.profile-crop-open {
   border-radius: 11px;
   background: #eee9e1;
   color: #6c6358;
-  font-size: 17px;
+  font-size: calc(17px * var(--cozy-font-scale, 1.15));
 }
 
 .atelier-account .support-faq-list > article > button b {
   overflow-wrap: anywhere;
-  font-size: 9px;
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
   line-height: 1.35;
 }
 
 .atelier-account .support-faq-list > article > button > .material-symbols-rounded:last-child {
-  font-size: 17px;
+  font-size: calc(17px * var(--cozy-font-scale, 1.15));
   transition: transform 180ms ease;
 }
 
@@ -11118,7 +11140,7 @@ body.profile-crop-open {
 .atelier-account .support-faq-list > article > p {
   margin: -1px 12px 13px 55px;
   color: #6f675e;
-  font-size: 8.5px;
+  font-size: calc(8.5px * var(--cozy-font-scale, 1.15));
   line-height: 1.6;
 }
 
@@ -11132,7 +11154,7 @@ body.profile-crop-open {
   border-radius: 18px;
   color: #756d63;
   text-align: center;
-  font-size: 8px;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
 }
 
 .atelier-account .support-faq-loading i {
@@ -11145,7 +11167,7 @@ body.profile-crop-open {
 }
 
 .atelier-account .support-faq-empty .material-symbols-rounded {
-  font-size: 24px;
+  font-size: calc(24px * var(--cozy-font-scale, 1.15));
 }
 
 .atelier-account .support-faq-empty p {
@@ -11160,12 +11182,12 @@ body.profile-crop-open {
 }
 
 .atelier-account .support-faq > footer span {
-  font-size: 14px;
+  font-size: calc(14px * var(--cozy-font-scale, 1.15));
 }
 
 .atelier-account .support-faq > footer p {
   margin: 0;
-  font-size: 7px;
+  font-size: calc(7px * var(--cozy-font-scale, 1.15));
 }
 
 @keyframes cozy-faq-spin {
@@ -11173,7 +11195,7 @@ body.profile-crop-open {
 }
 
 .notifications-page .notification-mark > .material-symbols-rounded {
-  font-size: 20px;
+  font-size: calc(20px * var(--cozy-font-scale, 1.15));
   line-height: 1;
   font-variation-settings: "FILL" 0, "wght" 500, "GRAD" 0, "opsz" 24;
 }
@@ -11221,11 +11243,11 @@ body.profile-crop-open {
 
 @media (min-width: 600px) {
   .atelier-account .support-faq-list > article > button b {
-    font-size: 11px;
+    font-size: calc(11px * var(--cozy-font-scale, 1.15));
   }
 
   .atelier-account .support-faq-list > article > p {
-    font-size: 10px;
+    font-size: calc(10px * var(--cozy-font-scale, 1.15));
   }
 }
 
@@ -11251,7 +11273,7 @@ body.profile-crop-open {
   }
 
   .cozy-platform-ios .notifications-page .notification-mark > .material-symbols-rounded {
-    font-size: 20px;
+    font-size: calc(20px * var(--cozy-font-scale, 1.15));
   }
 }
 
@@ -11266,4 +11288,126 @@ body.profile-crop-open {
 .welcome-actions .auth-primary,
 .welcome-actions .auth-secondary {
   min-height: 44px;
+}
+
+/* Account accessibility controls */
+.account-text-size-card {
+  display: grid;
+  gap: 13px;
+  margin-top: 10px;
+  padding: 14px;
+  border: 1px solid #dcd4c9;
+  border-radius: 21px;
+  background: linear-gradient(145deg, #fff, #f3eee7);
+  box-shadow: 0 10px 28px rgba(64, 54, 44, .06);
+}
+
+.account-text-size-card > header {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.account-text-size-card > header > .material-symbols-rounded {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 13px;
+  background: #eee5d8;
+  color: #725f49;
+  font-size: calc(21px * var(--cozy-font-scale, 1.15));
+}
+
+.account-text-size-card > header > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.account-text-size-card > header b {
+  font-size: calc(10px * var(--cozy-font-scale, 1.15));
+}
+
+.account-text-size-card > header small {
+  color: #817970;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
+  line-height: 1.4;
+}
+
+.text-size-options {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.text-size-options button {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 4px;
+  min-width: 0;
+  min-height: 72px;
+  padding: 8px 4px;
+  border: 1px solid #ded7cd;
+  border-radius: 15px;
+  background: rgba(255, 255, 255, .72);
+  color: #575149;
+  text-align: center;
+  transition: border-color .18s ease, background .18s ease, color .18s ease, transform .18s ease;
+}
+
+.text-size-options button b {
+  font: 400 calc(18px * var(--cozy-font-scale, 1.15))/1 "DM Serif Display", serif;
+}
+
+.text-size-options button span {
+  overflow-wrap: anywhere;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.text-size-options button small {
+  color: #91887e;
+  font-size: calc(6.5px * var(--cozy-font-scale, 1.15));
+  line-height: 1.15;
+}
+
+.text-size-options button.selected {
+  border-color: #292824;
+  background: #292824;
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(41, 40, 36, .16);
+  transform: translateY(-1px);
+}
+
+.text-size-options button.selected small {
+  color: #d5cec4;
+}
+
+.account-text-size-card > p {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: #5b7354;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
+  line-height: 1.4;
+}
+
+.account-text-size-card > p .material-symbols-rounded {
+  flex: 0 0 auto;
+  font-size: calc(16px * var(--cozy-font-scale, 1.15));
+}
+
+@media (max-width: 350px) {
+  .text-size-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .text-size-options button {
+    min-height: 65px;
+  }
 }
