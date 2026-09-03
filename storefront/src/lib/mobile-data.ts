@@ -180,6 +180,58 @@ export async function loadProducts() {
   return (data || []).map(mapProduct)
 }
 
+const PROFILE_AVATAR_URL_CACHE_KEY = "cozycraft-profile-avatar-url-v1"
+const PROFILE_AVATAR_URL_LIFETIME_SECONDS = 3600
+const PROFILE_AVATAR_URL_REFRESH_BUFFER_MS = 60_000
+
+type ProfileAvatarUrlCache = {
+  path: string
+  url: string
+  expiresAt: number
+}
+
+function readProfileAvatarUrlCache(path: string): string {
+  try {
+    const value = window.sessionStorage.getItem(PROFILE_AVATAR_URL_CACHE_KEY)
+    if (!value) return ""
+    const cached = JSON.parse(value) as Partial<ProfileAvatarUrlCache>
+    if (
+      cached.path !== path
+      || typeof cached.url !== "string"
+      || !cached.url
+      || typeof cached.expiresAt !== "number"
+      || cached.expiresAt <= Date.now() + PROFILE_AVATAR_URL_REFRESH_BUFFER_MS
+    ) return ""
+    return cached.url
+  } catch {
+    return ""
+  }
+}
+
+function cacheProfileAvatarUrl(path: string, url: string) {
+  try {
+    window.sessionStorage.setItem(PROFILE_AVATAR_URL_CACHE_KEY, JSON.stringify({
+      path,
+      url,
+      expiresAt: Date.now() + PROFILE_AVATAR_URL_LIFETIME_SECONDS * 1000,
+    } satisfies ProfileAvatarUrlCache))
+  } catch {
+    // Privacy-restricted storage must not prevent the avatar from loading.
+  }
+}
+
+async function resolveProfileAvatar(source: string) {
+  if (!source || /^https?:|^data:/i.test(source)) return source
+  const cached = readProfileAvatarUrlCache(source)
+  if (cached) return cached
+  const signed = await supabase.storage
+    .from("avatars")
+    .createSignedUrl(source, PROFILE_AVATAR_URL_LIFETIME_SECONDS)
+  const url = signed.data?.signedUrl || ""
+  if (url) cacheProfileAvatarUrl(source, url)
+  return url
+}
+
 export async function loadProfile(user: User) {
   const { data, error } = await supabase
     .from("profiles")
@@ -187,11 +239,7 @@ export async function loadProfile(user: User) {
     .eq("id", user.id)
     .single()
   if (error) throw error
-  let avatar = data.avatar_url || user.user_metadata.avatar_url || ""
-  if (avatar && !/^https?:|^data:/i.test(avatar)) {
-    const signed = await supabase.storage.from("avatars").createSignedUrl(avatar, 3600)
-    avatar = signed.data?.signedUrl || ""
-  }
+  const avatar = await resolveProfileAvatar(data.avatar_url || user.user_metadata.avatar_url || "")
   return {
     name: data.username || data.full_name || user.user_metadata.full_name || "Member",
     username: data.username || "",
