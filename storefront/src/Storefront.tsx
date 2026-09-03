@@ -68,6 +68,7 @@ import {
 import { buildMobileRecommendations } from "./lib/mobile-recommendations"
 import { clearStorefrontReturnState, notificationBadgeCount, readStorefrontReturnState, rememberStorefrontReturnState } from "./lib/mobile-navigation"
 import { MOBILE_TEXT_SIZE_OPTIONS, readMobileTextSize, saveMobileTextSize, type MobileTextSize } from "./lib/mobile-text-size"
+import { normalizeMobilePushPermission, readMobilePushPermission, saveMobilePushPermission, type MobilePushPermission } from "./lib/mobile-push-permission"
 import PhoneVerificationField from "./features/profile/PhoneVerificationField"
 import { usePhoneVerification } from "./features/profile/usePhoneVerification"
 import { normalizePhilippineMobile, type VerifiedPhone } from "./features/profile/phone-verification"
@@ -650,7 +651,8 @@ export default function Storefront() {
   const [loyaltyActivity, setLoyaltyActivity] = useState<Array<Record<string, any>>>([])
   const [loyaltyRedemptions, setLoyaltyRedemptions] = useState<MobileRedemption[]>([])
   const [chatOpen, setChatOpen] = useState(false)
-  const [pushPermission, setPushPermission] = useState<"unknown" | "granted" | "denied" | "unsupported">("unknown")
+  const [pushPermission, setPushPermission] = useState<MobilePushPermission>(() => readMobilePushPermission())
+  const pushPermissionRequestPending = useRef(false)
   const [shopRoom, setShopRoom] = useState("living")
   const [shopSubcategory, setShopSubcategory] = useState("")
   const heroShowcases = useMemo(() => homepageBanners.length
@@ -679,9 +681,11 @@ export default function Storefront() {
   const requestPushPermission = () => {
     if (window.parent === window) {
       setPushPermission("unsupported")
+      saveMobilePushPermission("unsupported")
       flash("Notifications are available in the installed CozyCraft app.")
       return
     }
+    pushPermissionRequestPending.current = true
     window.parent.postMessage({ type: "cozycraft-request-push-permission" }, "*")
   }
 
@@ -820,16 +824,26 @@ export default function Storefront() {
         if (userId) void registerPushToken(token, platform).catch(console.error)
       }
       if (event.data?.type === "cozycraft-push-permission") {
-        const status = String(event.data.status || "unknown")
-        setPushPermission(status === "granted" ? "granted" : status === "denied" ? "denied" : status === "unsupported" ? "unsupported" : "unknown")
-        if (status === "granted") flash("Order and delivery notifications are on")
-        else if (status === "denied") flash("Notifications remain off. You can enable them in your phone settings.")
+        const status = normalizeMobilePushPermission(event.data.status)
+        setPushPermission(status)
+        saveMobilePushPermission(status)
+        if (pushPermissionRequestPending.current) {
+          pushPermissionRequestPending.current = false
+          if (status === "granted") flash("Order and delivery notifications are on")
+          else if (status === "denied") flash("Notifications remain off. You can enable them in your phone settings.")
+        }
       }
       if (event.data?.type === "cozycraft-push-received") {
         if (userId) void loadNotifications(userId).then(applyNotifications).catch(console.error)
       }
     }
     window.addEventListener("message", openNativeNotification)
+    // The native shell's iframe load event can run before React effects. Ask
+    // again only after this listener exists so a cold-start permission result
+    // cannot be lost and replaced by the default Enable button.
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: "cozycraft-request-push-permission-status" }, "*")
+    }
     return () => window.removeEventListener("message", openNativeNotification)
   }, [userId])
   useEffect(() => {

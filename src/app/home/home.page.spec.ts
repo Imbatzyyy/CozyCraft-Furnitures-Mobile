@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ElementRef } from '@angular/core';
 import { IonicModule } from '@ionic/angular';
 
 import {
@@ -117,5 +118,25 @@ describe('HomePage', () => {
     expect(nativePaymentReturnUrl('order id/123', 'success')).toBe(
       'com.cozycraft.furniture://payment/return?payment=success&order=order%20id%2F123',
     );
+  });
+
+  it('answers the storefront permission handshake after its listener is ready', async () => {
+    const iframe = document.createElement('iframe');
+    document.body.appendChild(iframe);
+    const storefrontWindow = iframe.contentWindow;
+    expect(storefrontWindow).not.toBeNull();
+    component.storefront = new ElementRef<HTMLIFrameElement>(iframe);
+    const permissionBridge = component as unknown as {
+      deliverPushPermission: () => Promise<void>;
+    };
+    const deliverPermission = spyOn(permissionBridge, 'deliverPushPermission').and.resolveTo();
+
+    await component.onMessage(new MessageEvent('message', {
+      data: { type: 'cozycraft-request-push-permission-status' },
+      source: storefrontWindow!,
+    }));
+
+    expect(deliverPermission).toHaveBeenCalledTimes(1);
+    iframe.remove();
   });
 });

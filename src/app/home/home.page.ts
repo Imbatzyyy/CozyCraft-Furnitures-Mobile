@@ -366,6 +366,9 @@ export class HomePage implements AfterViewInit {
     });
     void App.addListener('appStateChange', ({ isActive }) => {
       if (isActive) this.storefront?.nativeElement.contentWindow?.postMessage({ type: 'cozycraft-native-app-active' }, '*');
+      if (isActive) void this.deliverPushPermission().catch((error) => {
+        console.error('Unable to refresh notification permission', error);
+      });
       if (isActive && this.pendingAppUrl) this.deliverAppUrl(this.pendingAppUrl);
       if (isActive && this.pendingPaymongoOrderId) this.schedulePaymentMonitor(0);
     });
@@ -390,6 +393,13 @@ export class HomePage implements AfterViewInit {
 
   @HostListener('window:message', ['$event'])
   async onMessage(event: MessageEvent) {
+    if (event.data?.type === 'cozycraft-request-push-permission-status') {
+      if (event.source !== this.storefront?.nativeElement.contentWindow) return;
+      await this.deliverPushPermission().catch((error) => {
+        console.error('Unable to deliver notification permission', error);
+      });
+      return;
+    }
     if (event.data?.type === 'cozycraft-request-push-permission') {
       if (event.source !== this.storefront?.nativeElement.contentWindow) return;
       await this.registerForPushNotifications().catch((error) => {
