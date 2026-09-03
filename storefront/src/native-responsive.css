@@ -10469,20 +10469,47 @@ body.profile-crop-open {
   font-style: normal;
 }
 
-.mobile-ai-chat .ai-order-link {
-  display: flex;
+.mobile-ai-chat .ai-navigation-action {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 22px;
   align-items: center;
-  justify-content: space-between;
+  gap: 10px;
   width: 100%;
-  min-height: 50px;
-  margin-top: 13px;
-  padding: 14px 16px;
-  border-radius: 16px;
+  min-height: 54px;
+  margin-top: 1px;
+  padding: 9px 11px;
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 15px;
   background: #292824;
   color: #fff;
   font-size: calc(11px * var(--cozy-font-scale, 1.15));
   font-weight: 720;
   text-align: left;
+  box-shadow: 0 8px 18px rgba(41, 40, 36, .14);
+}
+
+.mobile-ai-chat .ai-navigation-action > span {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, .1);
+  font-size: calc(18px * var(--cozy-font-scale, 1.15));
+}
+
+.mobile-ai-chat .ai-navigation-action > b {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.mobile-ai-chat .ai-navigation-action > i {
+  font-size: calc(17px * var(--cozy-font-scale, 1.15));
+  font-style: normal;
+}
+
+.mobile-ai-chat .ai-navigation-action:active {
+  transform: scale(.985);
 }
 
 .mobile-ai-chat .ai-error {

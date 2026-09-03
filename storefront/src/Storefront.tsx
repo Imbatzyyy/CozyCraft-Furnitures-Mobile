@@ -70,7 +70,14 @@ import { buildMobileRecommendations } from "./lib/mobile-recommendations"
 import { clearStorefrontReturnState, notificationBadgeCount, readStorefrontReturnState, rememberStorefrontReturnState } from "./lib/mobile-navigation"
 import { MOBILE_TEXT_SIZE_OPTIONS, readMobileTextSize, saveMobileTextSize, type MobileTextSize } from "./lib/mobile-text-size"
 import { normalizeMobilePushPermission, readMobilePushPermission, saveMobilePushPermission, type MobilePushPermission } from "./lib/mobile-push-permission"
-import { formatMobileAssistantReply, mobileAssistantResponseKind } from "./lib/mobile-chat"
+import {
+  formatMobileAssistantReply,
+  mobileAssistantGuidanceFor,
+  mobileAssistantNavigationFor,
+  mobileAssistantResponseKind,
+  type MobileAssistantDestination,
+  type MobileAssistantNavigation,
+} from "./lib/mobile-chat"
 import PhoneVerificationField from "./features/profile/PhoneVerificationField"
 import { usePhoneVerification } from "./features/profile/usePhoneVerification"
 import { normalizePhilippineMobile, type VerifiedPhone } from "./features/profile/phone-verification"
@@ -556,6 +563,7 @@ export default function Storefront() {
   const [returnState] = useState(readStorefrontReturnState)
   const [textSize, setTextSize] = useState<MobileTextSize>(readMobileTextSize)
   const [tab, setTab] = useState(returnState?.tab || "home")
+  const [assistantAccountView, setAssistantAccountView] = useState<"orders" | "addresses" | "payments" | "support" | null>(null)
   const [navGlassIndex, setNavGlassIndex] = useState(returnState?.tab === "account" ? 4 : 2)
   const [navGlassPosition, setNavGlassPosition] = useState(returnState?.tab === "account" ? 90 : 50)
   const [navGlassScrubbing, setNavGlassScrubbing] = useState(false)
@@ -1566,6 +1574,31 @@ export default function Storefront() {
     setTab(destination)
   }
 
+  const openAssistantDestination = (destination: MobileAssistantDestination) => {
+    if (["orders", "addresses", "payments", "support"].includes(destination)) {
+      setAssistantAccountView(destination as "orders" | "addresses" | "payments" | "support")
+      navigateTo("account")
+      return
+    }
+    if (destination === "membership") {
+      navigateTo("account")
+      setMembershipOpen(true)
+      return
+    }
+    if (destination === "notifications") {
+      navigateTo("account")
+      setNotificationsOpen(true)
+      return
+    }
+    if (["about", "contact", "terms", "privacy"].includes(destination)) {
+      const scrollTop = document.querySelector<HTMLElement>(".lux-body")?.scrollTop || 0
+      rememberStorefrontReturnState(scrollTop, unreadNotificationCount)
+      window.location.hash = `#/${destination === "privacy" ? "privacy-policy" : destination}`
+      return
+    }
+    navigateTo(destination)
+  }
+
   useEffect(() => {
     if (navGlassPointer.current || navGlassTouch.current) return
     const activeIndex = nav.indexOf(tab)
@@ -2108,6 +2141,8 @@ export default function Storefront() {
                   } : line),
                 })))
               }}
+              initialView={assistantAccountView}
+              onInitialViewHandled={() => setAssistantAccountView(null)}
             />
           )}
         </section>
@@ -2185,7 +2220,7 @@ export default function Storefront() {
           products={products}
           onOpenChange={setChatOpen}
           openProduct={(product) => openProduct(product)}
-          openOrders={() => navigateTo("account")}
+          openDestination={openAssistantDestination}
         />
         {notificationsOpen && (
           <NotificationsPage
@@ -2411,19 +2446,34 @@ export default function Storefront() {
     </main>
   )
 }
-type MobileChatMessage = { id: string; role: "user" | "assistant"; content: string; createdAt: string }
+type MobileChatMessage = {
+  id: string
+  role: "user" | "assistant"
+  content: string
+  createdAt: string
+  navigation?: MobileAssistantNavigation
+}
 
-function createMobileChatMessage(role: MobileChatMessage["role"], content: string): MobileChatMessage {
+function createMobileChatMessage(
+  role: MobileChatMessage["role"],
+  content: string,
+  navigation?: MobileAssistantNavigation | null,
+): MobileChatMessage {
   const createdAt = new Date().toISOString()
   return {
     id: globalThis.crypto?.randomUUID?.() || `${createdAt}-${Math.random().toString(36).slice(2)}`,
     role,
     content,
     createdAt,
+    ...(navigation ? { navigation } : {}),
   }
 }
 
-function AssistantReply({ content }: { content: string }) {
+function AssistantReply({ content, navigation, navigate }: {
+  content: string
+  navigation?: MobileAssistantNavigation
+  navigate: (destination: MobileAssistantDestination) => void
+}) {
   return <div className="ai-message-content">
     {formatMobileAssistantReply(content).map((block, index) => block.type === "paragraph"
       ? <p key={`paragraph-${index}`}>{block.text}</p>
@@ -2431,15 +2481,20 @@ function AssistantReply({ content }: { content: string }) {
           <small><span className="material-symbols-rounded" aria-hidden="true">route</span> WHERE TO GO</small>
           <ol>{block.items.map((item, step) => <li key={`${step}-${item}`}><b>{step + 1}</b><span>{item}</span></li>)}</ol>
         </section>)}
+    {navigation && <button type="button" className="ai-navigation-action" onClick={() => navigate(navigation.destination)}>
+      <span className="material-symbols-rounded" aria-hidden="true">{navigation.icon}</span>
+      <b>{navigation.label}</b>
+      <i className="material-symbols-rounded" aria-hidden="true">arrow_forward</i>
+    </button>}
   </div>
 }
 
-function MobileCareChat({ available, userId, products, openProduct, openOrders, onOpenChange }: {
+function MobileCareChat({ available, userId, products, openProduct, openDestination, onOpenChange }: {
   available: boolean
   userId: string
   products: Product[]
   openProduct: (product: Product) => void
-  openOrders: () => void
+  openDestination: (destination: MobileAssistantDestination) => void
   onOpenChange: (open: boolean) => void
 }) {
   const [open, setOpen] = useState(false)
@@ -2500,11 +2555,18 @@ function MobileCareChat({ available, userId, products, openProduct, openOrders, 
     setSending(true)
     if (feedback === "not-helpful") setFeedback("closed")
     setMessages((current) => [...current, createMobileChatMessage("user", message)])
+    const directGuidance = mobileAssistantGuidanceFor(message, Boolean(userId))
+    if (directGuidance) {
+      setMessages((current) => [...current, createMobileChatMessage("assistant", directGuidance.reply, directGuidance.navigation)])
+      setSending(false)
+      return
+    }
     try {
       const { data, error: invokeError } = await supabase.functions.invoke("cozycraft-assistant", { body: { message, history, client: "mobile" } })
       if (invokeError) throw invokeError
       if (typeof data?.reply !== "string" || !data.reply.trim()) throw new Error(data?.error || "Cozy returned an empty response.")
-      setMessages((current) => [...current, createMobileChatMessage("assistant", data.reply.trim())])
+      const navigation = mobileAssistantNavigationFor(message, Boolean(userId))
+      setMessages((current) => [...current, createMobileChatMessage("assistant", data.reply.trim(), navigation)])
     } catch (requestError) {
       console.error(requestError)
       setError(navigator.onLine ? "Cozy couldn’t respond just now. Please try again." : "You’re offline. Reconnect and try sending again.")
@@ -2549,10 +2611,9 @@ function MobileCareChat({ available, userId, products, openProduct, openOrders, 
         {isNewConversation && <section className="ai-quick-prompts" aria-label="Popular ways CozyCraft Care can help"><p className="hello">HOW CAN WE HELP?</p><div>{quickPrompts.map((prompt) => <button type="button" key={prompt.label} disabled={sending} onClick={() => void send(prompt.label)}><span className="material-symbols-rounded" aria-hidden="true">{prompt.icon}</span><b>{prompt.label}</b><i className="material-symbols-rounded" aria-hidden="true">arrow_forward</i></button>)}</div></section>}
         <section className={`ai-conversation ${isNewConversation ? "is-new" : ""}`} aria-label="Conversation">
           {!isNewConversation && <p className="hello ai-conversation-label">YOUR CONVERSATION</p>}
-          <div className="ai-message-list" aria-live="polite">{messages.map((message) => <article className={message.role} key={message.id}><header>{message.role === "assistant" && <span aria-hidden="true">C</span>}<small>{message.role === "assistant" ? "CozyCraft Care" : "You"}</small><time>{new Date(message.createdAt).toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" })}</time></header>{message.role === "assistant" ? <AssistantReply content={message.content}/> : <p>{message.content}</p>}</article>)}{sending && <article className="assistant typing"><header><span aria-hidden="true">C</span><small>CozyCraft Care</small></header><p aria-label="CozyCraft Care is replying"><i/><i/><i/></p></article>}</div>
+          <div className="ai-message-list" aria-live="polite">{messages.map((message) => <article className={message.role} key={message.id}><header>{message.role === "assistant" && <span aria-hidden="true">C</span>}<small>{message.role === "assistant" ? "CozyCraft Care" : "You"}</small><time>{new Date(message.createdAt).toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" })}</time></header>{message.role === "assistant" ? <AssistantReply content={message.content} navigation={messages.at(-1)?.id === message.id && message.id === latestAssistant?.id ? message.navigation : undefined} navigate={(destination) => { setOpen(false); openDestination(destination) }}/> : <p>{message.content}</p>}</article>)}{sending && <article className="assistant typing"><header><span aria-hidden="true">C</span><small>CozyCraft Care</small></header><p aria-label="CozyCraft Care is replying"><i/><i/><i/></p></article>}</div>
         </section>
         {recommended.length > 0 && <section className="ai-product-rail"><p className="hello">PIECES MENTIONED</p><div>{recommended.map((product) => <button key={product.id} onClick={() => { setOpen(false); openProduct(product) }}><img src={product.image} alt=""/><span><b>{product.name}</b><small>{product.price}</small></span><i>→</i></button>)}</div></section>}
-        {messages.some((message) => /order|track|delivery status/i.test(message.content)) && userId && <button className="ai-order-link" onClick={() => { setOpen(false); openOrders() }}>Open my orders <b>→</b></button>}
         {feedbackEligible && <section className={`ai-feedback ${feedback}`} aria-live="polite">
           {feedback === "pending" && <><div><small>ONE QUICK CHECK</small><b>Was this answer helpful?</b></div><nav aria-label="Rate this CozyCraft Care answer"><button type="button" onClick={() => rateAssistant(true)}><span className="material-symbols-rounded" aria-hidden="true">thumb_up</span>Yes</button><button type="button" onClick={() => rateAssistant(false)}><span className="material-symbols-rounded" aria-hidden="true">thumb_down</span>Not really</button></nav></>}
           {feedback === "helpful" && <p><span className="material-symbols-rounded" aria-hidden="true">check_circle</span><b>Thank you for letting us know.</b></p>}
@@ -3021,6 +3082,8 @@ function Account({
   shop,
   openMembership,
   reviewPublished,
+  initialView,
+  onInitialViewHandled,
 }: {
   userId: string
   flash: (s: string) => void
@@ -3043,6 +3106,8 @@ function Account({
   shop: () => void
   openMembership: () => void
   reviewPublished: (orderItemId: number, review: any) => void
+  initialView: "orders" | "addresses" | "payments" | "support" | null
+  onInitialViewHandled: () => void
 }) {
   const [view, setView] = useState<string | null>(null)
   const [confirmSignOut, setConfirmSignOut] = useState(false)
@@ -3082,6 +3147,11 @@ function Account({
   const [faqLoading, setFaqLoading] = useState(false)
   const [faqQuery, setFaqQuery] = useState("")
   const [openFaq, setOpenFaq] = useState<number | null>(0)
+  useEffect(() => {
+    if (!initialView) return
+    setView(initialView)
+    onInitialViewHandled()
+  }, [initialView, onInitialViewHandled])
   useEffect(() => {
     const open = Boolean(reviewLine || reviewSuccess)
     document.documentElement.classList.toggle("review-dialog-open", open)
