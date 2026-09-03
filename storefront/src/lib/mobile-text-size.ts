@@ -1,8 +1,8 @@
 export const MOBILE_TEXT_SIZE_OPTIONS = [
-  { id: "standard", label: "Standard", scale: 1, note: "Original size" },
-  { id: "comfortable", label: "Comfortable", scale: 1.15, note: "Recommended" },
-  { id: "large", label: "Large", scale: 1.25, note: "Easier reading" },
-  { id: "extra-large", label: "Extra large", scale: 1.4, note: "Maximum clarity" },
+  { id: "standard", label: "Standard", scale: 1, layoutScale: 1, note: "Original size" },
+  { id: "comfortable", label: "Comfortable", scale: 1.15, layoutScale: 1.08, note: "Recommended" },
+  { id: "large", label: "Large", scale: 1.25, layoutScale: 1.12, note: "Easier reading" },
+  { id: "extra-large", label: "Extra large", scale: 1.4, layoutScale: 1.16, note: "Maximum clarity" },
 ] as const
 
 export type MobileTextSize = typeof MOBILE_TEXT_SIZE_OPTIONS[number]["id"]
@@ -35,13 +35,21 @@ export function mobileTextSizeScale(size: MobileTextSize) {
     ?? MOBILE_TEXT_SIZE_OPTIONS.find((option) => option.id === DEFAULT_MOBILE_TEXT_SIZE)!.scale
 }
 
+export function mobileTextLayoutScale(size: MobileTextSize) {
+  return MOBILE_TEXT_SIZE_OPTIONS.find((option) => option.id === size)?.layoutScale
+    ?? MOBILE_TEXT_SIZE_OPTIONS.find((option) => option.id === DEFAULT_MOBILE_TEXT_SIZE)!.layoutScale
+}
+
 export function applyMobileTextSize(
   size: MobileTextSize,
   root: Pick<HTMLElement, "dataset" | "style"> | null = typeof document === "undefined" ? null : document.documentElement,
 ) {
   if (!root) return
   root.dataset.cozyTextSize = size
-  root.style.setProperty("--cozy-font-scale", String(mobileTextSizeScale(size)))
+  const layoutScale = String(mobileTextLayoutScale(size))
+  root.style.setProperty("--cozy-layout-font-scale", layoutScale)
+  root.style.setProperty("--cozy-reading-font-scale", String(mobileTextSizeScale(size)))
+  root.style.setProperty("--cozy-font-scale", layoutScale)
 }
 
 export function saveMobileTextSize(

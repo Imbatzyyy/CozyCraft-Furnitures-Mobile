@@ -3,6 +3,7 @@ import {
   applyMobileTextSize,
   DEFAULT_MOBILE_TEXT_SIZE,
   MOBILE_TEXT_SIZE_STORAGE_KEY,
+  mobileTextLayoutScale,
   mobileTextSizeScale,
   readMobileTextSize,
   saveMobileTextSize,
@@ -14,6 +15,7 @@ describe("mobile text-size preference", () => {
     expect(readMobileTextSize(storage)).toBe(DEFAULT_MOBILE_TEXT_SIZE)
     expect(DEFAULT_MOBILE_TEXT_SIZE).toBe("comfortable")
     expect(mobileTextSizeScale(DEFAULT_MOBILE_TEXT_SIZE)).toBe(1.15)
+    expect(mobileTextLayoutScale(DEFAULT_MOBILE_TEXT_SIZE)).toBe(1.08)
   })
 
   it("restores a saved valid size and ignores an invalid value", () => {
@@ -24,7 +26,9 @@ describe("mobile text-size preference", () => {
   it("applies the scale without resizing the page itself", () => {
     applyMobileTextSize("extra-large", document.documentElement)
     expect(document.documentElement.dataset.cozyTextSize).toBe("extra-large")
-    expect(document.documentElement.style.getPropertyValue("--cozy-font-scale")).toBe("1.4")
+    expect(document.documentElement.style.getPropertyValue("--cozy-font-scale")).toBe("1.16")
+    expect(document.documentElement.style.getPropertyValue("--cozy-layout-font-scale")).toBe("1.16")
+    expect(document.documentElement.style.getPropertyValue("--cozy-reading-font-scale")).toBe("1.4")
   })
 
   it("persists a choice and applies it immediately", () => {

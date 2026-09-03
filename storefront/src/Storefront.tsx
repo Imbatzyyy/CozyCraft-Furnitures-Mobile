@@ -3928,36 +3928,85 @@ function TextSizePreference({
   textSize: MobileTextSize
   changeTextSize: (size: MobileTextSize) => void
 }) {
+  const [open, setOpen] = useState(false)
+  const selected = MOBILE_TEXT_SIZE_OPTIONS.find((option) => option.id === textSize)
+
+  useEffect(() => {
+    if (!open) return
+    document.documentElement.classList.add("text-size-dialog-open")
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false)
+    }
+    window.addEventListener("keydown", closeOnEscape)
+    return () => {
+      document.documentElement.classList.remove("text-size-dialog-open")
+      window.removeEventListener("keydown", closeOnEscape)
+    }
+  }, [open])
+
   return (
-    <section className="account-text-size-card" aria-labelledby="account-text-size-title">
-      <header>
+    <>
+      <button
+        type="button"
+        className="account-text-size-trigger"
+        aria-haspopup="dialog"
+        onClick={() => setOpen(true)}
+      >
         <span className="material-symbols-rounded" aria-hidden="true">text_fields</span>
         <div>
-          <b id="account-text-size-title">Text size</b>
-          <small>Choose what feels most comfortable to read.</small>
+          <b>Text size</b>
+          <small>{selected?.label || "Comfortable"} throughout the app</small>
         </div>
-      </header>
-      <div className="text-size-options" role="radiogroup" aria-label="App text size">
-        {MOBILE_TEXT_SIZE_OPTIONS.map((option) => (
-          <button
-            type="button"
-            role="radio"
-            aria-checked={textSize === option.id}
-            className={textSize === option.id ? "selected" : ""}
-            key={option.id}
-            onClick={() => changeTextSize(option.id)}
+        <em>{selected?.label || "Comfortable"}</em>
+        <span className="material-symbols-rounded" aria-hidden="true">chevron_right</span>
+      </button>
+      {open && createPortal(
+        <section className="text-size-dialog" onClick={() => setOpen(false)}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="text-size-dialog-title"
+            onClick={(event) => event.stopPropagation()}
           >
-            <b aria-hidden="true">Aa</b>
-            <span>{option.label}</span>
-            <small>{option.note}</small>
-          </button>
-        ))}
-      </div>
-      <p aria-live="polite">
-        <span className="material-symbols-rounded" aria-hidden="true">check_circle</span>
-        {MOBILE_TEXT_SIZE_OPTIONS.find((option) => option.id === textSize)?.label} is applied throughout CozyCraft.
-      </p>
-    </section>
+            <header>
+              <span className="material-symbols-rounded" aria-hidden="true">format_size</span>
+              <div>
+                <small>READING COMFORT</small>
+                <h2 id="text-size-dialog-title">Choose your text size.</h2>
+              </div>
+              <button type="button" onClick={() => setOpen(false)} aria-label="Close text size settings">
+                <span className="material-symbols-rounded" aria-hidden="true">close</span>
+              </button>
+            </header>
+            <p>Important order, checkout, delivery, and payment details receive the clearest increase. Product and display text adapts without crowding the layout.</p>
+            <div className="text-size-options" role="radiogroup" aria-label="App text size">
+              {MOBILE_TEXT_SIZE_OPTIONS.map((option) => (
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={textSize === option.id}
+                  className={textSize === option.id ? "selected" : ""}
+                  key={option.id}
+                  onClick={() => changeTextSize(option.id)}
+                >
+                  <b aria-hidden="true">Aa</b>
+                  <span><strong>{option.label}</strong><small>{option.note}</small></span>
+                  <i className="material-symbols-rounded" aria-hidden="true">
+                    {textSize === option.id ? "check_circle" : "circle"}
+                  </i>
+                </button>
+              ))}
+            </div>
+            <aside aria-live="polite">
+              <span className="material-symbols-rounded" aria-hidden="true">check_circle</span>
+              <div><b>{selected?.label} is applied</b><small>Your choice is saved on this device.</small></div>
+            </aside>
+            <button type="button" className="text-size-dialog-done" onClick={() => setOpen(false)}>Done</button>
+          </div>
+        </section>,
+        document.body,
+      )}
+    </>
   )
 }
 function ReviewerAvatar({ name, src }: { name: string; src: string }) {

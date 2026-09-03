@@ -9,23 +9,33 @@
 /* The customer controls this scale from Account. Explicit typography tokens
    resolve through it while layout dimensions remain unchanged. */
 html {
-  --cozy-font-scale: 1.15;
+  --cozy-layout-font-scale: 1.08;
+  --cozy-reading-font-scale: 1.15;
+  --cozy-font-scale: var(--cozy-layout-font-scale);
 }
 
 html[data-cozy-text-size="standard"] {
+  --cozy-layout-font-scale: 1;
+  --cozy-reading-font-scale: 1;
   --cozy-font-scale: 1;
 }
 
 html[data-cozy-text-size="comfortable"] {
-  --cozy-font-scale: 1.15;
+  --cozy-layout-font-scale: 1.08;
+  --cozy-reading-font-scale: 1.15;
+  --cozy-font-scale: var(--cozy-layout-font-scale);
 }
 
 html[data-cozy-text-size="large"] {
-  --cozy-font-scale: 1.25;
+  --cozy-layout-font-scale: 1.12;
+  --cozy-reading-font-scale: 1.25;
+  --cozy-font-scale: var(--cozy-layout-font-scale);
 }
 
 html[data-cozy-text-size="extra-large"] {
-  --cozy-font-scale: 1.4;
+  --cozy-layout-font-scale: 1.16;
+  --cozy-reading-font-scale: 1.4;
+  --cozy-font-scale: var(--cozy-layout-font-scale);
 }
 
 /* Final cross-platform override: responsive product imagery must always fill
@@ -11290,26 +11300,25 @@ body.profile-crop-open {
   min-height: 44px;
 }
 
-/* Account accessibility controls */
-.account-text-size-card {
+/* The Account row stays compact; the complete chooser opens as a focused
+   sheet so larger preview text never distorts the profile layout. */
+.account-text-size-trigger {
   display: grid;
-  gap: 13px;
+  width: 100%;
+  grid-template-columns: 40px minmax(0, 1fr) auto 20px;
+  align-items: center;
+  gap: 10px;
   margin-top: 10px;
   padding: 14px;
   border: 1px solid #dcd4c9;
   border-radius: 21px;
   background: linear-gradient(145deg, #fff, #f3eee7);
+  color: #292621;
+  text-align: left;
   box-shadow: 0 10px 28px rgba(64, 54, 44, .06);
 }
 
-.account-text-size-card > header {
-  display: grid;
-  grid-template-columns: 40px minmax(0, 1fr);
-  align-items: center;
-  gap: 10px;
-}
-
-.account-text-size-card > header > .material-symbols-rounded {
+.account-text-size-trigger > .material-symbols-rounded:first-child {
   display: grid;
   width: 40px;
   height: 40px;
@@ -11320,59 +11329,179 @@ body.profile-crop-open {
   font-size: calc(21px * var(--cozy-font-scale, 1.15));
 }
 
-.account-text-size-card > header > div {
+.account-text-size-trigger > div {
   display: grid;
   gap: 3px;
   min-width: 0;
 }
 
-.account-text-size-card > header b {
+.account-text-size-trigger b {
   font-size: calc(10px * var(--cozy-font-scale, 1.15));
 }
 
-.account-text-size-card > header small {
+.account-text-size-trigger small {
   color: #817970;
   font-size: calc(8px * var(--cozy-font-scale, 1.15));
   line-height: 1.4;
 }
 
+.account-text-size-trigger > em {
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: #e7eee2;
+  color: #587252;
+  font-size: calc(7px * var(--cozy-font-scale, 1.15));
+  font-style: normal;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.account-text-size-trigger > .material-symbols-rounded:last-child {
+  color: #817970;
+  font-size: calc(18px * var(--cozy-font-scale, 1.15));
+}
+
+.text-size-dialog {
+  position: fixed;
+  z-index: 16000;
+  inset: 0;
+  display: grid;
+  align-items: end;
+  justify-items: center;
+  padding: max(16px, env(safe-area-inset-top)) 14px max(16px, env(safe-area-inset-bottom));
+  overflow: auto;
+  background: rgba(35, 31, 27, .5);
+  -webkit-backdrop-filter: blur(16px) saturate(120%);
+  backdrop-filter: blur(16px) saturate(120%);
+  animation: cozy-fade-in .2s ease-out both;
+}
+
+.text-size-dialog > div {
+  --cozy-font-scale: var(--cozy-layout-font-scale, 1.08);
+  width: min(100%, 430px);
+  max-height: min(760px, calc(100dvh - max(32px, env(safe-area-inset-top) + env(safe-area-inset-bottom))));
+  padding: 20px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid rgba(255, 255, 255, .78);
+  border-radius: 30px;
+  background: linear-gradient(155deg, #fffdf9, #f1ebe3);
+  color: #292621;
+  box-shadow: 0 28px 80px rgba(31, 27, 23, .3);
+  animation: cozy-sheet 260ms cubic-bezier(.2, .8, .2, 1) both;
+}
+
+.text-size-dialog header {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) 40px;
+  align-items: start;
+  gap: 11px;
+}
+
+.text-size-dialog header > .material-symbols-rounded {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  border-radius: 15px;
+  background: #e9dfd0;
+  color: #735f47;
+  font-size: calc(23px * var(--cozy-layout-font-scale, 1.08));
+}
+
+.text-size-dialog header > div {
+  min-width: 0;
+}
+
+.text-size-dialog header small {
+  display: block;
+  margin-bottom: 4px;
+  color: #7e756b;
+  font-size: calc(7px * var(--cozy-layout-font-scale, 1.08));
+  font-weight: 800;
+  letter-spacing: .15em;
+}
+
+.text-size-dialog h2 {
+  margin: 0;
+  font: 400 clamp(26px, 8vw, 34px)/.98 "DM Serif Display", serif;
+  letter-spacing: -.035em;
+}
+
+.text-size-dialog header > button {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border: 1px solid #ddd5ca;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .82);
+  color: #332f2a;
+}
+
+.text-size-dialog header > button span {
+  font-size: 19px;
+}
+
+.text-size-dialog > div > p {
+  margin: 16px 0;
+  color: #746d64;
+  font-size: calc(10px * var(--cozy-layout-font-scale, 1.08));
+  line-height: 1.5;
+}
+
 .text-size-options {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 6px;
+  gap: 8px;
 }
 
 .text-size-options button {
   display: grid;
-  justify-items: center;
-  align-content: center;
-  gap: 4px;
+  width: 100%;
+  grid-template-columns: 44px minmax(0, 1fr) 22px;
+  align-items: center;
+  gap: 11px;
   min-width: 0;
-  min-height: 72px;
-  padding: 8px 4px;
+  min-height: 64px;
+  padding: 9px 12px;
   border: 1px solid #ded7cd;
-  border-radius: 15px;
+  border-radius: 18px;
   background: rgba(255, 255, 255, .72);
   color: #575149;
-  text-align: center;
+  text-align: left;
   transition: border-color .18s ease, background .18s ease, color .18s ease, transform .18s ease;
 }
 
-.text-size-options button b {
-  font: 400 calc(18px * var(--cozy-font-scale, 1.15))/1 "DM Serif Display", serif;
+.text-size-options button > b {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border-radius: 14px;
+  background: #eee7de;
+  font: 400 calc(18px * var(--cozy-layout-font-scale, 1.08))/1 "DM Serif Display", serif;
 }
 
-.text-size-options button span {
-  overflow-wrap: anywhere;
-  font-size: calc(8px * var(--cozy-font-scale, 1.15));
-  font-weight: 800;
-  line-height: 1.15;
+.text-size-options button > span {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.text-size-options button strong {
+  font-size: calc(10px * var(--cozy-layout-font-scale, 1.08));
 }
 
 .text-size-options button small {
   color: #91887e;
-  font-size: calc(6.5px * var(--cozy-font-scale, 1.15));
-  line-height: 1.15;
+  font-size: calc(8px * var(--cozy-layout-font-scale, 1.08));
+  line-height: 1.25;
+}
+
+.text-size-options button > i {
+  color: #a39a90;
+  font-size: 20px;
+  font-style: normal;
 }
 
 .text-size-options button.selected {
@@ -11383,31 +11512,252 @@ body.profile-crop-open {
   transform: translateY(-1px);
 }
 
+.text-size-options button.selected > b {
+  background: rgba(255, 255, 255, .12);
+}
+
 .text-size-options button.selected small {
   color: #d5cec4;
 }
 
-.account-text-size-card > p {
-  display: flex;
+.text-size-options button.selected > i {
+  color: #dbe7d6;
+}
+
+.text-size-dialog aside {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
   align-items: center;
-  gap: 6px;
-  margin: 0;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: #e7eee2;
   color: #5b7354;
-  font-size: calc(8px * var(--cozy-font-scale, 1.15));
-  line-height: 1.4;
 }
 
-.account-text-size-card > p .material-symbols-rounded {
-  flex: 0 0 auto;
-  font-size: calc(16px * var(--cozy-font-scale, 1.15));
+.text-size-dialog aside > .material-symbols-rounded {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, .72);
+  font-size: 18px;
 }
 
-@media (max-width: 350px) {
-  .text-size-options {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+.text-size-dialog aside > div {
+  display: grid;
+  gap: 2px;
+}
+
+.text-size-dialog aside b {
+  font-size: calc(9px * var(--cozy-layout-font-scale, 1.08));
+}
+
+.text-size-dialog aside small {
+  color: #72816d;
+  font-size: calc(7.5px * var(--cozy-layout-font-scale, 1.08));
+}
+
+.text-size-dialog-done {
+  width: 100%;
+  min-height: 50px;
+  margin-top: 12px;
+  border: 0;
+  border-radius: 17px;
+  background: #27241f;
+  color: #fff;
+  font-size: calc(10px * var(--cozy-layout-font-scale, 1.08));
+  font-weight: 800;
+}
+
+html.text-size-dialog-open .lux-body {
+  overflow: hidden;
+}
+
+@media (max-width: 350px), (max-height: 680px) {
+  .text-size-dialog > div {
+    padding: 16px;
+    border-radius: 25px;
+  }
+
+  .text-size-dialog h2 {
+    font-size: 26px;
+  }
+
+  .text-size-dialog > div > p {
+    display: none;
   }
 
   .text-size-options button {
-    min-height: 65px;
+    min-height: 56px;
+  }
+
+  .text-size-dialog aside {
+    margin-top: 9px;
+  }
+}
+
+/* Reading priority system. Commerce copy receives the full selected increase;
+   the rest of the storefront uses the gentler layout-safe scale above. */
+:is(
+  .atelier-bag,
+  .checkout-page,
+  .payment-returning,
+  .order-summary-card,
+  .order-detail-portal,
+  .order-review-dialog,
+  .order-review-success,
+  .order-return-dialog,
+  .order-return-success,
+  .order-cancel-dialog,
+  .order-cancellation-success,
+  .order-complete,
+  .mobile-address-workspace,
+  .mobile-payment-workspace
+) {
+  --cozy-font-scale: var(--cozy-reading-font-scale, 1.15);
+}
+
+/* Symbols and editorial headlines remain layout-sized even inside commerce
+   flows. The meaningful labels and values around them still use full scale. */
+:is(
+  .atelier-bag,
+  .checkout-page,
+  .payment-returning,
+  .order-summary-card,
+  .order-detail-portal,
+  .order-review-dialog,
+  .order-review-success,
+  .order-return-dialog,
+  .order-return-success,
+  .order-cancel-dialog,
+  .order-cancellation-success,
+  .order-complete,
+  .mobile-address-workspace,
+  .mobile-payment-workspace
+) .material-symbols-rounded,
+.checkout-panel > h1,
+.order-detail-hero h2,
+.order-review-intro h4,
+.order-review-success h3,
+.order-return-dialog h3,
+.order-return-success h3,
+.order-cancel-dialog h3,
+.order-cancellation-success h3,
+.order-complete h1 {
+  --cozy-font-scale: var(--cozy-layout-font-scale, 1.08);
+}
+
+/* Content is allowed to grow vertically. These grids collapse before large
+   text can collide with prices, statuses, addresses, or action controls. */
+.checkout-contact,
+.delivery-option,
+.payment-options button,
+.order-summary-card,
+.order-detail-products article,
+.checkout-items article {
+  height: auto;
+}
+
+.checkout-contact div,
+.delivery-option div,
+.payment-options button div,
+.checkout-items article div,
+.order-detail-products article > div {
+  overflow: visible;
+}
+
+.checkout-contact b,
+.delivery-option b,
+.payment-options button b,
+.order-summary-card b,
+.order-detail-products b,
+.checkout-items b,
+.checkout-items strong {
+  overflow-wrap: anywhere;
+}
+
+.checkout-progress small,
+.order-detail-status {
+  line-height: 1.25;
+}
+
+.checkout-footer {
+  display: grid;
+  grid-template-columns: minmax(76px, auto) auto minmax(0, 1fr);
+}
+
+.checkout-footer > div {
+  grid-column: 1;
+}
+
+.checkout-back {
+  grid-column: 2;
+}
+
+.checkout-next {
+  grid-column: 3;
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.checkout-footer strong {
+  white-space: nowrap;
+}
+
+@media (max-width: 430px) {
+  html:is([data-cozy-text-size="large"], [data-cozy-text-size="extra-large"]) .atelier-account .order-detail-products article,
+  html:is([data-cozy-text-size="large"], [data-cozy-text-size="extra-large"]) .atelier-account .order-detail-products article.reviewable,
+  html:is([data-cozy-text-size="large"], [data-cozy-text-size="extra-large"]) .checkout-items article {
+    grid-template-columns: 62px minmax(0, 1fr);
+  }
+
+  html:is([data-cozy-text-size="large"], [data-cozy-text-size="extra-large"]) .atelier-account .order-detail-products article > strong,
+  html:is([data-cozy-text-size="large"], [data-cozy-text-size="extra-large"]) .checkout-items article > strong {
+    grid-column: 2;
+    grid-row: auto;
+    padding-top: 0;
+    text-align: left;
+  }
+
+  html:is([data-cozy-text-size="large"], [data-cozy-text-size="extra-large"]) .atelier-account .order-detail-meta {
+    grid-template-columns: 1fr;
+  }
+
+  html:is([data-cozy-text-size="large"], [data-cozy-text-size="extra-large"]) .atelier-account .order-detail-meta .order-detail-address {
+    grid-row: auto;
+    min-height: 0;
+  }
+
+  html:is([data-cozy-text-size="large"], [data-cozy-text-size="extra-large"]) .atelier-account .order-detail-meta p {
+    min-height: 0;
+  }
+
+  html:is([data-cozy-text-size="large"], [data-cozy-text-size="extra-large"]) .checkout-delivery-promise {
+    grid-template-columns: 42px minmax(0, 1fr);
+  }
+
+  html:is([data-cozy-text-size="large"], [data-cozy-text-size="extra-large"]) .checkout-delivery-promise > strong {
+    grid-column: 2;
+    text-align: left;
+  }
+}
+
+@media (max-width: 359px) {
+  .account-text-size-trigger {
+    grid-template-columns: 38px minmax(0, 1fr) 18px;
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .account-text-size-trigger > em {
+    display: none;
+  }
+
+  .checkout-footer {
+    grid-template-columns: minmax(70px, auto) auto minmax(0, 1fr);
   }
 }
