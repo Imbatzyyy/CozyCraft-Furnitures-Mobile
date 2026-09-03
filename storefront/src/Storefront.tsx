@@ -49,6 +49,7 @@ import {
   stageReviewImage,
   submitReview,
   submitMobileReturnRequest,
+  submitMobileAssistantFeedback,
   toggleWishlist,
   upsertCart,
   type MobileRedemption,
@@ -69,6 +70,7 @@ import { buildMobileRecommendations } from "./lib/mobile-recommendations"
 import { clearStorefrontReturnState, notificationBadgeCount, readStorefrontReturnState, rememberStorefrontReturnState } from "./lib/mobile-navigation"
 import { MOBILE_TEXT_SIZE_OPTIONS, readMobileTextSize, saveMobileTextSize, type MobileTextSize } from "./lib/mobile-text-size"
 import { normalizeMobilePushPermission, readMobilePushPermission, saveMobilePushPermission, type MobilePushPermission } from "./lib/mobile-push-permission"
+import { formatMobileAssistantReply, mobileAssistantResponseKind } from "./lib/mobile-chat"
 import PhoneVerificationField from "./features/profile/PhoneVerificationField"
 import { usePhoneVerification } from "./features/profile/usePhoneVerification"
 import { normalizePhilippineMobile, type VerifiedPhone } from "./features/profile/phone-verification"
@@ -2177,13 +2179,14 @@ export default function Storefront() {
             </button>
           ))}
         </nav>}
-        {!detail && !compareOpen && !search && <MobileCareChat
+        <MobileCareChat
+          available={!detail && !compareOpen && !search}
           userId={userId}
           products={products}
           onOpenChange={setChatOpen}
           openProduct={(product) => openProduct(product)}
           openOrders={() => navigateTo("account")}
-        />}
+        />
         {notificationsOpen && (
           <NotificationsPage
             items={notifications}
@@ -2408,9 +2411,31 @@ export default function Storefront() {
     </main>
   )
 }
-type MobileChatMessage = { role: "user" | "assistant"; content: string; createdAt: string }
+type MobileChatMessage = { id: string; role: "user" | "assistant"; content: string; createdAt: string }
 
-function MobileCareChat({ userId, products, openProduct, openOrders, onOpenChange }: {
+function createMobileChatMessage(role: MobileChatMessage["role"], content: string): MobileChatMessage {
+  const createdAt = new Date().toISOString()
+  return {
+    id: globalThis.crypto?.randomUUID?.() || `${createdAt}-${Math.random().toString(36).slice(2)}`,
+    role,
+    content,
+    createdAt,
+  }
+}
+
+function AssistantReply({ content }: { content: string }) {
+  return <div className="ai-message-content">
+    {formatMobileAssistantReply(content).map((block, index) => block.type === "paragraph"
+      ? <p key={`paragraph-${index}`}>{block.text}</p>
+      : <section className="ai-direction-card" key={`directions-${index}`} aria-label="Directions">
+          <small><span className="material-symbols-rounded" aria-hidden="true">route</span> WHERE TO GO</small>
+          <ol>{block.items.map((item, step) => <li key={`${step}-${item}`}><b>{step + 1}</b><span>{item}</span></li>)}</ol>
+        </section>)}
+  </div>
+}
+
+function MobileCareChat({ available, userId, products, openProduct, openOrders, onOpenChange }: {
+  available: boolean
   userId: string
   products: Product[]
   openProduct: (product: Product) => void
@@ -2421,7 +2446,8 @@ function MobileCareChat({ userId, products, openProduct, openOrders, onOpenChang
   const [draft, setDraft] = useState("")
   const [sending, setSending] = useState(false)
   const [error, setError] = useState("")
-  const [messages, setMessages] = useStoredState<MobileChatMessage[]>(`cozycraft-mobile-chat-${userId || "guest"}`, [{ role: "assistant", content: "Welcome to CozyCraft Care. Tell me what you’re looking for, or ask about an order, delivery, or your account.", createdAt: new Date().toISOString() }])
+  const [messages, setMessages] = useState<MobileChatMessage[]>(() => [createMobileChatMessage("assistant", "Welcome to CozyCraft Care. Tell me what you’re looking for, or ask about an order, delivery, or your account.")])
+  const [feedback, setFeedback] = useState<"pending" | "helpful" | "not-helpful" | "closed">("pending")
   const endRef = useRef<HTMLDivElement | null>(null)
   const draftRef = useRef<HTMLTextAreaElement | null>(null)
   const quickPrompts = [
@@ -2434,6 +2460,18 @@ function MobileCareChat({ userId, products, openProduct, openOrders, onOpenChang
     const latest = [...messages].reverse().find((message) => message.role === "assistant")?.content.toLowerCase() || ""
     return products.filter((product) => latest.includes(product.name.toLowerCase())).slice(0, 3)
   }, [messages, products])
+  useEffect(() => {
+    // Conversations are intentionally session-only. Remove chat history written
+    // by earlier app versions so a relaunch never restores stale customer text.
+    try {
+      Object.keys(window.localStorage)
+        .filter((key) => key.startsWith("cozycraft-mobile-chat-"))
+        .forEach((key) => window.localStorage.removeItem(key))
+    } catch {
+      // Storage may be unavailable in private browsing; the in-memory chat still
+      // starts fresh and remains fully usable for the current app session.
+    }
+  }, [])
   useEffect(() => {
     if (!open) return
     const frame = window.requestAnimationFrame(() => endRef.current?.scrollIntoView({
@@ -2460,12 +2498,13 @@ function MobileCareChat({ userId, products, openProduct, openOrders, onOpenChang
     setDraft("")
     setError("")
     setSending(true)
-    setMessages((current) => [...current, { role: "user", content: message, createdAt: new Date().toISOString() }])
+    if (feedback === "not-helpful") setFeedback("closed")
+    setMessages((current) => [...current, createMobileChatMessage("user", message)])
     try {
       const { data, error: invokeError } = await supabase.functions.invoke("cozycraft-assistant", { body: { message, history, client: "mobile" } })
       if (invokeError) throw invokeError
       if (typeof data?.reply !== "string" || !data.reply.trim()) throw new Error(data?.error || "Cozy returned an empty response.")
-      setMessages((current) => [...current, { role: "assistant", content: data.reply.trim(), createdAt: new Date().toISOString() }])
+      setMessages((current) => [...current, createMobileChatMessage("assistant", data.reply.trim())])
     } catch (requestError) {
       console.error(requestError)
       setError(navigator.onLine ? "Cozy couldn’t respond just now. Please try again." : "You’re offline. Reconnect and try sending again.")
@@ -2474,11 +2513,31 @@ function MobileCareChat({ userId, products, openProduct, openOrders, onOpenChang
   const resetConversation = () => {
     setError("")
     setDraft("")
-    setMessages([{ role: "assistant", content: "A fresh start. How can CozyCraft Care help with your home today?", createdAt: new Date().toISOString() }])
+    setFeedback("pending")
+    setMessages([createMobileChatMessage("assistant", "A fresh start. How can CozyCraft Care help with your home today?")])
   }
   const isNewConversation = messages.length === 1 && messages[0]?.role === "assistant"
+  const latestAssistant = [...messages].reverse().find((message) => message.role === "assistant")
+  const feedbackEligible = !sending && feedback !== "closed" && !isNewConversation && messages.at(-1)?.role === "assistant"
+  const rateAssistant = (helpful: boolean) => {
+    if (!latestAssistant || feedback !== "pending") return
+    setFeedback(helpful ? "helpful" : "not-helpful")
+    if (userId) {
+      void submitMobileAssistantFeedback({
+        userId,
+        responseId: latestAssistant.id,
+        helpful,
+        responseKind: mobileAssistantResponseKind(latestAssistant.content),
+      }).catch((feedbackError) => console.warn("Unable to save assistant feedback", feedbackError))
+    }
+  }
+  useEffect(() => {
+    if (feedback !== "helpful") return
+    const timer = window.setTimeout(() => setFeedback("closed"), 2_600)
+    return () => window.clearTimeout(timer)
+  }, [feedback])
   return <>
-    {!open && <button className="mobile-ai-launcher" onClick={() => setOpen(true)} aria-label="Open CozyCraft Care"><span className="material-symbols-rounded">chat_bubble</span><i/><b>Care</b></button>}
+    {!open && available && <button className="mobile-ai-launcher" onClick={() => setOpen(true)} aria-label="Open CozyCraft Care"><span className="material-symbols-rounded">chat_bubble</span><i/><b>Care</b></button>}
     {open && <section className="mobile-ai-chat" role="dialog" aria-modal="true" aria-label="CozyCraft customer care chat">
       <header>
         <button onClick={() => setOpen(false)} aria-label="Minimize CozyCraft Care"><span className="material-symbols-rounded">keyboard_arrow_down</span></button>
@@ -2490,10 +2549,15 @@ function MobileCareChat({ userId, products, openProduct, openOrders, onOpenChang
         {isNewConversation && <section className="ai-quick-prompts" aria-label="Popular ways CozyCraft Care can help"><p className="hello">HOW CAN WE HELP?</p><div>{quickPrompts.map((prompt) => <button type="button" key={prompt.label} disabled={sending} onClick={() => void send(prompt.label)}><span className="material-symbols-rounded" aria-hidden="true">{prompt.icon}</span><b>{prompt.label}</b><i className="material-symbols-rounded" aria-hidden="true">arrow_forward</i></button>)}</div></section>}
         <section className={`ai-conversation ${isNewConversation ? "is-new" : ""}`} aria-label="Conversation">
           {!isNewConversation && <p className="hello ai-conversation-label">YOUR CONVERSATION</p>}
-          <div className="ai-message-list" aria-live="polite">{messages.map((message, index) => <article className={message.role} key={`${message.createdAt}-${index}`}><header>{message.role === "assistant" && <span aria-hidden="true">C</span>}<small>{message.role === "assistant" ? "CozyCraft Care" : "You"}</small><time>{new Date(message.createdAt).toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" })}</time></header><p>{message.content}</p></article>)}{sending && <article className="assistant typing"><header><span aria-hidden="true">C</span><small>CozyCraft Care</small></header><p aria-label="CozyCraft Care is replying"><i/><i/><i/></p></article>}</div>
+          <div className="ai-message-list" aria-live="polite">{messages.map((message) => <article className={message.role} key={message.id}><header>{message.role === "assistant" && <span aria-hidden="true">C</span>}<small>{message.role === "assistant" ? "CozyCraft Care" : "You"}</small><time>{new Date(message.createdAt).toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" })}</time></header>{message.role === "assistant" ? <AssistantReply content={message.content}/> : <p>{message.content}</p>}</article>)}{sending && <article className="assistant typing"><header><span aria-hidden="true">C</span><small>CozyCraft Care</small></header><p aria-label="CozyCraft Care is replying"><i/><i/><i/></p></article>}</div>
         </section>
         {recommended.length > 0 && <section className="ai-product-rail"><p className="hello">PIECES MENTIONED</p><div>{recommended.map((product) => <button key={product.id} onClick={() => { setOpen(false); openProduct(product) }}><img src={product.image} alt=""/><span><b>{product.name}</b><small>{product.price}</small></span><i>→</i></button>)}</div></section>}
         {messages.some((message) => /order|track|delivery status/i.test(message.content)) && userId && <button className="ai-order-link" onClick={() => { setOpen(false); openOrders() }}>Open my orders <b>→</b></button>}
+        {feedbackEligible && <section className={`ai-feedback ${feedback}`} aria-live="polite">
+          {feedback === "pending" && <><div><small>ONE QUICK CHECK</small><b>Was this answer helpful?</b></div><nav aria-label="Rate this CozyCraft Care answer"><button type="button" onClick={() => rateAssistant(true)}><span className="material-symbols-rounded" aria-hidden="true">thumb_up</span>Yes</button><button type="button" onClick={() => rateAssistant(false)}><span className="material-symbols-rounded" aria-hidden="true">thumb_down</span>Not really</button></nav></>}
+          {feedback === "helpful" && <p><span className="material-symbols-rounded" aria-hidden="true">check_circle</span><b>Thank you for letting us know.</b></p>}
+          {feedback === "not-helpful" && <><div><small>LET’S MAKE IT CLEARER</small><b>What would help next?</b></div><nav><button type="button" onClick={() => { setFeedback("closed"); void send("Please explain your last answer more simply and give me clear steps.") }}><span className="material-symbols-rounded" aria-hidden="true">format_list_numbered</span>Clear steps</button><button type="button" onClick={resetConversation}><span className="material-symbols-rounded" aria-hidden="true">refresh</span>Start fresh</button></nav></>}
+        </section>}
         {error && <p className="ai-error" role="alert">{error}<button onClick={() => void send(messages.filter((message) => message.role === "user").at(-1)?.content || "")}>Retry</button></p>}
         <div ref={endRef}/>
       </main>

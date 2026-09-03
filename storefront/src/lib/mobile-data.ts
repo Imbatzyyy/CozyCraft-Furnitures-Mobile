@@ -765,6 +765,23 @@ export async function recordMobileProductView(userId: string, productId: string)
   if (error) throw error
 }
 
+export async function submitMobileAssistantFeedback(input: {
+  userId: string
+  responseId: string
+  helpful: boolean
+  responseKind: "general" | "directions" | "order" | "product"
+}) {
+  if (!input.userId) return
+  const { error } = await supabase.from("mobile_assistant_feedback").insert({
+    user_id: input.userId,
+    response_id: input.responseId.slice(0, 100),
+    helpful: input.helpful,
+    response_kind: input.responseKind,
+    client: "mobile",
+  })
+  if (error && error.code !== "23505") throw error
+}
+
 export async function loadMobileProductViews(userId: string) {
   const { data, error } = await supabase
     .from("product_views")
