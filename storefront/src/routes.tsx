@@ -25,18 +25,14 @@ function Mark() {
   )
 }
 
-function SplashMark() {
-  return (
-    <div className="splash-brand" aria-label="CozyCraft Furniture">
-      <div className="splash-brand-word">
-        <span>C</span>
-        <i aria-hidden="true" />
-        <span>ZY</span>
-      </div>
-      <span className="splash-brand-craft">CRAFT</span>
-      <span className="splash-brand-furniture">FURNITURE</span>
-    </div>
-  )
+function DocumentHeader({ label, back }: { label: string; back: () => void }) {
+  return <header className="document-header">
+    <button type="button" onClick={back} aria-label="Go back">
+      <span className="material-symbols-rounded" aria-hidden="true">arrow_back</span>
+    </button>
+    <Mark />
+    <span className="document-header-label">{label}</span>
+  </header>
 }
 function BackLink() {
   return (
@@ -261,11 +257,7 @@ function LegalDocument({ kind }: { kind: "terms" | "privacy" }) {
     .filter(Boolean)
   return (
     <main className="auth-phone legal-document">
-      <header>
-        <button type="button" onClick={() => nav(-1)} aria-label="Go back">←</button>
-        <SplashMark />
-        <span>{terms ? "TERMS" : "PRIVACY"}</span>
-      </header>
+      <DocumentHeader label={terms ? "TERMS" : "PRIVACY"} back={() => nav(-1)} />
       <article>
         <p className="eyebrow-auth">COZYCRAFT FURNITURES · PHILIPPINES</p>
         <h1>{livePage?.title || (terms ? "Terms of Service" : "Privacy Policy")}</h1>
@@ -317,7 +309,7 @@ function ContentDocument({ kind }: { kind: "about" | "contact" }) {
     .map((paragraph) => paragraph.trim())
     .filter(Boolean)
   return <main className="auth-phone legal-document content-document">
-    <header><button type="button" onClick={() => nav(-1)} aria-label="Go back">←</button><SplashMark/><span>{kind.toUpperCase()}</span></header>
+    <DocumentHeader label={kind.toUpperCase()} back={() => nav(-1)} />
     <article>
       <p className="eyebrow-auth">{page?.eyebrow || "COZYCRAFT FURNITURES"}</p>
       <h1>{page?.title || (loading ? "Preparing this page…" : kind === "about" ? "Thoughtful furniture for real homes." : "We are here to help.")}</h1>

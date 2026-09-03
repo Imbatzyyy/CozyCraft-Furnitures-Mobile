@@ -1,6 +1,8 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import CustomerSecurityGate from "./CustomerSecurityGate"
+import { clearCustomerSecurityWarmAccess } from "./account-security"
+import { rememberStorefrontReturnState } from "../../lib/mobile-navigation"
 
 const mocks = vi.hoisted(() => ({
   session: vi.fn(), assurance: vi.fn(), factors: vi.fn(), verify: vi.fn(), registry: vi.fn(),
@@ -16,6 +18,8 @@ vi.mock("../../lib/supabase", () => ({
 }))
 vi.mock("./account-security", async (original) => ({ ...await original<object>(), syncMobileDeviceSession: mocks.registry }))
 beforeEach(() => {
+  clearCustomerSecurityWarmAccess()
+  window.sessionStorage.clear()
   mocks.guest.mockReturnValue(false)
   mocks.logout.mockResolvedValue(undefined)
   mocks.session.mockResolvedValue({ data: { session: { user: { id: "customer-a" } } }, error: null })
@@ -39,6 +43,16 @@ describe("mobile compatibility with website two-step security", () => {
     mount()
     await screen.findByText("Protected customer profile")
     expect(mocks.registry).toHaveBeenCalledTimes(1)
+  })
+  it("keeps a recently verified account visible while a return navigation rechecks in the background", async () => {
+    const first = mount()
+    await screen.findByText("Protected customer profile")
+    first.unmount()
+    rememberStorefrontReturnState(320)
+    mocks.registry.mockReturnValue(new Promise(() => undefined))
+    mount()
+    expect(screen.getByText("Protected customer profile")).toBeTruthy()
+    expect(screen.queryByText("Checking your account.")).toBeNull()
   })
   it("preserves offline browsing without calling network-only account services", async () => {
     vi.spyOn(navigator, "onLine", "get").mockReturnValue(false)

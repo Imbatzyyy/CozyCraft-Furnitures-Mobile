@@ -2435,45 +2435,84 @@ textarea {
   position: sticky;
   z-index: 4;
   top: 0;
-  min-height: calc(70px + max(0px, env(safe-area-inset-top)));
-  padding: calc(15px + max(0px, env(safe-area-inset-top))) 19px 10px;
+  min-height: calc(82px + max(0px, env(safe-area-inset-top)));
+  padding: calc(12px + max(0px, env(safe-area-inset-top))) clamp(14px, 4.8vw, 21px) 12px;
   display: grid;
-  grid-template-columns: 38px 1fr auto;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   border-bottom: 1px solid rgba(137, 126, 113, 0.16);
-  background: rgba(247, 245, 241, 0.86);
-  -webkit-backdrop-filter: blur(18px) saturate(135%);
-  backdrop-filter: blur(18px) saturate(135%);
+  background: linear-gradient(112deg, rgba(252, 250, 246, 0.94), rgba(241, 236, 228, 0.9));
+  box-shadow: 0 10px 28px rgba(55, 47, 39, 0.07);
+  -webkit-backdrop-filter: blur(22px) saturate(145%);
+  backdrop-filter: blur(22px) saturate(145%);
 }
 
 .legal-document > header > button {
-  width: 38px;
-  height: 38px;
-  border: 0;
-  border-radius: 13px;
-  background: #e9e4dc;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.86);
+  border-radius: 15px;
+  background: rgba(232, 226, 217, 0.9);
   color: #292723;
-  font-size: 16px;
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.9), 0 7px 18px rgba(55, 47, 39, 0.08);
+}
+
+.legal-document > header > button .material-symbols-rounded {
+  font-size: 21px;
+  font-variation-settings: "wght" 450, "opsz" 24;
 }
 
 .legal-document > header .auth-mark {
-  width: 105px;
-  height: 35px;
+  justify-self: center;
+  width: clamp(116px, 34vw, 136px);
+  height: 44px;
   margin: 0;
+  overflow: hidden;
 }
 
 .legal-document > header .auth-mark img {
   width: 100%;
   height: 100%;
   object-fit: contain;
+  transform: scale(1.25);
 }
 
-.legal-document > header > span {
-  color: #756d64;
+.legal-document > header > .document-header-label {
+  min-width: 62px;
+  min-height: 30px;
+  display: grid;
+  place-items: center;
+  padding: 0 10px;
+  border: 1px solid rgba(129, 116, 100, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.62);
+  color: #6f675e;
   font-size: 8px;
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.13em;
+  white-space: nowrap;
+}
+
+@media (max-width: 340px) {
+  .legal-document > header {
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    gap: 7px;
+    padding-inline: 12px;
+  }
+
+  .legal-document > header .auth-mark {
+    width: 108px;
+  }
+
+  .legal-document > header > .document-header-label {
+    min-width: 55px;
+    padding-inline: 8px;
+    font-size: 7px;
+  }
 }
 
 .legal-document > article {

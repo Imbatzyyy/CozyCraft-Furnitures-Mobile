@@ -1,13 +1,26 @@
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import { enterGuestMode, isGuestMode, supabase } from "../../lib/supabase"
-import { authenticatorChallengeRequired, shouldRecheckAuthenticator, syncMobileDeviceSession } from "./account-security"
+import {
+  authenticatorChallengeRequired,
+  clearCustomerSecurityWarmAccess,
+  currentCustomerSecurityWarmAccess,
+  rememberCustomerSecurityWarmAccess,
+  shouldRecheckAuthenticator,
+  syncMobileDeviceSession,
+} from "./account-security"
 import { isSixDigitOtp, normalizeOtp } from "../profile/phone-verification"
+import { hasStorefrontReturnState } from "../../lib/mobile-navigation"
 import "../profile/profile-security.css"
 
 type Access = { kind: "checking" | "allowed" | "error"; message?: string } | { kind: "challenge"; factorId: string }
 
+function initialAccess(): Access {
+  if (currentCustomerSecurityWarmAccess() && hasStorefrontReturnState()) return { kind: "allowed" }
+  return { kind: "checking" }
+}
+
 export default function CustomerSecurityGate({ children }: { children: ReactNode }) {
-  const [access, setAccess] = useState<Access>({ kind: "checking" })
+  const [access, setAccess] = useState<Access>(initialAccess)
   const [code, setCode] = useState("")
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
@@ -17,7 +30,7 @@ export default function CustomerSecurityGate({ children }: { children: ReactNode
   const lastCheck = useRef(0)
   const pending = useRef<Promise<void> | null>(null)
   const retryAfterPending = useRef(false)
-  const currentIdentity = useRef("")
+  const currentIdentity = useRef(currentCustomerSecurityWarmAccess()?.identity || "")
 
   const check = (force = false) => {
     if (pending.current) { retryAfterPending.current ||= force; return pending.current }
@@ -31,6 +44,7 @@ export default function CustomerSecurityGate({ children }: { children: ReactNode
         if (!current()) return
         if (sessionError) throw sessionError
         if (!session || isGuestMode()) {
+          clearCustomerSecurityWarmAccess()
           if (currentIdentity.current && !isGuestMode()) {
             setAccess({ kind: "checking" })
             window.location.hash = "#/sign-in"
@@ -59,19 +73,29 @@ export default function CustomerSecurityGate({ children }: { children: ReactNode
         const factor = factors?.totp.find((item) => item.status === "verified")
         const requiresChallenge = authenticatorChallengeRequired(assurance.currentLevel, factor ? "aal2" : assurance.nextLevel)
         if (requiresChallenge) {
+          clearCustomerSecurityWarmAccess()
           if (!factor) throw new Error("Your authenticator could not be loaded. Retry or sign in again.")
           setAccess({ kind: "challenge", factorId: factor.id })
           return
         }
         if (!(await syncMobileDeviceSession(session))) {
+          clearCustomerSecurityWarmAccess()
           if (!current()) return
           await enterGuestMode()
           window.location.hash = "#/sign-in?reason=session-ended"
           return
         }
-        if (current()) { setCode(""); setError(""); setAccess({ kind: "allowed" }) }
+        if (current()) {
+          rememberCustomerSecurityWarmAccess(session.user.id)
+          setCode("")
+          setError("")
+          setAccess({ kind: "allowed" })
+        }
       } catch (cause) {
-        if (current()) setAccess({ kind: "error", message: cause instanceof Error ? cause.message : "Your account security could not be checked. Please retry." })
+        if (current()) {
+          clearCustomerSecurityWarmAccess()
+          setAccess({ kind: "error", message: cause instanceof Error ? cause.message : "Your account security could not be checked. Please retry." })
+        }
       } finally {
         pending.current = null
         if (retryAfterPending.current && alive.current) {
@@ -89,6 +113,10 @@ export default function CustomerSecurityGate({ children }: { children: ReactNode
     const timers = new Set<number>()
     const { data: subscription } = supabase.auth.onAuthStateChange((event) => {
       if (!shouldRecheckAuthenticator(event)) return
+      if (event === "SIGNED_OUT") {
+        clearCustomerSecurityWarmAccess()
+        setAccess({ kind: "checking" })
+      }
       // Defer Auth calls until Supabase releases its session lock.
       const timer = window.setTimeout(() => { timers.delete(timer); void check(true) }, 0)
       timers.add(timer)

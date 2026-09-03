@@ -1,6 +1,22 @@
 import type { Session } from "@supabase/supabase-js"
 import { supabase } from "../../lib/supabase"
 
+const WARM_ACCESS_WINDOW_MS = 60_000
+let warmAccess: { identity: string; expiresAt: number } | null = null
+
+export function currentCustomerSecurityWarmAccess() {
+  if (!warmAccess || warmAccess.expiresAt <= Date.now()) return null
+  return warmAccess
+}
+
+export function rememberCustomerSecurityWarmAccess(identity: string) {
+  warmAccess = { identity, expiresAt: Date.now() + WARM_ACCESS_WINDOW_MS }
+}
+
+export function clearCustomerSecurityWarmAccess() {
+  warmAccess = null
+}
+
 export const authenticatorChallengeRequired = (currentLevel: string | null, nextLevel: string | null) =>
   nextLevel === "aal2" && currentLevel !== "aal2"
 

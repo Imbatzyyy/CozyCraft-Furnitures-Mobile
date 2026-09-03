@@ -2,6 +2,7 @@ import { Component, useEffect, type ErrorInfo, type ReactNode } from "react"
 import { RouterProvider } from "react-router"
 import { router } from "./routes"
 import { reportMobileClientError } from "./lib/mobile-data"
+import { hasStorefrontReturnState, mobileShellBackAction } from "./lib/mobile-navigation"
 
 class MobileErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
   state = { failed: false }
@@ -33,8 +34,13 @@ export default function App() {
     const handleNativeBack = (event: MessageEvent) => {
       if (event.data?.type !== "cozycraft-native-back") return
       const route = window.location.hash.split("?")[0]
-      if (route === "#/shop") return
-      if (["#/sign-in", "#/create-account", "#/reset-password", "#/terms", "#/privacy-policy", "#/about", "#/contact"].includes(route)) {
+      const action = mobileShellBackAction(route, hasStorefrontReturnState())
+      if (action === "storefront") return
+      if (action === "history") {
+        window.history.back()
+        return
+      }
+      if (action === "welcome") {
         window.location.hash = "#/welcome"
         return
       }

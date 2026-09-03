@@ -66,6 +66,7 @@ import {
   type MobileSearchSynonym,
 } from "./lib/mobile-data"
 import { buildMobileRecommendations } from "./lib/mobile-recommendations"
+import { clearStorefrontReturnState, readStorefrontReturnState, rememberStorefrontReturnState } from "./lib/mobile-navigation"
 import PhoneVerificationField from "./features/profile/PhoneVerificationField"
 import { usePhoneVerification } from "./features/profile/usePhoneVerification"
 import { normalizePhilippineMobile, type VerifiedPhone } from "./features/profile/phone-verification"
@@ -548,9 +549,10 @@ const categories = [
 ]
 
 export default function Storefront() {
-  const [tab, setTab] = useState("home")
-  const [navGlassIndex, setNavGlassIndex] = useState(2)
-  const [navGlassPosition, setNavGlassPosition] = useState(50)
+  const [returnState] = useState(readStorefrontReturnState)
+  const [tab, setTab] = useState(returnState?.tab || "home")
+  const [navGlassIndex, setNavGlassIndex] = useState(returnState?.tab === "account" ? 4 : 2)
+  const [navGlassPosition, setNavGlassPosition] = useState(returnState?.tab === "account" ? 90 : 50)
   const [navGlassScrubbing, setNavGlassScrubbing] = useState(false)
   const navGlassPointer = useRef<{ pointerId: number; index: number } | null>(null)
   const navGlassTouch = useRef<{ index: number } | null>(null)
@@ -1649,12 +1651,20 @@ export default function Storefront() {
     }
   }
 
+  const returnScrollRestored = useRef(false)
   useEffect(() => {
-    document.querySelector<HTMLElement>(".lux-body")?.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    })
-  }, [tab])
+    const scroller = document.querySelector<HTMLElement>(".lux-body")
+    if (!scroller) return
+    if (!returnScrollRestored.current && returnState?.tab === tab) {
+      const frame = window.requestAnimationFrame(() => {
+        scroller.scrollTo({ top: returnState.scrollTop, behavior: "auto" })
+        returnScrollRestored.current = true
+        clearStorefrontReturnState()
+      })
+      return () => window.cancelAnimationFrame(frame)
+    }
+    scroller.scrollTo({ top: 0, behavior: "smooth" })
+  }, [returnState, tab])
 
   return (
     <main className="lux-shell">
@@ -3160,6 +3170,11 @@ function Account({
     },
   ]
   const active = entries.find((x) => x.id === view)
+  const openContentDocument = (route: "about" | "contact" | "terms" | "privacy-policy") => {
+    const scrollTop = document.querySelector<HTMLElement>(".lux-body")?.scrollTop || 0
+    rememberStorefrontReturnState(scrollTop)
+    window.location.hash = `#/${route}`
+  }
   const selectedReturn = selectedOrder?.databaseId
     ? returnRequests.find((request) => request.order_id === selectedOrder.databaseId)
     : undefined
@@ -3333,10 +3348,10 @@ function Account({
         {pushPermission === "unknown" && <button type="button" onClick={enableNotifications}>Enable notifications</button>}
       </section>
       <nav className="account-resource-links" aria-label="CozyCraft information">
-        <button type="button" onClick={() => { window.location.hash = "#/about" }}>About</button>
-        <button type="button" onClick={() => { window.location.hash = "#/contact" }}>Contact</button>
-        <button type="button" onClick={() => { window.location.hash = "#/terms" }}>Terms</button>
-        <button type="button" onClick={() => { window.location.hash = "#/privacy-policy" }}>Privacy</button>
+        <button type="button" onClick={() => openContentDocument("about")}>About</button>
+        <button type="button" onClick={() => openContentDocument("contact")}>Contact</button>
+        <button type="button" onClick={() => openContentDocument("terms")}>Terms</button>
+        <button type="button" onClick={() => openContentDocument("privacy-policy")}>Privacy</button>
       </nav>
       <button className="signout" onClick={() => setConfirmSignOut(true)}>
         <span className="material-symbols-rounded" aria-hidden="true">logout</span>
