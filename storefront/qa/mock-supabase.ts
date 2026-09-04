@@ -28,10 +28,25 @@ export const createClient = () => ({
   },
   channel: () => { const channel = { on: () => channel, subscribe: () => channel }; return channel },
   removeChannel() {},
-  functions: { invoke: async (name: string, { body }: { body: { action: string; phone?: string; code?: string } }) => {
+  functions: { invoke: async (name: string, { body }: { body: Record<string, unknown> }) => {
+    if (name === "verify-mobile-payment") {
+      if (body.action === "request") {
+        return { data: {
+          status: "code_sent", challengeId: "0f329e1a-e7fa-4fb1-aa4d-4f3f8d187309",
+          maskedEmail: "al••••@e••••••.test", expiresAt: new Date(Date.now() + 300_000).toISOString(),
+          resendAfter: 60, checkoutKey: body.checkoutKey, paymentMethod: body.paymentMethod,
+        }, error: null }
+      }
+      if (body.code !== "012345") return { data: null, error: { context: new Response(JSON.stringify({ error: "That code is incorrect. 4 attempts remaining.", attemptsRemaining: 4 }), { status: 400 }) } }
+      return { data: {
+        status: "authorized", authorizationId: body.challengeId,
+        checkoutKey: "30cfb521-9c92-4b8a-8dc7-b1cf8b663648", paymentMethod: "gcash",
+        expiresAt: new Date(Date.now() + 240_000).toISOString(), verifiedAt: new Date().toISOString(),
+      }, error: null }
+    }
     if (name !== "verify-customer-phone") throw new Error("This operation is not available in the local fixture")
     if (body.action === "request") {
-      requestedPhone = body.phone || ""
+      requestedPhone = String(body.phone || "")
       return { data: { status: "code_sent", challengeId: "0f329e1a-e7fa-4fb1-aa4d-4f3f8d187309", maskedPhone: "+6391•••4567", expiresAt: new Date(Date.now() + 300_000).toISOString(), resendAfter: 60 }, error: null }
     }
     if (body.code !== "012345") return { data: null, error: { context: new Response(JSON.stringify({ error: "That code is incorrect. Please check the message and try again.", attemptsRemaining: 4 }), { status: 400 }) } }

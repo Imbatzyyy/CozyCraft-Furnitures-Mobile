@@ -13,12 +13,23 @@ export const paymongoBrowserOptions = (url: string, platform: string): OpenOptio
 });
 
 const nativePaymentFunctions = new Set([
+  'verify-mobile-payment',
   'create-paymongo-checkout',
   'cancel-paymongo-checkout',
   'sync-paymongo-payments',
 ]);
 
+const nativePaymentHeaders = new Set([
+  'authorization',
+  'apikey',
+  'content-type',
+  'x-client-info',
+  'x-supabase-api-version',
+  'x-cozycraft-platform',
+]);
+
 export const isAllowedNativePaymentFunction = (name: string) => nativePaymentFunctions.has(name);
+export const isAllowedNativePaymentHeader = (name: string) => nativePaymentHeaders.has(name.toLowerCase());
 
 export const nativePaymentFunctionUrl = (name: string) =>
   `https://gwjsivqksyimuabbdyqq.supabase.co/functions/v1/${name}`;
@@ -420,15 +431,8 @@ export class HomePage implements AfterViewInit {
       const incomingHeaders = event.data.headers && typeof event.data.headers === 'object'
         ? event.data.headers as Record<string, unknown>
         : {};
-      const allowedHeaders = new Set([
-        'authorization',
-        'apikey',
-        'content-type',
-        'x-client-info',
-        'x-supabase-api-version',
-      ]);
       const headers = Object.entries(incomingHeaders).reduce<Record<string, string>>((result, [key, value]) => {
-        if (allowedHeaders.has(key.toLowerCase()) && typeof value === 'string') result[key] = value;
+        if (isAllowedNativePaymentHeader(key) && typeof value === 'string') result[key] = value;
         return result;
       }, {});
 

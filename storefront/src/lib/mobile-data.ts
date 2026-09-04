@@ -382,13 +382,15 @@ export async function placeOrder(input: {
   items: Array<{ product: MobileProduct; quantity: number }>
   redemptionId?: string
   addressId?: string
+  checkoutKey?: string
+  paymentAuthorizationId?: string
 }) {
   const address = input.addressId
     ? (await supabase.from("addresses").select("*").eq("id", input.addressId).eq("user_id", input.userId).single()).data
     : await loadDefaultAddress(input.userId)
   if (!address) throw new Error("Add a delivery address to your CozyCraft profile before checking out.")
   const paymentMethod = input.payment === "GCash" ? "gcash" : input.payment.includes("card") ? "card" : "cod"
-  const checkoutKey = crypto.randomUUID()
+  const checkoutKey = input.checkoutKey || crypto.randomUUID()
   const items = input.items.map(({ product, quantity }) => ({ product_id: product.id, quantity }))
   if (paymentMethod === "cod") {
     const { data, error } = await supabase.rpc("place_order", {
@@ -409,6 +411,9 @@ export async function placeOrder(input: {
     if (orderId) await markMobileOrder(orderId)
     return { order: { id: orderId }, checkoutUrl: null }
   }
+  if (!input.paymentAuthorizationId) {
+    throw new Error("Verify the payment code sent to your email before opening PayMongo.")
+  }
   const capacitor = (window as typeof window & { Capacitor?: { isNativePlatform?: () => boolean; getPlatform?: () => string } }).Capacitor
   // The packaged app renders the storefront inside the Capacitor shell's iframe.
   // Capacitor is therefore available on the parent window, not necessarily on
@@ -426,9 +431,17 @@ export async function placeOrder(input: {
       returnOrigin: window.location.origin,
       items,
       redemptionId: input.redemptionId || null,
+      paymentAuthorizationId: input.paymentAuthorizationId,
     },
+    headers: { "x-cozycraft-platform": "mobile" },
   })
-  if (error || data?.error) throw new Error(data?.error || error?.message || "Unable to open secure checkout.")
+  if (error || data?.error) {
+    const response = (error as { context?: Response } | null)?.context
+    const responseBody = response && typeof response.clone === "function"
+      ? await response.clone().json().catch(() => null) as { error?: string } | null
+      : null
+    throw new Error(data?.error || responseBody?.error || error?.message || "Unable to open secure checkout.")
+  }
   const checkoutUrl = data?.checkoutUrl
     || data?.checkout_url
     || data?.data?.attributes?.checkout_url

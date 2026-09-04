@@ -5,6 +5,7 @@
   const originalFetch = window.fetch.bind(window);
   const functionPrefix = 'https://gwjsivqksyimuabbdyqq.supabase.co/functions/v1/';
   const allowedFunctions = new Set([
+    'verify-mobile-payment',
     'create-paymongo-checkout',
     'cancel-paymongo-checkout',
     'sync-paymongo-payments',

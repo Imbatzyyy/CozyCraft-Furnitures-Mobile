@@ -84,6 +84,14 @@ import {
 import PhoneVerificationField from "./features/profile/PhoneVerificationField"
 import { usePhoneVerification } from "./features/profile/usePhoneVerification"
 import { normalizePhilippineMobile, type VerifiedPhone } from "./features/profile/phone-verification"
+import PaymentEmailVerificationDialog from "./features/checkout/PaymentEmailVerificationDialog"
+import {
+  onlinePaymentMethodFor,
+  requestPaymentEmailVerification,
+  type PaymentEmailAuthorization,
+  type PaymentEmailChallenge,
+  type PaymentVerificationIntent,
+} from "./features/checkout/payment-email-verification"
 import {
   DEFAULT_MOBILE_DELIVERY_SERVICE_AREAS,
   mobileCheckoutAmountError,
@@ -4888,6 +4896,7 @@ function CheckoutPage({
   const [placing, setPlacing] = useState(false)
   const [error, setError] = useState("")
   const [redemptionId, setRedemptionId] = useState("")
+  const [paymentChallenge, setPaymentChallenge] = useState<PaymentEmailChallenge | null>(null)
   useEffect(() => {
     if (!userId) return
     void Promise.all([loadAddresses(userId), loadPaymentPreference(userId)]).then(([savedAddresses, preferred]) => {
@@ -4978,6 +4987,51 @@ function CheckoutPage({
     if (paymentMethods.some((method) => method.name === payment && method.enabled)) return
     setPayment(paymentMethods.find((method) => method.enabled)?.name || "")
   }, [payment, total, checkoutSettings.cod_enabled, checkoutSettings.card_enabled, checkoutSettings.gcash_enabled, checkoutSettings.cod_maximum_order])
+  const openPaymongoCheckout = (result: Awaited<ReturnType<typeof placeOrder>>) => {
+    if (!result.checkoutUrl || !/^https:\/\//i.test(result.checkoutUrl)) {
+      throw new Error("The secure PayMongo payment page could not be opened. Your order has not been completed; please try again.")
+    }
+    window.localStorage.setItem("cozycraft-pending-payment", JSON.stringify({
+      orderId: result.order?.id,
+      orderNumber: result.order?.order_number,
+      startedAt: new Date().toISOString(),
+      total: grandTotal,
+      subtotal: total,
+      deliveryFee,
+      deliveryAreaName: deliveryArea?.name || "",
+      rewardDiscount,
+      address,
+      payment,
+      items: lines,
+    }))
+    setPaymentChallenge(null)
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: "cozycraft-open-paymongo", url: result.checkoutUrl }, "*")
+    } else {
+      window.location.assign(result.checkoutUrl)
+    }
+  }
+  const startAuthorizedOnlinePayment = async (authorization: PaymentEmailAuthorization) => {
+    const currentMethod = onlinePaymentMethodFor(payment)
+    if (!currentMethod || currentMethod !== authorization.paymentMethod) {
+      throw new Error("The selected payment method changed. Send a new code for this checkout.")
+    }
+    setPlacing(true)
+    try {
+      const result = await placeOrder({
+        userId,
+        payment,
+        items: lines,
+        redemptionId: redemptionId || undefined,
+        addressId: selectedAddressId || undefined,
+        checkoutKey: authorization.checkoutKey,
+        paymentAuthorizationId: authorization.id,
+      })
+      openPaymongoCheckout(result)
+    } finally {
+      setPlacing(false)
+    }
+  }
   const place = async () => {
     if (!selectedDeliveryAddress || !deliveryArea) {
       setError("Choose a serviceable Philippine delivery address before placing your order.")
@@ -4994,32 +5048,20 @@ function CheckoutPage({
     setPlacing(true)
     setError("")
     try {
-      const result = await placeOrder({ userId, payment, items: lines, redemptionId: redemptionId || undefined, addressId: selectedAddressId || undefined })
-      const requiresPayMongo = payment !== "Cash on delivery"
-      if (requiresPayMongo) {
-        if (!result.checkoutUrl || !/^https:\/\//i.test(result.checkoutUrl)) {
-          throw new Error("The secure PayMongo payment page could not be opened. Your order has not been completed; please try again.")
+      const onlineMethod = onlinePaymentMethodFor(payment)
+      if (onlineMethod) {
+        const intent: PaymentVerificationIntent = {
+          addressId: selectedAddressId,
+          checkoutKey: crypto.randomUUID(),
+          paymentMethod: onlineMethod,
+          items: lines.map((line) => ({ product_id: line.product.id, quantity: line.quantity })),
+          redemptionId: redemptionId || null,
         }
-        window.localStorage.setItem("cozycraft-pending-payment", JSON.stringify({
-          orderId: result.order?.id,
-          orderNumber: result.order?.order_number,
-          startedAt: new Date().toISOString(),
-          total: grandTotal,
-          subtotal: total,
-          deliveryFee,
-          deliveryAreaName: deliveryArea.name,
-          rewardDiscount,
-          address,
-          payment,
-          items: lines,
-        }))
-        if (window.parent !== window) {
-          window.parent.postMessage({ type: "cozycraft-open-paymongo", url: result.checkoutUrl }, "*")
-        } else {
-          window.location.assign(result.checkoutUrl)
-        }
+        const challenge = await requestPaymentEmailVerification(intent)
+        setPaymentChallenge(challenge)
         return
       }
+      const result = await placeOrder({ userId, payment, items: lines, redemptionId: redemptionId || undefined, addressId: selectedAddressId || undefined })
       const order: CustomerOrder = {
         id: result.order?.order_number || result.order?.id || `CC-${Date.now().toString().slice(-6)}`,
         createdAt: new Date().toISOString(),
@@ -5266,12 +5308,22 @@ function CheckoutPage({
           }}
         >
           {placing
-            ? "Placing order…"
+            ? onlinePaymentMethodFor(payment) ? "Preparing secure payment…" : "Placing order…"
             : step < 2
               ? "Continue →"
               : checkoutError || "Place order →"}
         </button>
       </footer>
+      {paymentChallenge && <PaymentEmailVerificationDialog
+        challenge={paymentChallenge}
+        total={grandTotal}
+        onCancel={() => {
+          if (placing) return
+          setPaymentChallenge(null)
+        }}
+        onChallengeChange={setPaymentChallenge}
+        onAuthorized={startAuthorizedOnlinePayment}
+      />}
     </section>
   )
 }

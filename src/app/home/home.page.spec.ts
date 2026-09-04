@@ -6,6 +6,7 @@ import {
   HomePage,
   installIOSLaunchStyle,
   isAllowedNativePaymentFunction,
+  isAllowedNativePaymentHeader,
   nativeIOSMajorVersion,
   nativePaymentFunctionUrl,
   nativePaymentOrderState,
@@ -94,11 +95,19 @@ describe('HomePage', () => {
   });
 
   it('only proxies the payment functions required by the native checkout lifecycle', () => {
+    expect(isAllowedNativePaymentFunction('verify-mobile-payment')).toBeTrue();
     expect(isAllowedNativePaymentFunction('create-paymongo-checkout')).toBeTrue();
     expect(isAllowedNativePaymentFunction('cancel-paymongo-checkout')).toBeTrue();
     expect(isAllowedNativePaymentFunction('sync-paymongo-payments')).toBeTrue();
     expect(isAllowedNativePaymentFunction('cozycraft-assistant')).toBeFalse();
     expect(isAllowedNativePaymentFunction('../create-paymongo-checkout')).toBeFalse();
+  });
+
+  it('forwards only the headers required by authenticated mobile payment requests', () => {
+    expect(isAllowedNativePaymentHeader('Authorization')).toBeTrue();
+    expect(isAllowedNativePaymentHeader('x-cozycraft-platform')).toBeTrue();
+    expect(isAllowedNativePaymentHeader('cookie')).toBeFalse();
+    expect(isAllowedNativePaymentHeader('x-forwarded-host')).toBeFalse();
   });
 
   it('builds the fixed Supabase endpoint for an approved payment function', () => {
