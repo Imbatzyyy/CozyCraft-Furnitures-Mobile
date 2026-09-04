@@ -5,7 +5,6 @@ import { enterGuestMode, isGuestMode, supabase, verifyCustomerSession } from "./
 import {
   createSupportTicket,
   acceptCurrentMobilePolicies,
-  expandMobileCatalogQuery,
   loadCart,
   loadAddresses,
   loadDefaultAddress,
@@ -46,6 +45,7 @@ import {
   setPrimaryAddress,
   savePaymentPreference,
   saveCommunicationPreferences,
+  searchMobileCatalog,
   stageReviewImage,
   submitReview,
   submitMobileReturnRequest,
@@ -1114,23 +1114,12 @@ export default function Storefront() {
       window.clearTimeout(timer)
     }
   }, [userId, products])
-  const searchTerms = useMemo(
-    () => expandMobileCatalogQuery(query, searchSynonyms),
-    [query, searchSynonyms],
+  const catalogSearch = useMemo(
+    () => searchMobileCatalog(products, query, searchSynonyms),
+    [products, query, searchSynonyms],
   )
-  const shown = useMemo(() => {
-    if (!searchTerms.length) return products
-    return products.filter((product) => {
-      const searchable = [
-        product.name,
-        product.category,
-        product.subcategory,
-        product.description,
-        ...(product.materials || []).flatMap((material) => [material.type, material.description]),
-      ].join(" ").toLocaleLowerCase("en-PH")
-      return searchTerms.some((term) => searchable.includes(term))
-    })
-  }, [products, searchTerms])
+  const shown = catalogSearch.items
+  const hasCatalogSearchQuery = Boolean(query.trim())
   useEffect(() => {
     if (!userId || !search || query.trim().length < 2) return
     const timer = window.setTimeout(() => {
@@ -2374,6 +2363,7 @@ export default function Storefront() {
             <div className="search-input-shell">
               <span className="material-symbols-rounded" aria-hidden="true">search</span>
               <input
+                type="search"
                 autoFocus
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -2381,14 +2371,17 @@ export default function Storefront() {
                 aria-label="Search furniture"
                 inputMode="search"
                 enterKeyHint="search"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
               />
-              {query && (
+              {hasCatalogSearchQuery && (
                 <button onClick={() => setQuery("")} aria-label="Clear search">
                   <span className="material-symbols-rounded" aria-hidden="true">close</span>
                 </button>
               )}
             </div>
-            {!query && (
+            {!hasCatalogSearchQuery && (
               <section className="search-discovery">
                 <p>POPULAR DISCOVERIES</p>
                 <div>
@@ -2403,8 +2396,18 @@ export default function Storefront() {
                 </div>
               </section>
             )}
-            {query && shown.length > 0 && (
-              <p className="search-result-meta">{shown.length} {shown.length === 1 ? "piece" : "pieces"} found</p>
+            {hasCatalogSearchQuery && shown.length > 0 && (
+              <p className="search-result-meta" aria-live="polite">{
+                catalogSearch.mode === "exact"
+                  ? shown.length === 1
+                    ? "Exact product match"
+                    : `${shown.length} exact product matches`
+                  : catalogSearch.mode === "name"
+                    ? `${shown.length} product-name ${shown.length === 1 ? "suggestion" : "suggestions"}`
+                    : catalogSearch.mode === "category"
+                      ? `${shown.length} relevant ${shown.length === 1 ? "piece" : "pieces"} by type or room`
+                      : `${shown.length} ${shown.length === 1 ? "piece" : "pieces"} matching product details`
+              }</p>
             )}
             <div className="search-list">
               {shown.map((p) => (
@@ -2424,11 +2427,11 @@ export default function Storefront() {
                   <i className="material-symbols-rounded" aria-hidden="true">arrow_forward</i>
                 </button>
               ))}
-              {query && shown.length === 0 && (
+              {hasCatalogSearchQuery && shown.length === 0 && (
                 <section className="search-empty">
                   <span className="material-symbols-rounded">search_off</span>
                   <h2>No pieces found</h2>
-                  <p>Try a room, material or furniture type.</p>
+                  <p>Try the beginning of a product name, its initials, a room, furniture type, or material.</p>
                   <button onClick={() => setQuery("")}>Clear search</button>
                 </section>
               )}

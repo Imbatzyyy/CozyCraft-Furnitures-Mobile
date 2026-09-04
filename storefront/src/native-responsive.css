@@ -6202,6 +6202,12 @@ textarea:focus-visible {
   color: rgba(89, 82, 73, 0.58);
 }
 
+.search-input-shell input::-webkit-search-decoration,
+.search-input-shell input::-webkit-search-cancel-button {
+  appearance: none;
+  -webkit-appearance: none;
+}
+
 .search-input-shell button {
   display: grid;
   width: 34px;

@@ -665,6 +665,13 @@ export type MobileSearchSynonym = {
   synonyms: string[]
 }
 
+export type MobileCatalogSearchMode = "browse" | "exact" | "name" | "category" | "details" | "none"
+
+export type MobileCatalogSearchResult<T extends MobileProduct = MobileProduct> = {
+  items: T[]
+  mode: MobileCatalogSearchMode
+}
+
 export type MobileReturnRequest = {
   id: string
   order_id: string
@@ -731,18 +738,194 @@ export async function loadMobileSearchSynonyms(fresh = false) {
 }
 
 export function expandMobileCatalogQuery(query: string, synonyms: MobileSearchSynonym[]) {
-  const normalized = query.trim().toLocaleLowerCase("en-PH")
+  const normalized = normalizeMobileCatalogSearchText(query)
   if (!normalized) return []
   const alternatives = new Set([normalized])
   synonyms.forEach((entry) => {
     const values = [entry.term, ...(entry.synonyms || [])]
-      .map((value) => String(value).trim().toLocaleLowerCase("en-PH"))
+      .map(normalizeMobileCatalogSearchText)
       .filter(Boolean)
-    if (values.some((value) => value.includes(normalized) || normalized.includes(value))) {
+    // Expand only a complete configured term. Expanding a fragment such as
+    // "co" into "sofa" made suggestions jump to unrelated initials while the
+    // customer was still typing.
+    if (values.includes(normalized)) {
       values.forEach((value) => alternatives.add(value))
     }
   })
   return [...alternatives]
+}
+
+export function normalizeMobileCatalogSearchText(value: unknown) {
+  return String(value || "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[’']/g, "")
+    .toLocaleLowerCase("en-PH")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ")
+}
+
+const mobileSearchWords = (value: string) => value.split(" ").filter(Boolean)
+
+const singularSearchWord = (value: string) => {
+  if (value.length > 4 && value.endsWith("ies")) return `${value.slice(0, -3)}y`
+  if (value.length > 3 && value.endsWith("s") && !value.endsWith("ss")) return value.slice(0, -1)
+  return value
+}
+
+const sameSearchWord = (left: string, right: string) =>
+  left === right || singularSearchWord(left) === singularSearchWord(right)
+
+const wordSequenceIndex = (words: string[], queryWords: string[], prefix: boolean) => {
+  if (!words.length || !queryWords.length || queryWords.length > words.length) return -1
+  for (let start = 0; start <= words.length - queryWords.length; start += 1) {
+    const matches = queryWords.every((queryWord, offset) => {
+      const word = words[start + offset]
+      return prefix ? word.startsWith(queryWord) : sameSearchWord(word, queryWord)
+    })
+    if (matches) return start
+  }
+  return -1
+}
+
+const exactTaxonomyMatch = (field: string, term: string) => {
+  if (!field || !term) return false
+  if (field === term) return true
+  const fieldWords = mobileSearchWords(field)
+  const termWords = mobileSearchWords(term)
+  if (termWords.length === 1) return fieldWords.some((word) => sameSearchWord(word, termWords[0]))
+  return wordSequenceIndex(fieldWords, termWords, false) >= 0
+}
+
+const prefixFieldMatch = (field: string, term: string) => {
+  if (!field || !term) return false
+  return wordSequenceIndex(mobileSearchWords(field), mobileSearchWords(term), true) >= 0
+}
+
+/**
+ * Search in deliberate tiers so a strong product-name match cannot be diluted
+ * by incidental words in descriptions. This also makes one-letter discovery
+ * predictable: "A" suggests names beginning with A, not every item containing
+ * an "a" somewhere in its metadata.
+ */
+export function searchMobileCatalog<T extends MobileProduct>(
+  products: T[],
+  query: string,
+  synonyms: MobileSearchSynonym[] = [],
+): MobileCatalogSearchResult<T> {
+  const normalizedQuery = normalizeMobileCatalogSearchText(query)
+  if (!normalizedQuery) return { items: products, mode: "browse" }
+
+  const queryWords = mobileSearchWords(normalizedQuery)
+  const compactQuery = queryWords.join("")
+  const prepared = products.map((product, index) => {
+    const name = normalizeMobileCatalogSearchText(product.name)
+    const nameWords = mobileSearchWords(name)
+    const taxonomy = [product.category, product.subcategory, product.room, product.label]
+      .map(normalizeMobileCatalogSearchText)
+      .filter(Boolean)
+    const details = [
+      product.description,
+      ...(product.materials || []).flatMap((material) => [material.type, material.description]),
+    ].map(normalizeMobileCatalogSearchText).filter(Boolean)
+    return {
+      product,
+      index,
+      name,
+      nameWords,
+      initials: nameWords.map((word) => word[0]).join(""),
+      taxonomy,
+      details,
+    }
+  })
+
+  const finish = (
+    entries: Array<(typeof prepared)[number] & { score?: number }>,
+    mode: MobileCatalogSearchMode,
+  ): MobileCatalogSearchResult<T> => ({
+    items: entries
+      .sort((left, right) =>
+        Number(right.score || 0) - Number(left.score || 0)
+        || left.name.localeCompare(right.name, "en-PH")
+        || left.index - right.index)
+      .map((entry) => entry.product),
+    mode,
+  })
+
+  const exactName = prepared.filter((entry) => entry.name === normalizedQuery)
+  if (exactName.length) return finish(exactName.map((entry) => ({ ...entry, score: 2_000 })), "exact")
+
+  const leadingNameMatches = prepared.flatMap((entry) => {
+    const sequence = wordSequenceIndex(entry.nameWords, queryWords, true)
+    const startsWithTypedText = entry.name.startsWith(normalizedQuery)
+    const startsWithTypedWords = sequence === 0
+    const matchesInitials = queryWords.length === 1
+      && compactQuery.length >= 2
+      && entry.initials.startsWith(compactQuery)
+    if (!startsWithTypedText && !startsWithTypedWords && !matchesInitials) return []
+    return [{
+      ...entry,
+      score: startsWithTypedText ? 1_500 : startsWithTypedWords ? 1_450 : 1_400,
+    }]
+  })
+  if (leadingNameMatches.length) return finish(leadingNameMatches, "name")
+
+  // A single character is intentionally limited to the beginning of a product
+  // name. Falling through to categories and descriptions creates noisy results.
+  if (normalizedQuery.length === 1) return { items: [], mode: "none" }
+
+  const directTaxonomyMatches = prepared.flatMap((entry) => {
+    const match = entry.taxonomy.some((field) => exactTaxonomyMatch(field, normalizedQuery))
+    return match ? [{ ...entry, score: 1_200 }] : []
+  })
+  if (directTaxonomyMatches.length) return finish(directTaxonomyMatches, "category")
+
+  const containedNameMatches = prepared.flatMap((entry) => {
+    const sequence = wordSequenceIndex(entry.nameWords, queryWords, true)
+    const matchesInitials = queryWords.length === 1
+      && compactQuery.length >= 2
+      && entry.initials.startsWith(compactQuery)
+    if (sequence < 0 && !matchesInitials) return []
+    return [{ ...entry, score: matchesInitials ? 1_150 : 1_100 - Math.max(sequence, 0) }]
+  })
+  if (containedNameMatches.length) return finish(containedNameMatches, "name")
+
+  const expandedTerms = expandMobileCatalogQuery(normalizedQuery, synonyms)
+    .filter((term) => term !== normalizedQuery)
+  if (expandedTerms.length) {
+    const synonymMatches = prepared.flatMap((entry) => {
+      let score = 0
+      for (const term of expandedTerms) {
+        const nameSequence = wordSequenceIndex(entry.nameWords, mobileSearchWords(term), true)
+        if (nameSequence >= 0) score = Math.max(score, 1_000 - nameSequence)
+        if (entry.taxonomy.some((field) => exactTaxonomyMatch(field, term) || prefixFieldMatch(field, term))) {
+          score = Math.max(score, 950)
+        }
+      }
+      return score ? [{ ...entry, score }] : []
+    })
+    if (synonymMatches.length) return finish(synonymMatches, "category")
+  }
+
+  const taxonomyPrefixMatches = prepared.flatMap((entry) => {
+    const match = entry.taxonomy.some((field) => prefixFieldMatch(field, normalizedQuery))
+    return match ? [{ ...entry, score: 800 }] : []
+  })
+  if (taxonomyPrefixMatches.length) return finish(taxonomyPrefixMatches, "category")
+
+  if (normalizedQuery.length >= 3) {
+    const detailMatches = prepared.flatMap((entry) => {
+      const positions = entry.details
+        .map((field) => wordSequenceIndex(mobileSearchWords(field), queryWords, true))
+        .filter((position) => position >= 0)
+      if (!positions.length) return []
+      return [{ ...entry, score: 600 - Math.min(...positions) }]
+    })
+    if (detailMatches.length) return finish(detailMatches, "details")
+  }
+
+  return { items: [], mode: "none" }
 }
 
 export async function recordMobileCatalogSearch(query: string, resultCount: number, collection = "mobile") {
