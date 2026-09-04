@@ -71,10 +71,13 @@ import { clearStorefrontReturnState, notificationBadgeCount, readStorefrontRetur
 import { MOBILE_TEXT_SIZE_OPTIONS, readMobileTextSize, saveMobileTextSize, type MobileTextSize } from "./lib/mobile-text-size"
 import { normalizeMobilePushPermission, readMobilePushPermission, saveMobilePushPermission, type MobilePushPermission } from "./lib/mobile-push-permission"
 import {
+  buildMobileAssistantAccountReply,
   formatMobileAssistantReply,
+  mobileAssistantDataIntentsFor,
   mobileAssistantGuidanceFor,
-  mobileAssistantNavigationFor,
+  mobileAssistantNavigationFromReply,
   mobileAssistantResponseKind,
+  type MobileAssistantDataIntent,
   type MobileAssistantDestination,
   type MobileAssistantNavigation,
 } from "./lib/mobile-chat"
@@ -579,6 +582,7 @@ export default function Storefront() {
   const [reconnected, setReconnected] = useState(false)
   const [resourceRevision, setResourceRevision] = useState(0)
   const [userId, setUserId] = useState("")
+  const [accountSnapshotUserId, setAccountSnapshotUserId] = useState("")
   const [saved, setSaved] = useStoredState<string[]>("cozycraft-saved", [])
   const [movingSaved, setMovingSaved] = useState<string[]>([])
   const [bag, setBag] = useStoredState<CartLine[]>("cozycraft-bag", [])
@@ -1176,6 +1180,7 @@ export default function Storefront() {
     const resetToGuest = () => {
       if (!live) return
       setUserId("")
+      setAccountSnapshotUserId("")
       setSaved([])
       setBag([])
       setOrders([])
@@ -1245,7 +1250,9 @@ export default function Storefront() {
         if (session) window.setTimeout(() => void enterGuestMode(), 0)
         return
       }
-      setUserId(session?.user.id || "")
+      const nextUserId = session?.user.id || ""
+      setAccountSnapshotUserId((current) => current === nextUserId ? current : "")
+      setUserId(nextUserId)
       if (!session?.user) {
         resetToGuest()
         return
@@ -1253,7 +1260,10 @@ export default function Storefront() {
       void (async () => {
         try {
           if (!(await verifyCustomerSession(session.user.id))) {
-            if (live) setUserId("")
+            if (live) {
+              setUserId("")
+              setAccountSnapshotUserId("")
+            }
             window.location.hash = "#/sign-in?reason=invalid-login"
             return
           }
@@ -1269,7 +1279,11 @@ export default function Storefront() {
           const catalog = await loadProducts()
           const nextCart = await loadCart(session.user.id, catalog)
           if (live) setBag(nextCart as CartLine[])
-          if (live) setOrders(await loadOrders(session.user.id, catalog) as CustomerOrder[])
+          const nextOrders = await loadOrders(session.user.id, catalog) as CustomerOrder[]
+          if (live) {
+            setOrders(nextOrders)
+            setAccountSnapshotUserId(session.user.id)
+          }
         } catch (error) { console.error(error) }
       })()
     })
@@ -1280,11 +1294,16 @@ export default function Storefront() {
         if (session) window.setTimeout(() => void enterGuestMode(), 0)
         return
       }
-      setUserId(session?.user.id || "")
+      const nextUserId = session?.user.id || ""
+      setAccountSnapshotUserId((current) => current === nextUserId ? current : "")
+      setUserId(nextUserId)
       if (session?.user) {
         void verifyCustomerSession(session.user.id).then(async (customer) => {
           if (!customer) {
-            if (live) setUserId("")
+            if (live) {
+              setUserId("")
+              setAccountSnapshotUserId("")
+            }
             window.location.hash = "#/sign-in?reason=invalid-login"
             return null
           }
@@ -1296,8 +1315,14 @@ export default function Storefront() {
           setProfile(nextProfile)
           setSaved(nextSaved)
           applyNotifications(nextNotifications)
-          setBag(await loadCart(session.user.id, catalog) as CartLine[])
-          setOrders(await loadOrders(session.user.id, catalog) as CustomerOrder[])
+          const [nextCart, nextOrders] = await Promise.all([
+            loadCart(session.user.id, catalog),
+            loadOrders(session.user.id, catalog),
+          ])
+          if (!live) return
+          setBag(nextCart as CartLine[])
+          setOrders(nextOrders as CustomerOrder[])
+          setAccountSnapshotUserId(session.user.id)
         }).catch(console.error)
       }
     })
@@ -2204,9 +2229,17 @@ export default function Storefront() {
           ))}
         </nav>}
         <MobileCareChat
+          key={userId || "guest"}
           available={!detail && !compareOpen && !search}
           userId={userId}
+          accountDataReady={Boolean(userId && accountSnapshotUserId === userId)}
+          profileName={profile.name}
           products={products}
+          savedProductIds={saved}
+          bag={bag}
+          orders={orders}
+          notifications={notifications}
+          loyalty={loyalty}
           onOpenChange={setChatOpen}
           openProduct={(product) => openProduct(product)}
           openDestination={openAssistantDestination}
@@ -2455,12 +2488,14 @@ type MobileChatMessage = {
   content: string
   createdAt: string
   navigation?: MobileAssistantNavigation
+  liveAccountData?: boolean
 }
 
 function createMobileChatMessage(
   role: MobileChatMessage["role"],
   content: string,
   navigation?: MobileAssistantNavigation | null,
+  liveAccountData = false,
 ): MobileChatMessage {
   const createdAt = new Date().toISOString()
   return {
@@ -2469,15 +2504,21 @@ function createMobileChatMessage(
     content,
     createdAt,
     ...(navigation ? { navigation } : {}),
+    ...(liveAccountData ? { liveAccountData: true } : {}),
   }
 }
 
-function AssistantReply({ content, navigation, navigate }: {
+function AssistantReply({ content, navigation, liveAccountData, navigate }: {
   content: string
   navigation?: MobileAssistantNavigation
+  liveAccountData?: boolean
   navigate: (destination: MobileAssistantDestination) => void
 }) {
   return <div className="ai-message-content">
+    {liveAccountData && <span className="ai-live-account-badge">
+      <span className="material-symbols-rounded" aria-hidden="true">sync</span>
+      LIVE ACCOUNT DATA
+    </span>}
     {formatMobileAssistantReply(content).map((block, index) => block.type === "paragraph"
       ? <p key={`paragraph-${index}`}>{block.text}</p>
       : <section className="ai-direction-card" key={`directions-${index}`} aria-label="Directions">
@@ -2492,10 +2533,31 @@ function AssistantReply({ content, navigation, navigate }: {
   </div>
 }
 
-function MobileCareChat({ available, userId, products, openProduct, openDestination, onOpenChange }: {
+function MobileCareChat({
+  available,
+  userId,
+  accountDataReady,
+  profileName,
+  products,
+  savedProductIds,
+  bag,
+  orders,
+  notifications,
+  loyalty,
+  openProduct,
+  openDestination,
+  onOpenChange,
+}: {
   available: boolean
   userId: string
+  accountDataReady: boolean
+  profileName: string
   products: Product[]
+  savedProductIds: string[]
+  bag: CartLine[]
+  orders: CustomerOrder[]
+  notifications: Array<Record<string, any>>
+  loyalty: MobileLoyaltyAccount | null
   openProduct: (product: Product) => void
   openDestination: (destination: MobileAssistantDestination) => void
   onOpenChange: (open: boolean) => void
@@ -2504,16 +2566,28 @@ function MobileCareChat({ available, userId, products, openProduct, openDestinat
   const [draft, setDraft] = useState("")
   const [sending, setSending] = useState(false)
   const [error, setError] = useState("")
-  const [messages, setMessages] = useState<MobileChatMessage[]>(() => [createMobileChatMessage("assistant", "Welcome to CozyCraft Care. Tell me what you’re looking for, or ask about an order, delivery, or your account.")])
+  const [messages, setMessages] = useState<MobileChatMessage[]>(() => [createMobileChatMessage(
+    "assistant",
+    userId
+      ? "Welcome back. Ask about your orders, support requests, wishlist, bag, reviews, notifications, or Home Circle account whenever you need them."
+      : "Welcome to CozyCraft Care. Tell me what you’re looking for, or ask about furniture, delivery, and shopping with CozyCraft.",
+  )])
   const [feedback, setFeedback] = useState<"pending" | "helpful" | "not-helpful" | "closed">("pending")
   const endRef = useRef<HTMLDivElement | null>(null)
   const draftRef = useRef<HTMLTextAreaElement | null>(null)
-  const quickPrompts = [
-    { label: "Find pieces in my budget", icon: "chair" },
-    { label: "Help with a small room", icon: "space_dashboard" },
-    { label: "Track my latest order", icon: "local_shipping" },
-    { label: "Explain delivery options", icon: "home_pin" },
-  ]
+  const quickPrompts = userId
+    ? [
+        { label: "Summarize my latest order", icon: "local_shipping" },
+        { label: "What’s in my wishlist?", icon: "favorite" },
+        { label: "What’s in my bag?", icon: "shopping_bag" },
+        { label: "Check my support tickets", icon: "support_agent" },
+      ]
+    : [
+        { label: "Find pieces in my budget", icon: "chair" },
+        { label: "Help with a small room", icon: "space_dashboard" },
+        { label: "How does delivery work?", icon: "home_pin" },
+        { label: "Where can I sign in?", icon: "login" },
+      ]
   const recommended = useMemo(() => {
     const latest = [...messages].reverse().find((message) => message.role === "assistant")?.content.toLowerCase() || ""
     return products.filter((product) => latest.includes(product.name.toLowerCase())).slice(0, 3)
@@ -2564,11 +2638,76 @@ function MobileCareChat({ available, userId, products, openProduct, openDestinat
       setSending(false)
       return
     }
+    const dataIntents = mobileAssistantDataIntentsFor(message)
+    if (dataIntents.length) {
+      let supportTickets: Awaited<ReturnType<typeof loadSupportTickets>> | undefined
+      let returnRequests: MobileReturnRequest[] | undefined
+      let addresses: MobileAddress[] | undefined
+      let paymentPreference: string | undefined
+      let requestedLoyalty = loyalty
+      const unavailable: MobileAssistantDataIntent[] = []
+      const loaders: Promise<void>[] = []
+      const loadRequested = <T,>(
+        intent: MobileAssistantDataIntent,
+        loader: () => Promise<T>,
+        apply: (value: T) => void,
+      ) => loaders.push(loader()
+        .then(apply)
+        .catch((loadError) => {
+          console.warn(`Unable to load assistant ${intent}`, loadError)
+          unavailable.push(intent)
+        }))
+
+      if (userId && accountDataReady) {
+        if (dataIntents.includes("tickets")) {
+          loadRequested("tickets", () => loadSupportTickets(userId), (value) => { supportTickets = value })
+        }
+        if (dataIntents.includes("returns")) {
+          loadRequested("returns", () => loadMobileReturnRequests(userId), (value) => { returnRequests = value })
+        }
+        if (dataIntents.includes("addresses")) {
+          loadRequested("addresses", () => loadAddresses(userId), (value) => { addresses = value })
+        }
+        if (dataIntents.includes("payments")) {
+          loadRequested("payments", () => loadPaymentPreference(userId), (value) => { paymentPreference = value })
+        }
+        if (dataIntents.includes("membership") && !requestedLoyalty) {
+          loadRequested("membership", loadMobileLoyalty, (value) => { requestedLoyalty = value })
+        }
+      }
+      await Promise.all(loaders)
+      const contextualReply = buildMobileAssistantAccountReply(message, {
+        authenticated: Boolean(userId),
+        ready: !userId || accountDataReady,
+        profileName,
+        products,
+        savedProductIds,
+        bag,
+        orders,
+        supportTickets,
+        returnRequests,
+        notifications,
+        loyalty: requestedLoyalty,
+        addresses: addresses?.map(({ label, city, province, is_primary }) => ({ label, city, province, is_primary })),
+        paymentPreference,
+        unavailable,
+      })
+      if (contextualReply) {
+        setMessages((current) => [...current, createMobileChatMessage(
+          "assistant",
+          contextualReply.reply,
+          contextualReply.navigation,
+          contextualReply.liveAccountData,
+        )])
+        setSending(false)
+        return
+      }
+    }
     try {
       const { data, error: invokeError } = await supabase.functions.invoke("cozycraft-assistant", { body: { message, history, client: "mobile" } })
       if (invokeError) throw invokeError
       if (typeof data?.reply !== "string" || !data.reply.trim()) throw new Error(data?.error || "Cozy returned an empty response.")
-      const navigation = mobileAssistantNavigationFor(message, Boolean(userId))
+      const navigation = mobileAssistantNavigationFromReply(data.reply, Boolean(userId))
       setMessages((current) => [...current, createMobileChatMessage("assistant", data.reply.trim(), navigation)])
     } catch (requestError) {
       console.error(requestError)
@@ -2579,7 +2718,12 @@ function MobileCareChat({ available, userId, products, openProduct, openDestinat
     setError("")
     setDraft("")
     setFeedback("pending")
-    setMessages([createMobileChatMessage("assistant", "A fresh start. How can CozyCraft Care help with your home today?")])
+    setMessages([createMobileChatMessage(
+      "assistant",
+      userId
+        ? "A fresh start. Ask about a CozyCraft product or tell me which part of your account you want me to check."
+        : "A fresh start. How can CozyCraft Care help with your home today?",
+    )])
   }
   const isNewConversation = messages.length === 1 && messages[0]?.role === "assistant"
   const latestAssistant = [...messages].reverse().find((message) => message.role === "assistant")
@@ -2610,11 +2754,16 @@ function MobileCareChat({ available, userId, products, openProduct, openDestinat
         <button onClick={resetConversation} aria-label="Start a new conversation"><span className="material-symbols-rounded">edit_square</span></button>
       </header>
       <main>
-        {isNewConversation && <section className="ai-welcome"><p className="hello">PERSONAL SHOPPING & CARE</p><h2>Thoughtful help,<br/><em>right when you need it.</em></h2><span>Explore the live collection, compare pieces, or get help with delivery and your latest orders.</span></section>}
+        {isNewConversation && <section className="ai-welcome"><p className="hello">PERSONAL SHOPPING & CARE</p><h2>Thoughtful help,<br/><em>right when you need it.</em></h2><span>{userId ? "Explore the live collection or ask Care to check one part of your account when you need it." : "Explore the live collection, compare pieces, and get clear shopping or delivery guidance."}</span></section>}
+        {isNewConversation && userId && <section className="ai-account-context-note" aria-label="Signed-in account data protection">
+          <span className="material-symbols-rounded" aria-hidden="true">shield_lock</span>
+          <p><b>Connected to your CozyCraft account</b><small>Care checks only the account section you ask about.</small></p>
+          <i className={accountDataReady ? "ready" : "syncing"}>{accountDataReady ? "LIVE" : "SYNCING"}</i>
+        </section>}
         {isNewConversation && <section className="ai-quick-prompts" aria-label="Popular ways CozyCraft Care can help"><p className="hello">HOW CAN WE HELP?</p><div>{quickPrompts.map((prompt) => <button type="button" key={prompt.label} disabled={sending} onClick={() => void send(prompt.label)}><span className="material-symbols-rounded" aria-hidden="true">{prompt.icon}</span><b>{prompt.label}</b><i className="material-symbols-rounded" aria-hidden="true">arrow_forward</i></button>)}</div></section>}
         <section className={`ai-conversation ${isNewConversation ? "is-new" : ""}`} aria-label="Conversation">
           {!isNewConversation && <p className="hello ai-conversation-label">YOUR CONVERSATION</p>}
-          <div className="ai-message-list" aria-live="polite">{messages.map((message) => <article className={message.role} key={message.id}><header>{message.role === "assistant" && <span aria-hidden="true">C</span>}<small>{message.role === "assistant" ? "CozyCraft Care" : "You"}</small><time>{new Date(message.createdAt).toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" })}</time></header>{message.role === "assistant" ? <AssistantReply content={message.content} navigation={messages.at(-1)?.id === message.id && message.id === latestAssistant?.id ? message.navigation : undefined} navigate={(destination) => { setOpen(false); openDestination(destination) }}/> : <p>{message.content}</p>}</article>)}{sending && <article className="assistant typing"><header><span aria-hidden="true">C</span><small>CozyCraft Care</small></header><p aria-label="CozyCraft Care is replying"><i/><i/><i/></p></article>}</div>
+          <div className="ai-message-list" aria-live="polite">{messages.map((message) => <article className={message.role} key={message.id}><header>{message.role === "assistant" && <span aria-hidden="true">C</span>}<small>{message.role === "assistant" ? "CozyCraft Care" : "You"}</small><time>{new Date(message.createdAt).toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" })}</time></header>{message.role === "assistant" ? <AssistantReply content={message.content} liveAccountData={message.liveAccountData} navigation={messages.at(-1)?.id === message.id && message.id === latestAssistant?.id ? message.navigation : undefined} navigate={(destination) => { setOpen(false); openDestination(destination) }}/> : <p>{message.content}</p>}</article>)}{sending && <article className="assistant typing"><header><span aria-hidden="true">C</span><small>CozyCraft Care</small></header><p aria-label="CozyCraft Care is replying"><i/><i/><i/></p></article>}</div>
         </section>
         {recommended.length > 0 && <section className="ai-product-rail"><p className="hello">PIECES MENTIONED</p><div>{recommended.map((product) => <button key={product.id} onClick={() => { setOpen(false); openProduct(product) }}><img src={product.image} alt=""/><span><b>{product.name}</b><small>{product.price}</small></span><i>→</i></button>)}</div></section>}
         {feedbackEligible && <section className={`ai-feedback ${feedback}`} aria-live="polite">

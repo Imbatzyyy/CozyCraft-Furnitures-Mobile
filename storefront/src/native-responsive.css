@@ -10074,6 +10074,67 @@ body.profile-crop-open {
   line-height: 1.55;
 }
 
+.mobile-ai-chat .ai-account-context-note {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 11px 12px;
+  border: 1px solid #dbe2d6;
+  border-radius: 17px;
+  background: #f8faf6;
+  color: #33432f;
+  box-shadow: 0 5px 16px rgba(49, 67, 44, 0.035);
+}
+
+.mobile-ai-chat .ai-account-context-note > span {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 12px;
+  background: #e6eee1;
+  color: #5e7856;
+  font-size: calc(18px * var(--cozy-font-scale, 1.15));
+  font-variation-settings: "FILL" 0, "wght" 450;
+}
+
+.mobile-ai-chat .ai-account-context-note p {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+  margin: 0;
+}
+
+.mobile-ai-chat .ai-account-context-note b {
+  font-size: calc(9.5px * var(--cozy-font-scale, 1.15));
+  line-height: 1.25;
+}
+
+.mobile-ai-chat .ai-account-context-note small {
+  color: #71806c;
+  font-size: calc(7.5px * var(--cozy-font-scale, 1.15));
+  line-height: 1.35;
+}
+
+.mobile-ai-chat .ai-account-context-note > i {
+  padding: 6px 8px;
+  border-radius: 999px;
+  background: #e5eddf;
+  color: #587050;
+  font-size: calc(6.5px * var(--cozy-font-scale, 1.15));
+  font-style: normal;
+  font-weight: 850;
+  line-height: 1;
+  letter-spacing: .11em;
+}
+
+.mobile-ai-chat .ai-account-context-note > i.syncing {
+  background: #eee9e1;
+  color: #786f63;
+}
+
 .mobile-ai-chat .ai-quick-prompts {
   display: block;
   margin: 20px 0 18px;
@@ -10246,6 +10307,27 @@ body.profile-crop-open {
 .mobile-ai-chat .ai-message-content {
   display: grid;
   gap: 12px;
+}
+
+.mobile-ai-chat .ai-live-account-badge {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 8px;
+  border: 1px solid #d6e0d1;
+  border-radius: 999px;
+  background: #edf3e9;
+  color: #587050;
+  font-size: calc(6.8px * var(--cozy-font-scale, 1.15));
+  font-weight: 850;
+  line-height: 1;
+  letter-spacing: .11em;
+}
+
+.mobile-ai-chat .ai-live-account-badge > span {
+  font-size: calc(13px * var(--cozy-font-scale, 1.15));
+  font-variation-settings: "FILL" 0, "wght" 520;
 }
 
 .mobile-ai-chat .ai-message-content > p {
@@ -10714,6 +10796,21 @@ body.profile-crop-open {
 
   .mobile-ai-chat .ai-quick-prompts button > i {
     display: none;
+  }
+
+  .mobile-ai-chat .ai-account-context-note {
+    grid-template-columns: 34px minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .mobile-ai-chat .ai-account-context-note > span {
+    width: 34px;
+    height: 34px;
+  }
+
+  .mobile-ai-chat .ai-account-context-note > i {
+    grid-column: 2;
+    justify-self: start;
   }
 }
 
