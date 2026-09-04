@@ -107,6 +107,7 @@ export type MobileAssistantLoyaltyFact = {
 export type MobileAssistantAccountContext = {
   authenticated: boolean
   ready?: boolean
+  online?: boolean
   profileName?: string
   products: readonly MobileAssistantProductFact[]
   savedProductIds: readonly string[]
@@ -506,11 +507,14 @@ export function buildMobileAssistantAccountReply(
     if (intent === "payments") return paymentReply(context)
     return `You’re signed in as ${cleanFact(context.profileName, 80) || "a CozyCraft customer"}.`
   })
+  const offlineNotice = context.online === false
+    ? "You’re offline, so this is the most recently synchronized account data and may not include newer changes.\n\n"
+    : ""
 
   return {
-    reply: replies.join("\n\n"),
+    reply: `${offlineNotice}${replies.join("\n\n")}`,
     navigation,
-    liveAccountData: true,
+    liveAccountData: context.online !== false,
   }
 }
 

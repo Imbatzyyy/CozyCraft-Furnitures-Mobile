@@ -2232,6 +2232,7 @@ export default function Storefront() {
           key={userId || "guest"}
           available={!detail && !compareOpen && !search}
           userId={userId}
+          online={online}
           accountDataReady={Boolean(userId && accountSnapshotUserId === userId)}
           profileName={profile.name}
           products={products}
@@ -2536,6 +2537,7 @@ function AssistantReply({ content, navigation, liveAccountData, navigate }: {
 function MobileCareChat({
   available,
   userId,
+  online,
   accountDataReady,
   profileName,
   products,
@@ -2550,6 +2552,7 @@ function MobileCareChat({
 }: {
   available: boolean
   userId: string
+  online: boolean
   accountDataReady: boolean
   profileName: string
   products: Product[]
@@ -2658,7 +2661,7 @@ function MobileCareChat({
           unavailable.push(intent)
         }))
 
-      if (userId && accountDataReady) {
+      if (userId && accountDataReady && online) {
         if (dataIntents.includes("tickets")) {
           loadRequested("tickets", () => loadSupportTickets(userId), (value) => { supportTickets = value })
         }
@@ -2674,11 +2677,16 @@ function MobileCareChat({
         if (dataIntents.includes("membership") && !requestedLoyalty) {
           loadRequested("membership", loadMobileLoyalty, (value) => { requestedLoyalty = value })
         }
+      } else if (userId && accountDataReady && !online) {
+        const requiresCurrentQuery: MobileAssistantDataIntent[] = ["tickets", "returns", "addresses", "payments"]
+        unavailable.push(...dataIntents.filter((intent) => requiresCurrentQuery.includes(intent)))
+        if (dataIntents.includes("membership") && !requestedLoyalty) unavailable.push("membership")
       }
       await Promise.all(loaders)
       const contextualReply = buildMobileAssistantAccountReply(message, {
         authenticated: Boolean(userId),
         ready: !userId || accountDataReady,
+        online,
         profileName,
         products,
         savedProductIds,
@@ -2758,7 +2766,7 @@ function MobileCareChat({
         {isNewConversation && userId && <section className="ai-account-context-note" aria-label="Signed-in account data protection">
           <span className="material-symbols-rounded" aria-hidden="true">shield_lock</span>
           <p><b>Connected to your CozyCraft account</b><small>Care checks only the account section you ask about.</small></p>
-          <i className={accountDataReady ? "ready" : "syncing"}>{accountDataReady ? "LIVE" : "SYNCING"}</i>
+          <i className={accountDataReady && online ? "ready" : "syncing"}>{!online ? "OFFLINE" : accountDataReady ? "LIVE" : "SYNCING"}</i>
         </section>}
         {isNewConversation && <section className="ai-quick-prompts" aria-label="Popular ways CozyCraft Care can help"><p className="hello">HOW CAN WE HELP?</p><div>{quickPrompts.map((prompt) => <button type="button" key={prompt.label} disabled={sending} onClick={() => void send(prompt.label)}><span className="material-symbols-rounded" aria-hidden="true">{prompt.icon}</span><b>{prompt.label}</b><i className="material-symbols-rounded" aria-hidden="true">arrow_forward</i></button>)}</div></section>}
         <section className={`ai-conversation ${isNewConversation ? "is-new" : ""}`} aria-label="Conversation">

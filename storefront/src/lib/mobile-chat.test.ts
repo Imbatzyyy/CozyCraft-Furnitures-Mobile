@@ -181,6 +181,17 @@ describe("mobile assistant reply formatting", () => {
     expect(result?.reply).not.toContain("ODGER")
   })
 
+  it("labels an offline snapshot as recent data rather than live data", () => {
+    const result = buildMobileAssistantAccountReply("What’s in my bag?", {
+      ...signedInContext,
+      online: false,
+    })
+
+    expect(result?.liveAccountData).toBe(false)
+    expect(result?.reply).toContain("most recently synchronized account data")
+    expect(result?.reply).toContain("ODGER × 2")
+  })
+
   it("summarizes current orders and links to the matching mobile section", () => {
     const result = buildMobileAssistantAccountReply("Track my latest order and show its items", signedInContext)
 
