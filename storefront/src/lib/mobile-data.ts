@@ -842,7 +842,7 @@ const FAQ_FALLBACK: MobileFaqItem[] = [
   { question: "How much is delivery?", answer: "Your delivery fee and any free-delivery threshold are calculated from the selected address and subtotal. The app shows the exact amount in your bag, at checkout, and in the completed order.", category: "delivery" },
   { question: "How long does delivery take?", answer: "The current estimate appears before checkout. After ordering, open Account and My orders to follow each status and timestamp.", category: "delivery" },
   { question: "Can I cancel or return an order?", answer: "You can request cancellation while an order is still eligible and has not shipped. Eligible delivered pieces can use the return and customer-care workflow.", category: "orders" },
-  { question: "How do reviews work?", answer: "Delivered purchases can be reviewed from My orders. Reviews are linked to the purchased item and may be moderated before public display.", category: "reviews" },
+  { question: "How do reviews work?", answer: "Delivered purchases can be reviewed from My orders. Once the delivered purchase is verified, the review is published on the product page immediately.", category: "reviews" },
   { question: "How do I get help?", answer: "Send a private request from Care & support. Your conversation and every reply stay connected to your CozyCraft account and update in realtime.", category: "account" },
 ]
 
@@ -991,14 +991,14 @@ export async function unregisterPushToken(token: string) {
 }
 
 export async function loadReviews(productId: string) {
-  // RLS returns approved reviews to everyone and also lets a signed-in author
-  // see their own pending review. The public-safe name is denormalized by a
-  // database trigger, so no private profile row needs to be exposed here.
-  const { data, error } = await supabase.from("reviews").select("id,rating,body,image_urls,created_at,approved,reviewer_display_name").eq("product_id", productId).order("created_at", { ascending: false })
+  // Product pages only request reviews currently visible on the storefront.
+  // New verified reviews are inserted with approved=true and appear through
+  // the product-scoped realtime subscription immediately after publication.
+  const { data, error } = await supabase.from("reviews").select("id,rating,body,image_urls,created_at,approved,reviewer_display_name").eq("product_id", productId).eq("approved", true).order("created_at", { ascending: false })
   if (error) throw error
   return (data || []).map((review) => ({
     ...review,
-    // The endpoint only serves photos belonging to approved reviews. It keeps
+    // The endpoint only serves photos belonging to visible reviews. It keeps
     // the private avatars bucket private and returns 404 when no photo exists.
     reviewer_avatar_url: `${supabaseUrl}/functions/v1/review-avatar?review_id=${encodeURIComponent(review.id)}`,
   }))
@@ -1161,7 +1161,12 @@ export async function submitReview(
     p_image_urls: imageUrls,
   })
   if (error) throw new Error(error.message || "The review could not be saved.")
-  return Array.isArray(data) ? data[0] : data
+  const review = Array.isArray(data) ? data[0] : data
+  if (!review?.id) throw new Error("The review was not returned after publishing. Please try again.")
+  if (review.approved !== true) {
+    throw new Error("This review is not visible on the product page. Please contact CozyCraft Care.")
+  }
+  return review
 }
 
 export async function submitMobileReturnRequest(input: {
