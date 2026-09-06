@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import ReviewPhotoViewer from "./components/ReviewPhotoViewer"
+import { PULL_TO_REFRESH_EVENT, PullToRefreshIndicator, usePullToRefresh } from "./components/PullToRefresh"
 import { MutationQueue, withDeadline } from "./lib/request-lifecycle"
 import { checkoutAttemptKey, completeCheckoutAttempt } from "./lib/checkout-attempt"
 import { coalescedRefresh } from "./lib/paged-query"
@@ -1554,6 +1555,107 @@ export default function Storefront() {
     setToast(x)
     window.setTimeout(() => setToast(""), 2300)
   }
+  const refreshVisibleData = async () => {
+    if (!online) {
+      flash("You’re offline. Reconnect to refresh CozyCraft.")
+      return
+    }
+
+    const owner = identityRef.current
+    const refreshCatalog = tab !== "account" || Boolean(detail)
+    const refreshAccount = tab === "account" || Boolean(profileOpen || notificationsOpen || membershipOpen)
+    const refreshCollections = Boolean(owner && !refreshAccount && ["home", "shop", "saved", "bag"].includes(tab))
+    const failures: string[] = []
+    let completed = 0
+    const load = async <T,>(label: string, request: PromiseLike<T>): Promise<T | null> => {
+      try {
+        const value = await withDeadline(request, 12_000)
+        completed += 1
+        return value
+      } catch (error) {
+        failures.push(label)
+        console.warn(`Pull-to-refresh could not load ${label}`, error)
+        return null
+      }
+    }
+
+    if (refreshCatalog) setCatalogLoading(true)
+    try {
+      const [nextCatalog, nextSettings, nextDeliveryAreas, nextBanners, nextSynonyms] = await Promise.all([
+        refreshCatalog
+          ? load("products", loadProducts(detail ? [detail.id] : undefined) as Promise<Product[]>)
+          : Promise.resolve(null),
+        load("store settings", loadMobileStoreSettings()),
+        load("delivery areas", loadMobileDeliveryServiceAreas()),
+        tab === "home" ? load("homepage content", loadMobileHomepageBanners(true)) : Promise.resolve(null),
+        search || tab === "shop" ? load("search suggestions", loadMobileSearchSynonyms()) : Promise.resolve(null),
+      ])
+
+      if (identityRef.current !== owner) return
+      if (nextCatalog && (nextCatalog.length > 0 || !catalogRef.current.length)) {
+        const merged = detail
+          ? [...catalogRef.current.filter((product) => product.id !== detail.id), ...nextCatalog]
+          : nextCatalog
+        catalogRef.current = merged
+        setProducts(merged)
+        cacheOfflineValue(OFFLINE_CATALOG_KEY, merged)
+      }
+      if (nextSettings) {
+        setStoreSettings(nextSettings)
+        cacheOfflineValue(OFFLINE_SETTINGS_KEY, nextSettings)
+      }
+      if (nextDeliveryAreas?.length) {
+        setDeliveryAreas(nextDeliveryAreas)
+        cacheOfflineValue(OFFLINE_DELIVERY_AREAS_KEY, nextDeliveryAreas)
+      }
+      if (nextBanners) setHomepageBanners(nextBanners)
+      if (nextSynonyms) setSearchSynonyms(nextSynonyms)
+
+      if (refreshCollections) {
+        const [nextSaved, nextCart] = await Promise.all([
+          load("saved pieces", loadWishlist(owner)),
+          load("bag", loadCart(owner, catalogRef.current)),
+        ])
+        if (identityRef.current !== owner) return
+        if (nextSaved) setSaved(nextSaved)
+        if (nextCart) setBag(nextCart as CartLine[])
+      }
+
+      if (owner && refreshAccount) {
+        const authResult = await load("account session", supabase.auth.getUser())
+        const accountUser = authResult?.data?.user
+        if (accountUser && accountUser.id === owner) {
+          const [nextProfile, nextSaved, nextCart, nextOrders, nextNotifications, nextLoyalty, nextLoyaltyActivity, nextRedemptions] = await Promise.all([
+            load("profile", loadProfile(accountUser)),
+            load("saved pieces", loadWishlist(owner)),
+            load("bag", loadCart(owner, catalogRef.current)),
+            load("orders", loadOrders(owner, catalogRef.current)),
+            load("notifications", loadNotifications(owner)),
+            load("Home Circle", loadMobileLoyalty()),
+            load("Home Circle activity", loadMobileLoyaltyActivity(owner)),
+            load("rewards", loadMobileRedemptions(owner)),
+          ])
+          if (identityRef.current !== owner) return
+          if (nextProfile) setProfile(nextProfile)
+          if (nextSaved) setSaved(nextSaved)
+          if (nextCart) setBag(nextCart as CartLine[])
+          if (nextOrders) setOrders(nextOrders as CustomerOrder[])
+          if (nextNotifications) applyNotifications(nextNotifications)
+          if (nextLoyalty) setLoyalty(nextLoyalty)
+          if (nextLoyaltyActivity) setLoyaltyActivity(nextLoyaltyActivity)
+          if (nextRedemptions) setLoyaltyRedemptions(nextRedemptions)
+        }
+      }
+
+      window.dispatchEvent(new CustomEvent(PULL_TO_REFRESH_EVENT, {
+        detail: { scope: detail ? "product" : tab },
+      }))
+      if (!completed) throw new Error("No CozyCraft data could be refreshed.")
+      flash(failures.length ? "Some updates are still loading. Pull again shortly." : "CozyCraft is up to date")
+    } finally {
+      if (refreshCatalog) setCatalogLoading(false)
+    }
+  }
   const requireAccount = () => {
     if (userId) return true
     window.location.hash = "#/sign-in"
@@ -1896,6 +1998,13 @@ export default function Storefront() {
         : null
     : null
 
+  const pullRefresh = usePullToRefresh({
+    onRefresh: refreshVisibleData,
+    // Checkout, search, chat, and full-screen confirmation surfaces contain
+    // inputs or payment state where a pull should never interrupt the flow.
+    disabled: checkoutOpen || paymentReturning || search || chatOpen || compareOpen || categoryOpen !== null || placedOrder !== null,
+  })
+
   const completeGoogleUsername = async (username: string) => {
     const next = await completeMobileGoogleOnboarding(username)
     if (next.userId !== userId) throw new Error("Your account changed. Please try again.")
@@ -1922,7 +2031,12 @@ export default function Storefront() {
 
   return (
     <main className="lux-shell">
-      <section className="lux-phone">
+      <section className="lux-phone" ref={pullRefresh.ref}>
+        <PullToRefreshIndicator
+          pullDistance={pullRefresh.pullDistance}
+          armed={pullRefresh.armed}
+          refreshing={pullRefresh.refreshing}
+        />
         {(!online || reconnected) && (
           <aside className={`connection-banner ${online ? "is-online" : "is-offline"}`} role="status" aria-live="polite">
             <span className="material-symbols-rounded" aria-hidden="true">{online ? "cloud_done" : "cloud_off"}</span>
@@ -3262,8 +3376,10 @@ function Bag({
         filter: `user_id=eq.${userId}`,
       }, refreshAddress)
       .subscribe()
+    window.addEventListener(PULL_TO_REFRESH_EVENT, refreshAddress)
     return () => {
       active = false
+      window.removeEventListener(PULL_TO_REFRESH_EVENT, refreshAddress)
       void supabase.removeChannel(addressChannel)
     }
   }, [userId])
@@ -3605,13 +3721,18 @@ export function Account({
   useEffect(() => {
     if (!userId) return
     refreshAccountData()
+    const refreshOnPull = () => refreshAccountData()
+    window.addEventListener(PULL_TO_REFRESH_EVENT, refreshOnPull)
     const channel = supabase.channel(`mobile-account-${userId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "addresses", filter: `user_id=eq.${userId}` }, () => void refreshAddresses().catch((error) => flash(error.message)))
       .on("postgres_changes", { event: "*", schema: "public", table: "support_tickets", filter: `user_id=eq.${userId}` }, () => void refreshTickets().catch((error) => flash(error.message)))
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${userId}` }, () => void refreshPaymentPreference().catch((error) => flash(error.message)))
       .on("postgres_changes", { event: "*", schema: "public", table: "return_requests", filter: `user_id=eq.${userId}` }, () => void refreshReturns().catch((error) => flash(error.message)))
       .subscribe()
-    return () => { void supabase.removeChannel(channel) }
+    return () => {
+      window.removeEventListener(PULL_TO_REFRESH_EVENT, refreshOnPull)
+      void supabase.removeChannel(channel)
+    }
   }, [userId])
   useEffect(() => {
     if (view !== "support" || faqRefreshStarted.current) return
@@ -3628,6 +3749,17 @@ export function Account({
       // sheet was closed while iOS was recovering its network connection.
       faqRefreshStarted.current = false
     }
+  }, [view])
+  useEffect(() => {
+    if (view !== "support") return
+    const refreshFaqOnPull = () => {
+      faqRefreshStarted.current = false
+      void loadMobileFaq()
+        .then((page) => setFaq(page))
+        .catch((error) => flash(error instanceof Error ? error.message : "Care & support could not be refreshed."))
+    }
+    window.addEventListener(PULL_TO_REFRESH_EVENT, refreshFaqOnPull)
+    return () => window.removeEventListener(PULL_TO_REFRESH_EVENT, refreshFaqOnPull)
   }, [view])
   useEffect(() => {
     if (!selectedOrder) return
@@ -4654,10 +4786,14 @@ export function ProductDetail({
   useEffect(() => {
     const refresh = () => void loadReviews(p.id).then((data) => setCustomerReviews(data as typeof customerReviews)).catch(console.error)
     refresh()
+    window.addEventListener(PULL_TO_REFRESH_EVENT, refresh)
     const channel = supabase.channel(`mobile-reviews-${p.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "reviews", filter: `product_id=eq.${p.id}` }, refresh)
       .subscribe()
-    return () => { void supabase.removeChannel(channel) }
+    return () => {
+      window.removeEventListener(PULL_TO_REFRESH_EVENT, refresh)
+      void supabase.removeChannel(channel)
+    }
   }, [p.id])
   const gallery = useMemo(
     () => [...new Set([...(p.images || []), p.image].filter((source) => Boolean(source?.trim())))],
@@ -4677,7 +4813,10 @@ export function ProductDetail({
   }, [gallery, slide])
   useEffect(() => {
     if (!userId) { setDeliveryAddress(null); return }
-    void loadDefaultAddress(userId).then(setDeliveryAddress).catch(() => setDeliveryAddress(null))
+    const refreshAddress = () => void loadDefaultAddress(userId).then(setDeliveryAddress).catch(() => setDeliveryAddress(null))
+    refreshAddress()
+    window.addEventListener(PULL_TO_REFRESH_EVENT, refreshAddress)
+    return () => window.removeEventListener(PULL_TO_REFRESH_EVENT, refreshAddress)
   }, [userId])
   const materials = p.materials || []
   const dimensions = p.dimensions || []
@@ -6096,10 +6235,15 @@ export function ProfilePage({
       setPreferenceReady(true)
     }).catch((error) => setNotice(error.message))
     refresh()
+    window.addEventListener(PULL_TO_REFRESH_EVENT, refresh)
     const channel = supabase.channel(`mobile-preferences-${userId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "customer_preferences", filter: `user_id=eq.${userId}` }, refresh)
       .subscribe()
-    return () => { live = false; void supabase.removeChannel(channel) }
+    return () => {
+      live = false
+      window.removeEventListener(PULL_TO_REFRESH_EVENT, refresh)
+      void supabase.removeChannel(channel)
+    }
   }, [userId])
   useEffect(() => {
     let active = true
@@ -6454,6 +6598,13 @@ export function NotificationsPage({ close, items, userId, refresh }: {
   const [filter, setFilter] = useState<"all" | "unread">("all")
   const [notice, setNotice] = useState("")
   const [saving, setSaving] = useState(false)
+  useEffect(() => {
+    const refreshOnPull = () => {
+      void refresh().catch(() => setNotice("Could not refresh notifications. Please try again."))
+    }
+    window.addEventListener(PULL_TO_REFRESH_EVENT, refreshOnPull)
+    return () => window.removeEventListener(PULL_TO_REFRESH_EVENT, refreshOnPull)
+  }, [refresh])
   const markRead = async (id?: string) => {
     if (saving) return
     setSaving(true)

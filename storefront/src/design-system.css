@@ -371,6 +371,47 @@ html[data-cozy-text-size="extra-large"] { --ui-reading-scale: 1.4; }
   fill: currentColor;
   stroke-width: 1.5;
 }
+
+/* Shared mobile pull-to-refresh affordance. The gesture is handled by the
+   React layer so each nested page scroll surface can refresh the same live
+   customer data without duplicating native bridge code. */
+.pull-refresh-indicator {
+  position: absolute;
+  z-index: 2005;
+  top: max(8px, env(safe-area-inset-top));
+  left: 50%;
+  display: flex;
+  width: min(188px, calc(100% - 32px));
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border: 1px solid rgba(255, 255, 255, .72);
+  border-radius: 999px;
+  background: rgba(250, 248, 244, .9);
+  box-shadow: 0 10px 24px rgba(46, 39, 32, .14), inset 0 1px 0 rgba(255, 255, 255, .92);
+  color: #554d44;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate3d(-50%, -50px, 0);
+  transition: opacity 160ms ease, transform 180ms cubic-bezier(.2, .75, .2, 1);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+}
+.pull-refresh-indicator.is-visible { opacity: 1; }
+.pull-refresh-indicator > .material-symbols-rounded {
+  display: block;
+  font-size: 19px;
+  line-height: 1;
+  font-variation-settings: "FILL" 0, "wght" 500, "GRAD" 0, "opsz" 24;
+}
+.pull-refresh-indicator.is-armed { background: rgba(237, 245, 235, .94); color: #536b51; }
+.pull-refresh-indicator.is-armed > .material-symbols-rounded { font-variation-settings: "FILL" 0, "wght" 650, "GRAD" 0, "opsz" 24; }
+.pull-refresh-indicator.is-refreshing > .material-symbols-rounded { animation: pull-refresh-spin 850ms linear infinite; }
+.pull-refresh-indicator > small { font-size: 9px; font-weight: 700; letter-spacing: .06em; }
+@keyframes pull-refresh-spin { to { transform: rotate(360deg); } }
+
 @media (prefers-reduced-motion: reduce) {
-  .review-photo-viewer, .text-size-dialog, .text-size-dialog > div { animation: none; scroll-behavior: auto; }
+  .review-photo-viewer, .text-size-dialog, .text-size-dialog > div, .pull-refresh-indicator { animation: none; scroll-behavior: auto; transition: none; }
 }
