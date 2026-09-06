@@ -12,7 +12,7 @@ import "../src/index.css"
 import "../src/native-responsive.css"
 import "../src/design-system.css"
 import "../src/components/cozy-motion.css"
-import CozyLoader from "../src/components/CozyLoader"
+import CozyLaunchScreen from "../src/components/CozyLaunchScreen"
 import DialogAccessibility from "../src/components/DialogAccessibility"
 
 const params = new URLSearchParams(window.location.search)
@@ -172,7 +172,7 @@ function DesignFixture() {
 
 createRoot(document.getElementById("root")!).render(<React.StrictMode>
   <DialogAccessibility />
-  {params.has("motion") ? <main className="storefront-loading"><CozyLoader label="Preparing your home…"/><button type="button"><CozyLoader compact/> Refreshing</button></main> : params.has("account") || params.has("product") || params.has("notifications") ? <DesignFixture /> : params.has("google-onboarding")
+  {params.has("motion") ? <CozyLaunchScreen /> : params.has("account") || params.has("product") || params.has("notifications") ? <DesignFixture /> : params.has("google-onboarding")
     ? <GoogleOnboardingFixture />
     : params.has("checkout")
       ? <CheckoutFixture />

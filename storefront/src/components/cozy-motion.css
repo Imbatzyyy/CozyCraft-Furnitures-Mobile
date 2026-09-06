@@ -1,19 +1,20 @@
-/* Short compositor-friendly motion; no timers, animated shadows, or layout animation. */
+/* Small SVG stroke tracing and transforms; no animated layout or shadow filters. */
 :root { --cozy-motion-duration: 180ms; --cozy-motion-ease: cubic-bezier(.2,.7,.2,1); }
 .cozy-loader.cozy-loader {
   display: inline-flex; align-items: center; justify-content: center; gap: 10px;
   width: auto; height: auto; max-width: 100%; padding: 0; margin: 0;
   border: 0; border-radius: 0; background: none; color: inherit;
-  animation: none; flex-shrink: 0; vertical-align: middle; --cozy-sofa-cycle: 3600ms;
+  animation: none; flex-shrink: 0; vertical-align: middle; --cozy-sofa-cycle: 5000ms;
 }
 .cozy-loader__sofa { display: block; width: 64px; height: 56px; flex: 0 0 auto; overflow: visible; }
-.cozy-launch-screen .cozy-loader__sofa { width: clamp(80px, 24vw, 108px); height: auto; }
+.cozy-launch-screen .cozy-loader__sofa { width: clamp(112px, 32vw, 144px); height: auto; }
+.cozy-loader__trace { stroke-dasharray: 100; animation: cozy-sofa-trace var(--cozy-sofa-cycle) ease-in-out infinite; }
 .cozy-loader__body { animation: cozy-sofa-breathe var(--cozy-sofa-cycle) ease-in-out infinite; transform-origin: 32px 43px; }
 .cozy-loader__shadow { animation: cozy-sofa-shadow var(--cozy-sofa-cycle) ease-in-out infinite; transform-origin: 32px 51px; }
 .cozy-loader__pillow { transform-box: fill-box; transform-origin: center bottom; animation: cozy-pillow-hop var(--cozy-sofa-cycle) cubic-bezier(.4,0,.2,1) infinite; }
-.cozy-loader__pillow--right { animation-delay: 420ms; }
+.cozy-loader__pillow--right { animation-name: cozy-pillow-right; }
 .cozy-loader--compact .cozy-loader__sofa { width: 26px; height: 22px; }
-.cozy-loader__cushions { animation: cozy-cushion-settle var(--cozy-sofa-cycle) ease-in-out infinite; transform-origin: 32px 27px; }
+.cozy-loader__cushions { animation: cozy-backrest-rise var(--cozy-sofa-cycle) ease-in-out infinite; transform-origin: 32px 30px; }
 .cozy-loader .cozy-loader__label {
   display: block; width: auto; height: auto; margin: 0; padding: 0; border: 0;
   border-radius: 0; background: none; animation: none;
@@ -22,9 +23,11 @@
 .storefront-loading > .cozy-loader { flex-direction: column; padding: 24px; text-align: center; }
 .catalog-loading { min-height: 44px; margin-block: 8px; color: #615a52; font-size: 13px; }
 .pull-refresh-indicator.is-refreshing > .cozy-loader { animation: none; }
-@keyframes cozy-cushion-settle { 0%,100% { transform: translateY(0); opacity: .7; } 50% { transform: translateY(2px); opacity: 1; } }
+@keyframes cozy-sofa-trace { 0% { stroke-dashoffset: 100; fill-opacity: 0; } 42%, 88% { stroke-dashoffset: 0; fill-opacity: .12; } 100% { stroke-dashoffset: -100; fill-opacity: 0; } }
+@keyframes cozy-backrest-rise { 0%, 10%, 100% { transform: translateY(12px) scaleY(.35); opacity: .2; } 44% { transform: translateY(-3px) scaleY(1.06); opacity: 1; } 56%, 88% { transform: translateY(0) scaleY(1); opacity: 1; } }
 @keyframes cozy-sofa-breathe { 0%, 70%, 100% { transform: translateY(0) scaleY(1); } 35% { transform: translateY(-2px) scaleY(1.025); } 55% { transform: translateY(1px) scaleY(.97); } }
-@keyframes cozy-pillow-hop { 0%, 8%, 82%, 100% { transform: translateY(0) rotate(0); } 30% { transform: translateY(-6px) rotate(-7deg); } 48% { transform: translateY(1px) rotate(3deg); } 63% { transform: translateY(-1.5px) rotate(-2deg); } }
+@keyframes cozy-pillow-hop { 0%, 26%, 100% { transform: translateY(-9px) rotate(-12deg); opacity: 0; } 48% { transform: translateY(1px) rotate(3deg); opacity: 1; } 60% { transform: translateY(-2px) rotate(-2deg); opacity: 1; } 74%, 88% { transform: translateY(0) rotate(0); opacity: 1; } }
+@keyframes cozy-pillow-right { 0%, 34%, 100% { transform: translateY(-9px) rotate(12deg); opacity: 0; } 56% { transform: translateY(1px) rotate(-3deg); opacity: 1; } 68% { transform: translateY(-2px) rotate(2deg); opacity: 1; } 80%, 88% { transform: translateY(0) rotate(0); opacity: 1; } }
 @keyframes cozy-sofa-shadow { 0%, 70%, 100% { transform: scaleX(1); opacity: .12; } 35% { transform: scaleX(.82); opacity: .07; } 55% { transform: scaleX(1.05); opacity: .15; } }
 
 /* Opacity on page containers avoids changing the containing block of fixed dialogs. */
@@ -38,11 +41,10 @@
 .lux-phone :is(.round-icon,.checkout-next,.auth-primary) { transition: opacity 120ms ease; }
 .lux-phone :is(.round-icon,.checkout-next,.auth-primary):active { opacity: .75; }
 html[data-cozy-motion="economy"] { --cozy-motion-duration: 100ms; }
-html[data-cozy-motion="economy"] .cozy-loader__cushions { animation: none; }
-html[data-cozy-motion="economy"] :is(.cozy-loader__pillow,.cozy-loader__shadow) { animation: none; }
-html[data-cozy-motion="economy"] .cozy-loader__body { animation-duration: 4.2s; }
+/* Keep the defining outline/backrest motion even on economy devices. */
+html[data-cozy-motion="economy"] :is(.cozy-loader__body,.cozy-loader__shadow) { animation: none; }
 html[data-cozy-motion="paused"] *, html[data-cozy-motion="paused"] *::before, html[data-cozy-motion="paused"] *::after { animation-play-state: paused !important; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
-  .cozy-loader :is(.cozy-loader__cushions,.cozy-loader__pillow,.cozy-loader__body,.cozy-loader__shadow) { animation: none !important; }
+  .cozy-loader :is(.cozy-loader__trace,.cozy-loader__cushions,.cozy-loader__pillow,.cozy-loader__body,.cozy-loader__shadow) { animation: none !important; }
 }

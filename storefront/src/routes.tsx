@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from "react"
 import DocumentSections from "./components/DocumentSections"
 import CozyLaunchScreen from "./components/CozyLaunchScreen"
+import SofaLaunchSequence from "./components/SofaLaunchSequence"
 import { createHashRouter, Link, useLocation, useNavigate } from "react-router"
 import CustomerSecurityGate from "./features/auth/CustomerSecurityGate"
 import { googleOAuthOptions } from "./features/auth/google-oauth"
@@ -366,6 +367,8 @@ function Field({
 function Splash() {
   const navigate = useNavigate()
   const [destination, setDestination] = useState("/welcome")
+  const [showSofa, setShowSofa] = useState(false)
+  const [sessionReady, setSessionReady] = useState(false)
   useEffect(() => {
     let active = true
     let timer: number | undefined
@@ -375,11 +378,13 @@ function Splash() {
       if (!active) return
       const nextDestination = data.session?.user && !isGuestMode() ? "/shop" : "/welcome"
       setDestination(nextDestination)
+      setSessionReady(true)
       const remaining = Math.max(0, 1850 - (Date.now() - startedAt))
-      timer = window.setTimeout(() => navigate(nextDestination, { replace: true }), remaining)
+      timer = window.setTimeout(() => setShowSofa(true), remaining)
     }).catch(() => {
       if (!active) return
-      timer = window.setTimeout(() => navigate("/welcome", { replace: true }), 1850)
+      setSessionReady(true)
+      timer = window.setTimeout(() => setShowSofa(true), Math.max(0, 1850 - (Date.now() - startedAt)))
     })
 
     return () => {
@@ -387,6 +392,7 @@ function Splash() {
       if (timer) window.clearTimeout(timer)
     }
   }, [navigate])
+  if (showSofa) return <SofaLaunchSequence onComplete={() => navigate(destination, { replace: true })} />
   return (
     <main className="auth-phone splash">
       <div className="splash-orbit orbit-one" />
@@ -410,7 +416,7 @@ function Splash() {
         >
           <i />
         </div>
-        <button onClick={() => navigate(destination, { replace: true })}>
+        <button disabled={!sessionReady} onClick={() => setShowSofa(true)}>
           Enter CozyCraft <span>→</span>
         </button>
       </div>
