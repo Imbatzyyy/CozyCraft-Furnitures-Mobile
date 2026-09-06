@@ -10324,44 +10324,66 @@ body.profile-crop-open {
    assistant remains transparent about automated replies without presenting
    itself as a generic AI product. */
 .mobile-ai-launcher {
+  position: absolute;
+  z-index: 1540;
   right: max(16px, env(safe-area-inset-right));
-  bottom: calc(94px + env(safe-area-inset-bottom));
-  height: 48px;
-  min-width: 48px;
-  padding: 0 15px 0 13px;
-  gap: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  border-radius: 999px;
-  background: #24231f;
-  color: #fffdfa;
-  box-shadow: 0 14px 34px rgba(30, 27, 23, 0.24);
-  transition: transform 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+  bottom: calc(84px + env(safe-area-inset-bottom));
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  min-width: 56px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.56);
+  border-radius: 50%;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.54), rgba(255, 255, 255, 0.16) 44%, rgba(61, 57, 52, 0.72)), #25231f;
+  color: #fffdf9;
+  box-shadow: 0 15px 30px rgba(31, 27, 23, 0.28), inset 0 1px 1px rgba(255, 255, 255, 0.72), inset 0 -1px 2px rgba(0, 0, 0, 0.2);
+  -webkit-backdrop-filter: blur(18px) saturate(155%);
+  backdrop-filter: blur(18px) saturate(155%);
+  transition: transform 150ms ease, box-shadow 150ms ease, filter 150ms ease;
 }
 
 .mobile-ai-launcher:active {
-  transform: scale(0.96);
-  background: #35332e;
-  box-shadow: 0 8px 20px rgba(30, 27, 23, 0.2);
+  transform: scale(0.93);
+  filter: brightness(0.94);
+  box-shadow: 0 8px 18px rgba(30, 27, 23, 0.22), inset 0 1px 1px rgba(255, 255, 255, 0.45);
 }
 
 .mobile-ai-launcher span {
-  font-size: calc(19px * var(--cozy-font-scale, 1.15));
-  font-variation-settings: "FILL" 0, "wght" 420;
-}
-
-.mobile-ai-launcher b {
-  font-size: calc(11px * var(--cozy-font-scale, 1.15));
-  font-weight: 720;
-  letter-spacing: 0.01em;
+  font-size: calc(27px * var(--cozy-font-scale, 1.15));
+  line-height: 1;
+  font-variation-settings: "FILL" 0, "wght" 420, "GRAD" 0, "opsz" 28;
 }
 
 .mobile-ai-launcher i {
-  top: 4px;
+  position: absolute;
+  top: 5px;
   right: 5px;
-  width: 8px;
-  height: 8px;
-  border: 2px solid #24231f;
-  background: #789270;
+  width: 9px;
+  height: 9px;
+  border: 2px solid rgba(45, 42, 38, 0.86);
+  border-radius: 50%;
+  background: #9abb93;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22);
+}
+
+.mobile-ai-launcher:focus-visible {
+  outline: 3px solid rgba(154, 187, 147, 0.8);
+  outline-offset: 3px;
+}
+
+.lux-phone:has(.mobile-ai-chat) > .mobile-ai-launcher {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+@media (hover: hover) {
+  .mobile-ai-launcher:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 19px 34px rgba(31, 27, 23, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.76), inset 0 -1px 2px rgba(0, 0, 0, 0.18);
+  }
 }
 
 .mobile-ai-chat {

@@ -2077,9 +2077,6 @@ export default function Storefront() {
             <img src={cozyLogo} alt="CozyCraft Furniture" />
           </button>
           <div>
-            <button className="round-icon care-header-trigger" onClick={() => setChatOpen(true)} aria-label="Open CozyCraft Care">
-              <span className="material-symbols-rounded" aria-hidden="true">chat_bubble</span>
-            </button>
             <button
               className="round-icon"
               onClick={() => setSearch(true)}
@@ -2544,6 +2541,10 @@ export default function Storefront() {
             </button>
           ))}
         </nav>}
+        {!chatOpen && <button className="mobile-ai-launcher" type="button" onClick={() => setChatOpen(true)} aria-label="Open CozyCraft Care">
+          <span className="material-symbols-rounded" aria-hidden="true">chat_bubble_outline</span>
+          <i aria-hidden="true" />
+        </button>}
         <MobileCareChat
           key={userId || "guest"}
           open={chatOpen}
