@@ -17,15 +17,17 @@ const verifiedAt = "2026-08-27T12:00:00.000Z"
 const challenge = (): PhoneChallenge => ({ id: "22a0851f-a10f-4e42-b16d-963f558701aa", phone, maskedPhone: "+6391•••4567", expiresAt: Date.now() + 300_000, resendAvailableAt: Date.now() + 60_000 })
 const verifiedCallback = vi.fn()
 
-function Harness({ initialVerified = false, userId = "customer-a" }: { initialVerified?: boolean; userId?: string }) {
-  const [draft, setDraft] = useState(phone)
-  const [saved, setSaved] = useState<VerifiedPhone>({ phone, phoneVerifiedAt: initialVerified ? verifiedAt : "" })
+function Harness({ initialVerified = false, initialPhone = phone, editing = true, userId = "customer-a" }: {
+  initialVerified?: boolean; initialPhone?: string; editing?: boolean; userId?: string
+}) {
+  const [draft, setDraft] = useState(initialPhone)
+  const [saved, setSaved] = useState<VerifiedPhone>({ phone: initialPhone, phoneVerifiedAt: initialVerified ? verifiedAt : "" })
   const controller = usePhoneVerification({ userId, draftPhone: draft, savedPhone: saved.phone, phoneVerifiedAt: saved.phoneVerifiedAt,
     onDraftChange: setDraft, onVerified: (value) => { setSaved(value); verifiedCallback(value) },
   })
   return <>
     <PhoneVerificationField phone={draft} savedPhone={saved.phone} verifiedAt={saved.phoneVerifiedAt || null}
-      editing disabled={false} onChange={setDraft} verification={controller} />
+      editing={editing} disabled={false} onChange={setDraft} verification={controller} />
     <output aria-label="Saved mobile number">{saved.phone}</output>
     <button onClick={() => setSaved({ phone: draft, phoneVerifiedAt: verifiedAt })}>Simulate database update</button>
   </>
@@ -39,6 +41,15 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers())
 
 describe("mobile phone verification", () => {
+  it("labels an empty contact field clearly instead of showing an example that looks saved", () => {
+    const view = render(<Harness initialPhone="" editing={false} />)
+    const phoneInput = screen.getByLabelText("Mobile number") as HTMLInputElement
+    expect(phoneInput.value).toBe("")
+    expect(phoneInput.placeholder).toBe("No mobile number added")
+    view.rerender(<Harness initialPhone="" editing />)
+    expect(phoneInput.placeholder).toBe("Enter your mobile number")
+  })
+
   it("saves only after successful verification and shows a success dialog", async () => {
     render(<Harness />)
     fireEvent.click(screen.getByRole("button", { name: "Verify number" }))

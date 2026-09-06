@@ -1,5 +1,6 @@
 import { createClient, type Session } from "@supabase/supabase-js"
 import { publicSupabaseConfig } from "./public-config"
+import { boundedFetch } from "./request-lifecycle"
 
 export const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || publicSupabaseConfig.url
 const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || publicSupabaseConfig.publishableKey
@@ -9,6 +10,7 @@ if (!supabaseUrl || !supabaseKey) {
 }
 
 export const supabase = createClient(supabaseUrl, supabaseKey, {
+  global: { fetch: boundedFetch },
   auth: {
     persistSession: true,
     autoRefreshToken: true,
@@ -19,6 +21,18 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
 })
 
 export const GUEST_MODE_KEY = "cozycraft-browse-mode"
+const MOBILE_CUSTOMER_CACHE_OWNER_KEY = "cozycraft-customer-cache-owner"
+const MOBILE_CUSTOMER_CACHE_KEYS = [
+  "cozycraft-saved",
+  "cozycraft-bag",
+  "cozycraft-orders",
+  "cozycraft-profile",
+  "cozycraft-recently-viewed",
+  "cozycraft-pending-payment",
+  "cozycraft-last-payment-callback",
+  "cozycraft-last-presented-payment-order",
+  "cozycraft-storefront-return-state",
+]
 
 export const isGuestMode = () =>
   typeof window !== "undefined" && window.localStorage.getItem(GUEST_MODE_KEY) === "guest"
@@ -26,6 +40,21 @@ export const isGuestMode = () =>
 export const leaveGuestMode = () => {
   if (typeof window === "undefined") return
   window.localStorage.removeItem(GUEST_MODE_KEY)
+}
+
+export function clearMobileCustomerCache() {
+  if (typeof window === "undefined") return
+  MOBILE_CUSTOMER_CACHE_KEYS.forEach((key) => window.localStorage.removeItem(key))
+  window.localStorage.removeItem(MOBILE_CUSTOMER_CACHE_OWNER_KEY)
+  window.sessionStorage.removeItem("cozycraft-profile-avatar-url-v1")
+}
+
+export const mobileCustomerCacheOwner = () =>
+  typeof window === "undefined" ? "" : window.localStorage.getItem(MOBILE_CUSTOMER_CACHE_OWNER_KEY) || ""
+
+export function rememberMobileCustomerCacheOwner(userId: string) {
+  if (typeof window === "undefined" || !userId) return
+  window.localStorage.setItem(MOBILE_CUSTOMER_CACHE_OWNER_KEY, userId)
 }
 
 const clearLocalAuthTokens = () => {
@@ -44,9 +73,7 @@ export async function enterGuestMode() {
   window.localStorage.setItem(GUEST_MODE_KEY, "guest")
   window.localStorage.removeItem("cozycraft-auth-intent")
   window.localStorage.removeItem("cozycraft-pending-payment")
-  for (const key of ["cozycraft-saved", "cozycraft-bag", "cozycraft-orders", "cozycraft-profile"]) {
-    window.localStorage.removeItem(key)
-  }
+  clearMobileCustomerCache()
   try {
     await supabase.auth.signOut({ scope: "local" })
   } finally {
@@ -81,8 +108,9 @@ export async function verifyCustomerSession(userId: string) {
     }
     if (attempt < 3) await new Promise((resolve) => window.setTimeout(resolve, 250 * (attempt + 1)))
   }
-  await supabase.auth.signOut({ scope: "local" })
-  return false
+  // An unavailable profile is not evidence that the session was revoked.
+  // Callers retain their cached read-only view and can retry verification.
+  throw new Error("Account verification is temporarily unavailable. Please reconnect and try again.")
 }
 
 if (typeof window !== "undefined") {
@@ -99,7 +127,10 @@ if (typeof window !== "undefined") {
         return
       }
       const customer = await verifyCustomerSession(data.user.id)
-      if (customer) leaveGuestMode()
+      if (customer) {
+        clearMobileCustomerCache()
+        leaveGuestMode()
+      }
       window.location.hash = customer ? "#/shop" : "#/sign-in?reason=invalid-login"
     })
   })

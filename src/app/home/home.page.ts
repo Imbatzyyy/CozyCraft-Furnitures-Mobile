@@ -157,6 +157,7 @@ export class HomePage implements AfterViewInit {
   private paymentMonitorTimer?: number;
   private paymentMonitorDeadline = 0;
   private paymentMonitorRunning = false;
+  private paymentMonitorGeneration = 0;
 
   private deliverAppUrl(url: string) {
     if (!url) return;
@@ -226,11 +227,13 @@ export class HomePage implements AfterViewInit {
     if (!responseData || typeof responseData !== 'object') return;
     const orderId = String((responseData as Record<string, unknown>)['orderId'] || '').trim();
     if (!orderId) return;
+    this.stopPaymentMonitor();
     this.pendingPaymongoOrderId = orderId;
     this.pendingPaymongoHeaders = { ...headers };
   }
 
   private stopPaymentMonitor(clearRequest = false) {
+    this.paymentMonitorGeneration += 1;
     if (this.paymentMonitorTimer !== undefined) window.clearTimeout(this.paymentMonitorTimer);
     this.paymentMonitorTimer = undefined;
     this.paymentMonitorRunning = false;
@@ -248,9 +251,7 @@ export class HomePage implements AfterViewInit {
     this.paymentMonitorTimer = window.setTimeout(() => void this.checkPendingPaymongoOrder(), delay);
   }
 
-  private async readPendingPaymongoOrder(): Promise<NativePaymentOrderState> {
-    const orderId = this.pendingPaymongoOrderId;
-    const headers = { ...this.pendingPaymongoHeaders };
+  private async readPendingPaymongoOrder(orderId: string, headers: Record<string, string>): Promise<NativePaymentOrderState> {
     if (!orderId || !Object.keys(headers).length) return 'unknown';
 
     // The webhook is normally enough, while this explicit reconciliation makes
@@ -289,29 +290,26 @@ export class HomePage implements AfterViewInit {
       return;
     }
     this.paymentMonitorRunning = true;
+    const orderId = this.pendingPaymongoOrderId;
+    const generation = this.paymentMonitorGeneration;
+    const isCurrent = () => generation === this.paymentMonitorGeneration && orderId === this.pendingPaymongoOrderId;
     try {
-      const state = await this.readPendingPaymongoOrder();
-      if (state === 'paid') {
-        const orderId = this.pendingPaymongoOrderId;
-        this.stopPaymentMonitor(true);
+      const state = await this.readPendingPaymongoOrder(orderId, { ...this.pendingPaymongoHeaders });
+      if (!isCurrent()) return;
+      if (state === 'paid' || state === 'failed') {
         await Browser.close().catch(() => undefined);
-        this.deliverAppUrl(nativePaymentReturnUrl(orderId, 'success'));
-        return;
-      }
-      if (state === 'failed') {
-        const orderId = this.pendingPaymongoOrderId;
+        if (!isCurrent()) return;
         this.stopPaymentMonitor(true);
-        await Browser.close().catch(() => undefined);
-        this.deliverAppUrl(nativePaymentReturnUrl(orderId, 'cancelled'));
+        this.deliverAppUrl(nativePaymentReturnUrl(orderId, state === 'paid' ? 'success' : 'cancelled'));
         return;
       }
     } catch (error) {
       // A transient timeout should not interrupt a payment that is still open.
       console.warn('PayMongo payment status is not available yet', error);
     } finally {
-      this.paymentMonitorRunning = false;
+      if (isCurrent()) this.paymentMonitorRunning = false;
     }
-    this.schedulePaymentMonitor(2_000);
+    if (isCurrent()) this.schedulePaymentMonitor(2_000);
   }
 
   private async registerForPushNotifications() {

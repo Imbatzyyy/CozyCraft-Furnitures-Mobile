@@ -32,6 +32,29 @@ describe('HomePage', () => {
     expect(component).toBeTruthy();
   });
 
+  it('discards a paid result belonging to a replaced checkout', async () => {
+    const monitor = component as unknown as {
+      pendingPaymongoOrderId: string;
+      pendingPaymongoHeaders: Record<string, string>;
+      checkPendingPaymongoOrder(): Promise<void>;
+      readPendingPaymongoOrder(): Promise<string>;
+      deliverAppUrl(url: string): void;
+      stopPaymentMonitor(clear?: boolean): void;
+    };
+    monitor.pendingPaymongoOrderId = 'ORDER-A';
+    monitor.pendingPaymongoHeaders = { Authorization: 'fixture' };
+    let resolve!: (state: string) => void;
+    spyOn(monitor, 'readPendingPaymongoOrder').and.returnValue(new Promise<string>((done) => { resolve = done; }));
+    const deliver = spyOn(monitor, 'deliverAppUrl');
+    const checking = monitor.checkPendingPaymongoOrder();
+    monitor.stopPaymentMonitor();
+    monitor.pendingPaymongoOrderId = 'ORDER-B';
+    resolve('paid');
+    await checking;
+    expect(deliver).not.toHaveBeenCalled();
+    expect(monitor.pendingPaymongoOrderId).toBe('ORDER-B');
+  });
+
   it('uses the SceneDelegate-safe PayMongo presentation on iOS', () => {
     expect(paymongoBrowserOptions('https://checkout.paymongo.com/example-session', 'ios')).toEqual({
       url: 'https://checkout.paymongo.com/example-session',

@@ -1,7 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react"
+import { MutationQueue, withDeadline } from "./lib/request-lifecycle"
+import { checkoutAttemptKey, completeCheckoutAttempt } from "./lib/checkout-attempt"
+import { coalescedRefresh } from "./lib/paged-query"
 import { createPortal } from "react-dom"
+import type { Session } from "@supabase/supabase-js"
 import cozyLogo from "./imports/COZy.png"
-import { enterGuestMode, isGuestMode, supabase, verifyCustomerSession } from "./lib/supabase"
+import {
+  clearMobileCustomerCache,
+  enterGuestMode,
+  isGuestMode,
+  mobileCustomerCacheOwner,
+  rememberMobileCustomerCacheOwner,
+  supabase,
+  verifyCustomerSession,
+} from "./lib/supabase"
 import {
   createSupportTicket,
   acceptCurrentMobilePolicies,
@@ -10,6 +22,7 @@ import {
   loadDefaultAddress,
   loadCommunicationPreferences,
   loadMobileFaq,
+  readMobileFaqSnapshot,
   loadMobileHomepageBanners,
   loadMobileProductViews,
   loadMobileReturnRequests,
@@ -20,6 +33,8 @@ import {
   loadMobileLoyalty,
   loadMobileLoyaltyActivity,
   loadMobileRedemptions,
+  isMobileRewardEligible,
+  mobileRewardMinimumOrder,
   loadOrders,
   loadProducts,
   loadProfile,
@@ -85,6 +100,15 @@ import PhoneVerificationField from "./features/profile/PhoneVerificationField"
 import { usePhoneVerification } from "./features/profile/usePhoneVerification"
 import { normalizePhilippineMobile, type VerifiedPhone } from "./features/profile/phone-verification"
 import PaymentEmailVerificationDialog from "./features/checkout/PaymentEmailVerificationDialog"
+import GoogleCustomerOnboarding from "./features/auth/GoogleCustomerOnboarding"
+import {
+  acknowledgeMobileWelcomeVoucher,
+  completeMobileGoogleOnboarding,
+  emptyGoogleOnboardingStatus,
+  isGoogleCustomer,
+  loadMobileGoogleOnboarding,
+  type MobileGoogleOnboardingStatus,
+} from "./features/auth/google-customer-onboarding"
 import {
   onlinePaymentMethodFor,
   requestPaymentEmailVerification,
@@ -228,6 +252,19 @@ const OFFLINE_CATALOG_KEY = "cozycraft-offline-catalog-v1"
 const OFFLINE_SETTINGS_KEY = "cozycraft-offline-settings-v1"
 const OFFLINE_DELIVERY_AREAS_KEY = "cozycraft-offline-delivery-areas-v1"
 
+const emptyMobileCustomerProfile = (email = ""): MobileCustomerProfile => ({
+  name: "Guest",
+  username: "",
+  firstName: "",
+  lastName: "",
+  email,
+  phone: "",
+  phoneVerifiedAt: null,
+  image: "",
+  gender: "",
+  birth: "",
+})
+
 function reconnectResourceUrl(source: string, revision: number) {
   if (!source || !revision || !/^https?:/i.test(source)) return source
   try {
@@ -243,7 +280,7 @@ function retryVisibleRemoteImages(revision: number) {
   window.requestAnimationFrame(() => {
     document.querySelectorAll<HTMLImageElement>("img").forEach((image) => {
       const source = image.currentSrc || image.src
-      if (!/^https?:/i.test(source)) return
+      if (!/^https?:/i.test(source) || !image.complete || image.naturalWidth > 0) return
       image.src = reconnectResourceUrl(source, revision)
     })
   })
@@ -266,21 +303,6 @@ function cacheOfflineValue(key: string, value: unknown) {
   }
 }
 
-async function warmProductImageCache(products: Product[]) {
-  if (!("caches" in window)) return
-  const connection = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection
-  if (connection?.saveData || ["slow-2g", "2g"].includes(String(connection?.effectiveType || ""))) return
-  try {
-    const cache = await window.caches.open("cozycraft-product-images-v1")
-    // Warm only the first visible catalog images. Caching every gallery image
-    // multiplied storage egress even when a customer never opened the product.
-    const sources = [...new Set(products.slice(0, 8).map((product) => product.image))]
-      .filter((source) => /^https?:/i.test(source))
-    await Promise.allSettled(sources.map((source) => cache.add(source)))
-  } catch {
-    // Image caching is best effort; the catalog text remains available offline.
-  }
-}
 const photo = (id: string) => `./furniture/${id}.jpg`
 
 const HOME_HEADLINES = [
@@ -590,10 +612,18 @@ export default function Storefront() {
   const [reconnected, setReconnected] = useState(false)
   const [resourceRevision, setResourceRevision] = useState(0)
   const [userId, setUserId] = useState("")
+  const identityRef = useRef(userId)
+  identityRef.current = userId
+  const cartWrites = useRef(new MutationQueue())
+  const cartMutations = useRef(new Map<string, { revision: number; confirmed: CartLine | undefined }>())
+  const catalogRef = useRef(products)
+  catalogRef.current = products
   const [accountSnapshotUserId, setAccountSnapshotUserId] = useState("")
   const [saved, setSaved] = useStoredState<string[]>("cozycraft-saved", [])
   const [movingSaved, setMovingSaved] = useState<string[]>([])
   const [bag, setBag] = useStoredState<CartLine[]>("cozycraft-bag", [])
+  const bagRef = useRef(bag)
+  bagRef.current = bag
   const [orders, setOrders] = useStoredState<CustomerOrder[]>(
     "cozycraft-orders",
     [],
@@ -606,18 +636,9 @@ export default function Storefront() {
   const [compareOpen, setCompareOpen] = useState(false)
   const [homepageBanners, setHomepageBanners] = useState<MobileHomepageBanner[]>([])
   const [searchSynonyms, setSearchSynonyms] = useState<MobileSearchSynonym[]>([])
-  const [profile, setProfile] = useStoredState<MobileCustomerProfile>("cozycraft-profile", {
-    name: "Guest",
-    username: "",
-    firstName: "",
-    lastName: "",
-    email: "",
-    phone: "",
-    phoneVerifiedAt: null,
-    image: "",
-    gender: "",
-    birth: "",
-  })
+  const [profile, setProfile] = useStoredState<MobileCustomerProfile>("cozycraft-profile", emptyMobileCustomerProfile())
+  const [googleIdentityUserId, setGoogleIdentityUserId] = useState("")
+  const [googleOnboarding, setGoogleOnboarding] = useState<MobileGoogleOnboardingStatus | null>(null)
   const [search, setSearch] = useState(false)
   const [query, setQuery] = useState("")
   const [toast, setToast] = useState("")
@@ -628,6 +649,7 @@ export default function Storefront() {
     if (refreshed && refreshed !== detail) setDetail(refreshed)
   }, [products, detail])
   const [checkoutOpen, setCheckoutOpen] = useState(false)
+  const checkoutBusy = useRef(false)
   const [placedOrder, setPlacedOrder] = useState<CustomerOrder | null>(null)
   // A pending checkout is not itself a payment return. Starting this as true
   // made every ordinary app launch flash the confirmation overlay.
@@ -765,14 +787,6 @@ export default function Storefront() {
       setReconnected(true)
       setResourceRevision(revision)
       reconnectTimer = window.setTimeout(() => setReconnected(false), 3200)
-      void Promise.all([loadProducts(), loadMobileStoreSettings()]).then(([catalog, settings]) => {
-        setProducts(catalog as Product[])
-        setStoreSettings(settings)
-        cacheOfflineValue(OFFLINE_CATALOG_KEY, catalog)
-        cacheOfflineValue(OFFLINE_SETTINGS_KEY, settings)
-        void warmProductImageCache(catalog as Product[])
-        retryVisibleRemoteImages(revision)
-      }).catch(console.error)
     }
     window.addEventListener("offline", handleOffline)
     window.addEventListener("online", handleOnline)
@@ -799,22 +813,35 @@ export default function Storefront() {
         setStoreSettings(settings)
         cacheOfflineValue(OFFLINE_CATALOG_KEY, catalog)
         cacheOfflineValue(OFFLINE_SETTINGS_KEY, settings)
-        void warmProductImageCache(catalog as Product[])
 
         if (session?.user && !isGuestMode()) {
-          const [nextProfile, nextSaved, nextCart, nextOrders, nextNotifications] = await Promise.all([
+          const reconnectUserId = session.user.id
+          const [nextProfile, nextSaved, nextCart, nextOrders, nextNotifications, loadedOnboarding] = await Promise.all([
             loadProfile(session.user),
-            loadWishlist(session.user.id),
-            loadCart(session.user.id, catalog),
-            loadOrders(session.user.id, catalog),
-            loadNotifications(session.user.id),
+            loadWishlist(reconnectUserId),
+            loadCart(reconnectUserId, catalog),
+            loadOrders(reconnectUserId, catalog),
+            loadNotifications(reconnectUserId),
+            loadMobileGoogleOnboarding(session.user).catch((error) => {
+              console.warn("Google onboarding refresh will retry", error)
+              return null
+            }),
           ])
-          if (!active) return
+          const { data: latestAuth } = await supabase.auth.getSession()
+          if (!active || latestAuth.session?.user.id !== reconnectUserId) return
+          const nextOnboarding = loadedOnboarding || {
+            ...emptyGoogleOnboardingStatus(reconnectUserId),
+            isGoogle: isGoogleCustomer(session.user),
+            needsUsername: isGoogleCustomer(session.user) && !nextProfile.username.trim(),
+          }
           setProfile(nextProfile)
           setSaved(nextSaved)
           setBag(nextCart as CartLine[])
           setOrders(nextOrders as CustomerOrder[])
           applyNotifications(nextNotifications)
+          setGoogleIdentityUserId(isGoogleCustomer(session.user) ? reconnectUserId : "")
+          setGoogleOnboarding(nextOnboarding)
+          setAccountSnapshotUserId(reconnectUserId)
         }
         retryVisibleRemoteImages(resourceRevision)
       } catch (error) {
@@ -904,6 +931,8 @@ export default function Storefront() {
         return
       }
       paymentReturnInFlight.current = callbackUrl
+      const callbackOwner = identityRef.current
+      const currentCallback = () => identityRef.current === callbackOwner && paymentReturnInFlight.current === callbackUrl
       setPaymentReturning(true)
       void (async () => {
         try {
@@ -972,6 +1001,7 @@ export default function Storefront() {
           // deliver the eventual update; repeated foreground polling only
           // duplicated requests and could reopen stale UI minutes later.
 
+        if (!currentCallback()) return
         setOrders(nextOrders)
         setCheckoutOpen(false)
         if (payment === "success") {
@@ -988,7 +1018,7 @@ export default function Storefront() {
           flash("Checkout cancelled. No payment was completed.")
         }
         void loadCart(activeUserId, catalog)
-          .then((nextBag) => setBag(nextBag as CartLine[]))
+          .then((nextBag) => { if (identityRef.current === activeUserId) setBag(nextBag as CartLine[]) })
           .catch((error) => console.error("Unable to refresh the bag after payment", error))
         if (payment !== "success") {
           window.localStorage.setItem("cozycraft-last-payment-callback", callbackUrl)
@@ -1008,8 +1038,10 @@ export default function Storefront() {
         // Always release the full-screen confirmation overlay. Previously an
         // edge-function, network, or stale-order error left this state active
         // indefinitely after Back to merchant.
-        setPaymentReturning(false)
-        paymentReturnInFlight.current = ""
+        if (currentCallback()) {
+          setPaymentReturning(false)
+          paymentReturnInFlight.current = ""
+        }
       }
       })()
     }
@@ -1022,7 +1054,10 @@ export default function Storefront() {
       if (paymentReturning) {
         flash("Your payment is still being confirmed")
       } else if (placedOrder) setPlacedOrder(null)
-      else if (checkoutOpen) setCheckoutOpen(false)
+      else if (checkoutOpen) {
+        if (checkoutBusy.current) flash("Please wait while your checkout is being saved")
+        else setCheckoutOpen(false)
+      }
       else if (detail) setDetail(null)
       else if (profileOpen) setProfileOpen(false)
       else if (categoryOpen) setCategoryOpen(null)
@@ -1185,33 +1220,40 @@ export default function Storefront() {
   }, [userId])
   useEffect(() => {
     let live = true
-    const resetToGuest = () => {
-      if (!live) return
-      setUserId("")
+    let activeAuthUserId = mobileCustomerCacheOwner()
+    let hydration: { userId: string; promise: Promise<void> } | null = null
+
+    const clearAccountState = (email = "") => {
       setAccountSnapshotUserId("")
       setSaved([])
       setBag([])
       setOrders([])
+      setRecentlyViewed([])
       applyNotifications([])
-      setProfile({
-        name: "Guest",
-        username: "",
-        firstName: "",
-        lastName: "",
-        email: "",
-        phone: "",
-        image: "",
-        gender: "",
-        birth: "",
-      })
+      setLoyalty(null)
+      setLoyaltyActivity([])
+      setLoyaltyRedemptions([])
+      setProfile(emptyMobileCustomerProfile(email))
+      setGoogleOnboarding(null)
     }
-    const refreshCatalog = async () => {
+    const resetToGuest = () => {
+      identityRef.current = ""
+      if (!live) return
+      activeAuthUserId = ""
+      clearMobileCustomerCache()
+      setUserId("")
+      setGoogleIdentityUserId("")
+      clearAccountState()
+    }
+    const changedProductIds = new Set<string>()
+    const refreshCatalog = async (ids?: string[]) => {
       try {
-        const next = await loadProducts()
+        const next = await loadProducts(ids)
         if (live) {
-          setProducts(next as Product[])
-          cacheOfflineValue(OFFLINE_CATALOG_KEY, next)
-          void warmProductImageCache(next as Product[])
+          const merged = ids ? [...catalogRef.current.filter((product) => !ids.includes(product.id)), ...next] as Product[] : next as Product[]
+          catalogRef.current = merged
+          setProducts(merged)
+          cacheOfflineValue(OFFLINE_CATALOG_KEY, merged)
         }
       } catch (error) {
         console.error(error)
@@ -1231,8 +1273,17 @@ export default function Storefront() {
       } catch (error) { console.error(error) }
     }
     void refreshSettings()
+    const catalogRefresh = coalescedRefresh(async () => {
+      const ids = [...changedProductIds]
+      changedProductIds.clear()
+      await refreshCatalog(ids.length ? ids : undefined)
+    })
     const catalogChannel = supabase.channel("mobile-catalog")
-      .on("postgres_changes", { event: "*", schema: "public", table: "products" }, refreshCatalog)
+      .on("postgres_changes", { event: "*", schema: "public", table: "products" }, (event) => {
+        const id = (event.new as { id?: string })?.id || (event.old as { id?: string })?.id
+        if (id) changedProductIds.add(String(id))
+        catalogRefresh.request()
+      })
       .subscribe()
     const settingsChannel = supabase.channel("mobile-store-settings")
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "store_settings" }, refreshSettings)
@@ -1252,90 +1303,94 @@ export default function Storefront() {
     const deliveryAreasChannel = supabase.channel("mobile-delivery-areas")
       .on("postgres_changes", { event: "*", schema: "public", table: "delivery_service_areas" }, refreshDeliveryAreas)
       .subscribe()
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (isGuestMode()) {
-        resetToGuest()
-        if (session) window.setTimeout(() => void enterGuestMode(), 0)
-        return
-      }
-      const nextUserId = session?.user.id || ""
-      setAccountSnapshotUserId((current) => current === nextUserId ? current : "")
-      setUserId(nextUserId)
-      if (!session?.user) {
-        resetToGuest()
-        return
-      }
-      void (async () => {
+
+    const hydrateCustomer = (session: Session) => {
+      if (hydration?.userId === session.user.id) return hydration.promise
+      const userIdToHydrate = session.user.id
+      const promise = (async () => {
         try {
-          if (!(await verifyCustomerSession(session.user.id))) {
-            if (live) {
+          if (!(await verifyCustomerSession(userIdToHydrate))) {
+            if (live && activeAuthUserId === userIdToHydrate) {
+              clearMobileCustomerCache()
               setUserId("")
-              setAccountSnapshotUserId("")
+              setGoogleIdentityUserId("")
+              clearAccountState()
             }
             window.location.hash = "#/sign-in?reason=invalid-login"
             return
           }
-          const [nextProfile, nextSaved, nextNotifications] = await Promise.all([
+
+          const [nextProfile, nextSaved, nextNotifications, catalog] = await Promise.all([
             loadProfile(session.user),
-            loadWishlist(session.user.id),
-            loadNotifications(session.user.id),
+            loadWishlist(userIdToHydrate),
+            loadNotifications(userIdToHydrate),
+            loadProducts(),
           ])
-          if (!live) return
+          let nextOnboarding: MobileGoogleOnboardingStatus
+          try {
+            nextOnboarding = await loadMobileGoogleOnboarding(session.user)
+          } catch (error) {
+            console.error("Unable to refresh Google customer onboarding", error)
+            nextOnboarding = emptyGoogleOnboardingStatus(userIdToHydrate)
+            nextOnboarding.isGoogle = isGoogleCustomer(session.user)
+            nextOnboarding.needsUsername = nextOnboarding.isGoogle && !nextProfile.username.trim()
+          }
+          if (!live || activeAuthUserId !== userIdToHydrate) return
           setProfile(nextProfile)
           setSaved(nextSaved)
           applyNotifications(nextNotifications)
-          const catalog = await loadProducts()
-          const nextCart = await loadCart(session.user.id, catalog)
-          if (live) setBag(nextCart as CartLine[])
-          const nextOrders = await loadOrders(session.user.id, catalog) as CustomerOrder[]
-          if (live) {
-            setOrders(nextOrders)
-            setAccountSnapshotUserId(session.user.id)
-          }
-        } catch (error) { console.error(error) }
-      })()
-    })
-    void supabase.auth.getSession().then(({ data }) => {
-      const session = data.session
+          setGoogleOnboarding(nextOnboarding)
+
+          const [nextCart, nextOrders] = await Promise.all([
+            loadCart(userIdToHydrate, catalog),
+            loadOrders(userIdToHydrate, catalog),
+          ])
+          if (!live || activeAuthUserId !== userIdToHydrate) return
+          setBag(nextCart as CartLine[])
+          setOrders(nextOrders as CustomerOrder[])
+          setAccountSnapshotUserId(userIdToHydrate)
+        } catch (error) {
+          console.error(error)
+        }
+      })().finally(() => {
+        if (hydration?.userId === userIdToHydrate) hydration = null
+      })
+      hydration = { userId: userIdToHydrate, promise }
+      return promise
+    }
+
+    const useSession = (session: Session | null) => {
       if (isGuestMode()) {
         resetToGuest()
         if (session) window.setTimeout(() => void enterGuestMode(), 0)
         return
       }
-      const nextUserId = session?.user.id || ""
+      if (!session?.user) {
+        resetToGuest()
+        return
+      }
+
+      const nextUserId = session.user.id
+      identityRef.current = nextUserId
+      if (activeAuthUserId !== nextUserId) {
+        activeAuthUserId = nextUserId
+        clearMobileCustomerCache()
+        rememberMobileCustomerCacheOwner(nextUserId)
+        clearAccountState(session.user.email || "")
+      } else {
+        rememberMobileCustomerCacheOwner(nextUserId)
+      }
+      setGoogleIdentityUserId(isGoogleCustomer(session.user) ? nextUserId : "")
       setAccountSnapshotUserId((current) => current === nextUserId ? current : "")
       setUserId(nextUserId)
-      if (session?.user) {
-        void verifyCustomerSession(session.user.id).then(async (customer) => {
-          if (!customer) {
-            if (live) {
-              setUserId("")
-              setAccountSnapshotUserId("")
-            }
-            window.location.hash = "#/sign-in?reason=invalid-login"
-            return null
-          }
-          return Promise.all([loadProfile(session.user), loadWishlist(session.user.id), loadProducts(), loadNotifications(session.user.id)])
-        }).then(async (result) => {
-          if (!result) return
-          const [nextProfile, nextSaved, catalog, nextNotifications] = result
-          if (!live) return
-          setProfile(nextProfile)
-          setSaved(nextSaved)
-          applyNotifications(nextNotifications)
-          const [nextCart, nextOrders] = await Promise.all([
-            loadCart(session.user.id, catalog),
-            loadOrders(session.user.id, catalog),
-          ])
-          if (!live) return
-          setBag(nextCart as CartLine[])
-          setOrders(nextOrders as CustomerOrder[])
-          setAccountSnapshotUserId(session.user.id)
-        }).catch(console.error)
-      }
-    })
+      void hydrateCustomer(session)
+    }
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => useSession(session))
+    void supabase.auth.getSession().then(({ data }) => useSession(data.session))
     return () => {
       live = false
+      catalogRefresh.dispose()
       void supabase.removeChannel(catalogChannel)
       void supabase.removeChannel(settingsChannel)
       void supabase.removeChannel(deliveryAreasChannel)
@@ -1346,6 +1401,9 @@ export default function Storefront() {
   useEffect(() => {
     if (!userId) return
     let active = true
+    const current = () => active && identityRef.current === userId
+    const revisions = { cart: 0, wishlist: 0, orders: 0, notifications: 0 }
+    const changedOrderIds = new Set<string>()
     let refreshingProfile: Promise<void> | null = null
     let lastProfileRefresh = 0
     let profileRevision = 0
@@ -1380,19 +1438,28 @@ export default function Storefront() {
       return refreshingProfile
     }
     const refreshCart = async () => {
+      const revision = ++revisions.cart
       try {
-        setBag(await loadCart(userId, products) as CartLine[])
+        if (cartWrites.current.pending) return
+        const next = await loadCart(userId, catalogRef.current) as CartLine[]
+        if (current() && revision === revisions.cart && !cartWrites.current.pending) setBag(next)
       } catch (error) { console.error(error) }
     }
     const refreshWishlist = async () => {
+      const revision = ++revisions.wishlist
       try {
-        setSaved(await loadWishlist(userId))
+        const next = await loadWishlist(userId)
+        if (current() && revision === revisions.wishlist) setSaved(next)
       } catch (error) { console.error(error) }
     }
     const refreshOrders = async () => {
+      const revision = ++revisions.orders
+      const ids = [...changedOrderIds]
+      changedOrderIds.clear()
       try {
-        const nextOrders = await loadOrders(userId, products) as CustomerOrder[]
-        setOrders(nextOrders)
+        const nextOrders = await loadOrders(userId, catalogRef.current, ids.length ? ids : undefined) as CustomerOrder[]
+        if (!current() || revision !== revisions.orders) return
+        setOrders((existing) => ids.length ? [...existing.filter((order) => !ids.includes(order.databaseId || "")), ...nextOrders].sort((a, b) => b.createdAt.localeCompare(a.createdAt)) : nextOrders)
         // Realtime is state synchronization, not navigation. Refresh an order
         // confirmation only while it is still visibly open; a dismissed dialog
         // stays dismissed when PayMongo settles seconds or minutes later.
@@ -1403,8 +1470,11 @@ export default function Storefront() {
       } catch (error) { console.error(error) }
     }
     const refreshNotifications = async (event?: { eventType?: string; new?: Record<string, any> }) => {
+      const revision = ++revisions.notifications
       try {
-        applyNotifications(await loadNotifications(userId))
+        const next = await loadNotifications(userId)
+        if (!current() || revision !== revisions.notifications) return
+        applyNotifications(next)
         const item = event?.new
         if (event?.eventType === "INSERT" && item && window.parent !== window) {
           window.parent.postMessage({
@@ -1416,11 +1486,18 @@ export default function Storefront() {
         }
       } catch (error) { console.error(error) }
     }
+    const cartRefresh = coalescedRefresh(refreshCart)
+    const wishlistRefresh = coalescedRefresh(refreshWishlist)
+    const orderRefresh = coalescedRefresh(refreshOrders)
     const channel = supabase.channel(`mobile-commerce-${userId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "cart_items", filter: `user_id=eq.${userId}` }, refreshCart)
-      .on("postgres_changes", { event: "*", schema: "public", table: "wishlist_items", filter: `user_id=eq.${userId}` }, refreshWishlist)
-      .on("postgres_changes", { event: "*", schema: "public", table: "orders", filter: `user_id=eq.${userId}` }, refreshOrders)
-      .on("postgres_changes", { event: "*", schema: "public", table: "reviews", filter: `user_id=eq.${userId}` }, refreshOrders)
+      .on("postgres_changes", { event: "*", schema: "public", table: "cart_items", filter: `user_id=eq.${userId}` }, cartRefresh.request)
+      .on("postgres_changes", { event: "*", schema: "public", table: "wishlist_items", filter: `user_id=eq.${userId}` }, wishlistRefresh.request)
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders", filter: `user_id=eq.${userId}` }, (event) => {
+        const id = (event.new as { id?: string })?.id || (event.old as { id?: string })?.id
+        if (id) changedOrderIds.add(String(id))
+        orderRefresh.request()
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "reviews", filter: `user_id=eq.${userId}` }, orderRefresh.request)
       .on("postgres_changes", { event: "*", schema: "public", table: "customer_notifications", filter: `user_id=eq.${userId}` }, refreshNotifications)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${userId}` }, refreshProfile)
       .subscribe((status) => { if (status === "SUBSCRIBED") void refreshProfile() })
@@ -1436,13 +1513,16 @@ export default function Storefront() {
     window.addEventListener("message", refreshOnNativeReturn)
     return () => {
       active = false
+      cartRefresh.dispose()
+      wishlistRefresh.dispose()
+      orderRefresh.dispose()
       window.removeEventListener("focus", refreshOnReturn)
       window.removeEventListener("online", refreshOnReturn)
       document.removeEventListener("visibilitychange", refreshOnReturn)
       window.removeEventListener("message", refreshOnNativeReturn)
       void supabase.removeChannel(channel)
     }
-  }, [products, userId])
+  }, [userId])
   const flash = (x: string) => {
     setToast(x)
     window.setTimeout(() => setToast(""), 2300)
@@ -1490,6 +1570,32 @@ export default function Storefront() {
       return [...current, productId]
     })
   }
+  const persistCartLine = (id: string, next: CartLine | undefined, successMessage?: string) => {
+    const owner = userId
+    const key = `${owner}:${id}`
+    const mutation = cartMutations.current.get(key) || { revision: 0, confirmed: bagRef.current.find((line) => line.product.id === id) }
+    const revision = ++mutation.revision
+    cartMutations.current.set(key, mutation)
+    const applyLine = (line: CartLine | undefined) => {
+      const index = bagRef.current.findIndex((item) => item.product.id === id)
+      bagRef.current = line ? index < 0 ? [...bagRef.current, line] : bagRef.current.map((item) => item.product.id === id ? line : item) : bagRef.current.filter((item) => item.product.id !== id)
+      setBag(bagRef.current)
+    }
+    applyLine(next)
+    void cartWrites.current.run(async () => {
+      if (identityRef.current !== owner) return
+      if (next) await upsertCart(owner, id, next.quantity, next.selected)
+      else await removeCart(owner, id)
+      mutation.confirmed = next
+      if (identityRef.current === owner && successMessage && revision === mutation.revision) flash(successMessage)
+    }).catch(() => {
+      if (identityRef.current !== owner) return
+      if (revision === mutation.revision) applyLine(mutation.confirmed)
+      flash("That bag change could not be saved. Please reconnect and try again.")
+    }).finally(() => {
+      if (revision === mutation.revision) cartMutations.current.delete(key)
+    })
+  }
   const add = (p: Product) => {
     if (!requireAccount()) return
     if (!requireConnection()) return
@@ -1497,23 +1603,8 @@ export default function Storefront() {
       flash("This piece is currently unavailable")
       return
     }
-    setBag((lines) => {
-      const existing = lines.find((line) => line.product.id === p.id)
-      const quantity = Math.min((existing?.quantity || 0) + 1, p.stock ?? 99)
-      void upsertCart(userId, p.id, quantity, true).catch(console.error)
-      if (!existing)
-        return [...lines, { product: p, quantity: 1, selected: true }]
-      return lines.map((line) =>
-        line.product.id === p.id
-          ? {
-              ...line,
-              quantity: Math.min(line.quantity + 1, p.stock ?? 99),
-              selected: true,
-            }
-          : line,
-      )
-    })
-    flash("Added to your bag")
+    const existing = bagRef.current.find((line) => line.product.id === p.id)
+    persistCartLine(p.id, { product: p, quantity: Math.min((existing?.quantity || 0) + 1, p.stock ?? 99), selected: true }, "Added to your bag")
   }
   const moveSavedToBag = async (p: Product) => {
     if (!requireAccount() || !requireConnection() || movingSaved.includes(p.id)) return
@@ -1549,20 +1640,12 @@ export default function Storefront() {
   }
   const updateLine = (id: string, patch: Partial<CartLine>) => {
     if (!requireConnection()) return
-    setBag((lines) =>
-      lines.map((line) =>
-        line.product.id === id ? (() => {
-          const next = { ...line, ...patch }
-          if (userId) void upsertCart(userId, id, next.quantity, next.selected).catch(console.error)
-          return next
-        })() : line,
-      ),
-    )
+    const line = bagRef.current.find((item) => item.product.id === id)
+    if (line) persistCartLine(id, { ...line, ...patch })
   }
   const removeLine = (id: string) => {
     if (!requireConnection()) return
-    setBag((lines) => lines.filter((line) => line.product.id !== id))
-    if (userId) void removeCart(userId, id).catch(console.error)
+    persistCartLine(id, undefined)
   }
   const bagCount = bag.reduce((sum, line) => sum + line.quantity, 0)
   const bagQuantities = useMemo(
@@ -1585,6 +1668,7 @@ export default function Storefront() {
   const nav = ["shop", "saved", "home", "bag", "account"]
   const isIOS26Glass = () => document.documentElement.classList.contains("cozy-platform-ios26")
   const navigateTo = (destination: string) => {
+    if (checkoutBusy.current) { flash("Please wait while your checkout is being saved"); return }
     setSearch(false)
     setDetail(null)
     setCheckoutOpen(false)
@@ -1755,6 +1839,42 @@ export default function Storefront() {
     scroller.scrollTo({ top: 0, behavior: "smooth" })
   }, [returnState, tab])
 
+  const visibleGoogleOnboarding = userId && googleIdentityUserId === userId
+    ? googleOnboarding?.userId === userId
+      ? googleOnboarding
+      : accountSnapshotUserId === userId && !profile.username.trim()
+        ? {
+            ...emptyGoogleOnboardingStatus(userId),
+            isGoogle: true,
+            needsUsername: true,
+          }
+        : null
+    : null
+
+  const completeGoogleUsername = async (username: string) => {
+    const next = await completeMobileGoogleOnboarding(username)
+    if (next.userId !== userId) throw new Error("Your account changed. Please try again.")
+    setGoogleOnboarding(next)
+    const { data } = await supabase.auth.getSession()
+    if (data.session?.user.id === userId) setProfile(await loadProfile(data.session.user))
+    setLoyaltyRedemptions(await loadMobileRedemptions(userId))
+    if (!next.showVoucher) flash("Your CozyCraft username is ready")
+  }
+
+  const dismissWelcomeVoucher = async () => {
+    setGoogleOnboarding((current) => current?.userId === userId
+      ? { ...current, showVoucher: false }
+      : current)
+    try {
+      const next = await acknowledgeMobileWelcomeVoucher()
+      if (next.userId === userId) setGoogleOnboarding(next)
+    } catch (error) {
+      // The reward itself is already stored. A failed acknowledgement only
+      // means the welcome card may be shown again after the next launch.
+      console.warn("Unable to acknowledge the welcome voucher", error)
+    }
+  }
+
   return (
     <main className="lux-shell">
       <section className="lux-phone">
@@ -1766,6 +1886,22 @@ export default function Storefront() {
               <small>{online ? "CozyCraft is syncing the latest updates." : "You can browse saved products. Account changes and checkout need a connection."}</small>
             </div>
           </aside>
+        )}
+        {visibleGoogleOnboarding && (
+          <GoogleCustomerOnboarding
+            status={visibleGoogleOnboarding}
+            displayName={`${profile.firstName} ${profile.lastName}`.trim() || profile.name}
+            complete={completeGoogleUsername}
+            dismissVoucher={dismissWelcomeVoucher}
+            startShopping={async () => {
+              await dismissWelcomeVoucher()
+              setProfileOpen(false)
+              setMembershipOpen(false)
+              setDetail(null)
+              setSearch(false)
+              setTab("shop")
+            }}
+          />
         )}
         <header className="lux-header">
           <button className="logo-button" onClick={() => navigateTo("home")}>
@@ -2119,12 +2255,12 @@ export default function Storefront() {
               open={openProduct}
               clear={() => {
                 if (!requireConnection()) return
-                bag.forEach((line) => void removeCart(userId, line.product.id).catch(console.error))
-                setBag([])
+                [...bagRef.current].forEach((line) => persistCartLine(line.product.id, undefined))
               }}
               remove={removeLine}
               update={updateLine}
               checkout={() => {
+                if (cartWrites.current.pending) { flash("Your bag is still being saved. Please try checkout in a moment."); return }
                 if (requireConnection()) setCheckoutOpen(true)
               }}
             />
@@ -2358,6 +2494,7 @@ export default function Storefront() {
         )}
         {checkoutOpen && (
           <CheckoutPage
+            onBusyChange={(busy) => { checkoutBusy.current = busy }}
             userId={userId}
             lines={bag.filter((line) => line.selected)}
             profile={profile}
@@ -2576,6 +2713,12 @@ function MobileCareChat({
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState("")
   const [sending, setSending] = useState(false)
+  const conversationGeneration = useRef(0)
+  const chatRequest = useRef<AbortController | null>(null)
+  useEffect(() => () => {
+    conversationGeneration.current += 1
+    chatRequest.current?.abort()
+  }, [])
   const [error, setError] = useState("")
   const [messages, setMessages] = useState<MobileChatMessage[]>(() => [createMobileChatMessage(
     "assistant",
@@ -2637,6 +2780,8 @@ function MobileCareChat({
   const send = async (value = draft) => {
     const message = value.trim()
     if (!message || sending) return
+    const generation = conversationGeneration.current
+    const current = () => generation === conversationGeneration.current
     const history = messages.slice(-10).map(({ role, content }) => ({ role, content }))
     setDraft("")
     setError("")
@@ -2662,7 +2807,7 @@ function MobileCareChat({
         intent: MobileAssistantDataIntent,
         loader: () => Promise<T>,
         apply: (value: T) => void,
-      ) => loaders.push(loader()
+      ) => loaders.push(withDeadline(loader(), 12_000)
         .then(apply)
         .catch((loadError) => {
           console.warn(`Unable to load assistant ${intent}`, loadError)
@@ -2691,6 +2836,7 @@ function MobileCareChat({
         if (dataIntents.includes("membership") && !requestedLoyalty) unavailable.push("membership")
       }
       await Promise.all(loaders)
+      if (!current()) return
       const contextualReply = buildMobileAssistantAccountReply(message, {
         authenticated: Boolean(userId),
         ready: !userId || accountDataReady,
@@ -2720,17 +2866,32 @@ function MobileCareChat({
       }
     }
     try {
-      const { data, error: invokeError } = await supabase.functions.invoke("cozycraft-assistant", { body: { message, history, client: "mobile" } })
+      const controller = new AbortController()
+      chatRequest.current = controller
+      const { data, error: invokeError } = await withDeadline(supabase.functions.invoke("cozycraft-assistant", { body: { message, history, client: "mobile" }, signal: controller.signal }), 25_000)
+      if (!current()) return
       if (invokeError) throw invokeError
       if (typeof data?.reply !== "string" || !data.reply.trim()) throw new Error(data?.error || "Cozy returned an empty response.")
       const navigation = mobileAssistantNavigationFromReply(data.reply, Boolean(userId))
       setMessages((current) => [...current, createMobileChatMessage("assistant", data.reply.trim(), navigation)])
     } catch (requestError) {
+      if (!current()) return
       console.error(requestError)
+      setDraft((currentDraft) => currentDraft || message)
       setError(navigator.onLine ? "Cozy couldn’t respond just now. Please try again." : "You’re offline. Reconnect and try sending again.")
-    } finally { setSending(false) }
+    } finally {
+      if (current()) {
+        chatRequest.current?.abort()
+        chatRequest.current = null
+        setSending(false)
+      }
+    }
   }
   const resetConversation = () => {
+    conversationGeneration.current += 1
+    chatRequest.current?.abort()
+    chatRequest.current = null
+    setSending(false)
     setError("")
     setDraft("")
     setFeedback("pending")
@@ -3311,8 +3472,8 @@ function Account({
   const [returnSubmitting, setReturnSubmitting] = useState(false)
   const [returnMessage, setReturnMessage] = useState("")
   const [returnSuccess, setReturnSuccess] = useState<MobileReturnRequest | null>(null)
-  const [faq, setFaq] = useState<MobileFaqPage | null>(null)
-  const [faqLoading, setFaqLoading] = useState(false)
+  const [faq, setFaq] = useState<MobileFaqPage>(() => readMobileFaqSnapshot())
+  const faqRefreshStarted = useRef(false)
   const [faqQuery, setFaqQuery] = useState("")
   const [openFaq, setOpenFaq] = useState<number | null>(0)
   useEffect(() => {
@@ -3375,14 +3536,21 @@ function Account({
     return () => { void supabase.removeChannel(channel) }
   }, [userId])
   useEffect(() => {
-    if (view !== "support" || faq) return
+    if (view !== "support" || faqRefreshStarted.current) return
+    faqRefreshStarted.current = true
     let active = true
-    setFaqLoading(true)
     void loadMobileFaq()
-      .then((page) => { if (active) setFaq(page) })
-      .finally(() => { if (active) setFaqLoading(false) })
-    return () => { active = false }
-  }, [faq, view])
+      .then((page) => {
+        if (active) setFaq(page)
+        if (page.source === "offline") faqRefreshStarted.current = false
+      })
+    return () => {
+      active = false
+      // A later visit should be allowed to refresh again, especially if this
+      // sheet was closed while iOS was recovering its network connection.
+      faqRefreshStarted.current = false
+    }
+  }, [view])
   useEffect(() => {
     if (!selectedOrder) return
     const current = orders.find((order) => order.databaseId === selectedOrder.databaseId || order.id === selectedOrder.id)
@@ -3737,6 +3905,7 @@ function Account({
                 const pushToken = window.localStorage.getItem("cozycraft-native-push-token") || ""
                 if (pushToken) await unregisterPushToken(pushToken).catch(console.error)
                 await supabase.auth.signOut({ scope: "local" })
+                clearMobileCustomerCache()
                 setConfirmSignOut(false)
                 flash("You’ve been signed out safely")
                 window.location.hash = "#/welcome"
@@ -3789,8 +3958,7 @@ function Account({
                   <input type="search" value={faqQuery} onChange={(event) => setFaqQuery(event.target.value)} placeholder="Search CozyCraft help" aria-label="Search frequently asked questions" />
                   {faqQuery && <button type="button" onClick={() => setFaqQuery("")} aria-label="Clear FAQ search"><span className="material-symbols-rounded" aria-hidden="true">close</span></button>}
                 </label>
-                {faqLoading ? <div className="support-faq-loading" role="status"><i/><span>Preparing helpful answers…</span></div> : (
-                  <div className="support-faq-list">
+                <div className="support-faq-list">
                     {(faq?.items || []).filter((item) => {
                       const term = faqQuery.trim().toLocaleLowerCase("en-PH")
                       return !term || `${item.question} ${item.answer}`.toLocaleLowerCase("en-PH").includes(term)
@@ -3809,8 +3977,7 @@ function Account({
                       const term = faqQuery.trim().toLocaleLowerCase("en-PH")
                       return !term || `${item.question} ${item.answer}`.toLocaleLowerCase("en-PH").includes(term)
                     }) && <div className="support-faq-empty"><span className="material-symbols-rounded" aria-hidden="true">search_off</span><b>No matching quick answer</b><p>Send a private care request below and our team will help.</p></div>}
-                  </div>
-                )}
+                </div>
                 <footer><span className="material-symbols-rounded" aria-hidden="true">database</span><p>{faq?.source === "offline" ? "Core answers are available offline." : "Answers are cached on this device to reduce data use."}</p></footer>
               </section>
               <section className="support-guided-topics">
@@ -4852,7 +5019,8 @@ function PhilippineLocationFields({
   </>
 }
 
-function CheckoutPage({
+export function CheckoutPage({
+  onBusyChange,
   userId,
   lines,
   profile,
@@ -4862,6 +5030,7 @@ function CheckoutPage({
   close,
   complete,
 }: {
+  onBusyChange?: (busy: boolean) => void
   userId: string
   lines: CartLine[]
   profile: { name: string; email: string; phone: string; image: string }
@@ -4894,6 +5063,19 @@ function CheckoutPage({
   })
   const [payment, setPayment] = useState("Cash on delivery")
   const [placing, setPlacing] = useState(false)
+  const submitting = useRef(false)
+  const mounted = useRef(true)
+  const busyCallback = useRef(onBusyChange)
+  busyCallback.current = onBusyChange
+  useEffect(() => {
+    mounted.current = true
+    return () => { mounted.current = false; busyCallback.current?.(false) }
+  }, [])
+  const setSubmitting = (busy: boolean) => {
+    submitting.current = busy
+    if (mounted.current) setPlacing(busy)
+    busyCallback.current?.(busy)
+  }
   const [error, setError] = useState("")
   const [redemptionId, setRedemptionId] = useState("")
   const [paymentChallenge, setPaymentChallenge] = useState<PaymentEmailChallenge | null>(null)
@@ -4975,9 +5157,14 @@ function CheckoutPage({
     ? deliveryArea.free_delivery_minimum - total
     : 0
   const checkoutError = mobileCheckoutAmountError(total, checkoutSettings)
-  const selectedReward = redemptions.find((reward) => reward.id === redemptionId)
+  const selectedRewardCandidate = redemptions.find((reward) => reward.id === redemptionId)
+  const selectedRewardEligible = Boolean(
+    selectedRewardCandidate && isMobileRewardEligible(selectedRewardCandidate, total),
+  )
+  const selectedReward = selectedRewardEligible ? selectedRewardCandidate : undefined
   const rewardDiscount = selectedReward ? Math.min(Number(selectedReward.discount_amount), Math.max(0, total + deliveryFee - 1)) : 0
   const grandTotal = total + deliveryFee - rewardDiscount
+  const paymentEmailDestination = profile.email.trim() || "your verified account email"
   const paymentMethods = [
     { id: "cod" as const, name: "Cash on delivery", icon: "payments", note: Number(checkoutSettings.cod_maximum_order || 0) > 0 ? `Available up to ₱${Number(checkoutSettings.cod_maximum_order).toLocaleString()}` : "Pay when your furniture arrives", enabled: mobilePaymentMethodAvailable("cod", total, checkoutSettings) },
     { id: "gcash" as const, name: "GCash", icon: "smartphone", note: "Secure PayMongo mobile payment", enabled: mobilePaymentMethodAvailable("gcash", total, checkoutSettings) },
@@ -4987,6 +5174,9 @@ function CheckoutPage({
     if (paymentMethods.some((method) => method.name === payment && method.enabled)) return
     setPayment(paymentMethods.find((method) => method.enabled)?.name || "")
   }, [payment, total, checkoutSettings.cod_enabled, checkoutSettings.card_enabled, checkoutSettings.gcash_enabled, checkoutSettings.cod_maximum_order])
+  useEffect(() => {
+    if (redemptionId && !selectedRewardEligible) setRedemptionId("")
+  }, [redemptionId, selectedRewardEligible])
   const openPaymongoCheckout = (result: Awaited<ReturnType<typeof placeOrder>>) => {
     if (!result.checkoutUrl || !/^https:\/\//i.test(result.checkoutUrl)) {
       throw new Error("The secure PayMongo payment page could not be opened. Your order has not been completed; please try again.")
@@ -5012,27 +5202,29 @@ function CheckoutPage({
     }
   }
   const startAuthorizedOnlinePayment = async (authorization: PaymentEmailAuthorization) => {
+    if (submitting.current || !mounted.current) return
     const currentMethod = onlinePaymentMethodFor(payment)
     if (!currentMethod || currentMethod !== authorization.paymentMethod) {
       throw new Error("The selected payment method changed. Send a new code for this checkout.")
     }
-    setPlacing(true)
+    setSubmitting(true)
     try {
       const result = await placeOrder({
         userId,
         payment,
         items: lines,
-        redemptionId: redemptionId || undefined,
+        redemptionId: selectedReward?.id || undefined,
         addressId: selectedAddressId || undefined,
         checkoutKey: authorization.checkoutKey,
         paymentAuthorizationId: authorization.id,
       })
-      openPaymongoCheckout(result)
+      if (mounted.current) openPaymongoCheckout(result)
     } finally {
-      setPlacing(false)
+      setSubmitting(false)
     }
   }
   const place = async () => {
+    if (submitting.current || !mounted.current) return
     if (!selectedDeliveryAddress || !deliveryArea) {
       setError("Choose a serviceable Philippine delivery address before placing your order.")
       return
@@ -5045,7 +5237,7 @@ function CheckoutPage({
       setError("No payment method is currently available for this order.")
       return
     }
-    setPlacing(true)
+    setSubmitting(true)
     setError("")
     try {
       const onlineMethod = onlinePaymentMethodFor(payment)
@@ -5055,19 +5247,22 @@ function CheckoutPage({
           checkoutKey: crypto.randomUUID(),
           paymentMethod: onlineMethod,
           items: lines.map((line) => ({ product_id: line.product.id, quantity: line.quantity })),
-          redemptionId: redemptionId || null,
+          redemptionId: selectedReward?.id || null,
         }
         const challenge = await requestPaymentEmailVerification(intent)
-        setPaymentChallenge(challenge)
+        if (mounted.current) setPaymentChallenge(challenge)
         return
       }
-      const result = await placeOrder({ userId, payment, items: lines, redemptionId: redemptionId || undefined, addressId: selectedAddressId || undefined })
+      const checkoutKey = checkoutAttemptKey({ userId, addressId: selectedAddressId, reward: selectedReward?.id || null, items: lines.map((line) => ({ id: line.product.id, quantity: line.quantity })).sort((a, b) => a.id.localeCompare(b.id)) })
+      const result = await placeOrder({ userId, payment, items: lines, redemptionId: selectedReward?.id || undefined, addressId: selectedAddressId || undefined, checkoutKey })
+      if (!mounted.current) return
       const order: CustomerOrder = {
+        databaseId: result.order.id,
         id: result.order?.order_number || result.order?.id || `CC-${Date.now().toString().slice(-6)}`,
         createdAt: new Date().toISOString(),
-        total: grandTotal,
-        subtotal: total,
-        deliveryFee,
+        total: Number(result.order.total ?? grandTotal),
+        subtotal: Number(result.order.subtotal ?? total),
+        deliveryFee: Number(result.order.delivery_fee ?? deliveryFee),
         deliveryAreaName: deliveryArea.name,
         rewardDiscount,
         status: "Processing",
@@ -5077,10 +5272,11 @@ function CheckoutPage({
         items: lines,
       }
       complete(order)
+      completeCheckoutAttempt(checkoutKey)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Checkout could not be completed.")
     } finally {
-      setPlacing(false)
+      setSubmitting(false)
     }
   }
   return (
@@ -5091,7 +5287,7 @@ function CheckoutPage({
       aria-label="Checkout"
     >
       <header className="checkout-header">
-        <button onClick={close} aria-label="Close checkout">
+        <button disabled={placing} onClick={() => { if (!submitting.current) close() }} aria-label="Close checkout">
           ←
         </button>
         <div>
@@ -5122,7 +5318,7 @@ function CheckoutPage({
               <div>
                 <b>{profile.name}</b>
                 <small>
-                  {profile.phone} · {profile.email}
+                  {profile.phone || "Add your mobile number in My Profile"} · {profile.email}
                 </small>
               </div>
             </div>
@@ -5228,14 +5424,30 @@ function CheckoutPage({
             {redemptions.length > 0 && <section className="checkout-rewards">
               <p className="hello">HOME CIRCLE REWARD</p>
               <button className={!redemptionId ? "selected" : ""} onClick={() => setRedemptionId("")}><span>No reward</span><b>Keep for later</b></button>
-              {redemptions.map((reward) => <button key={reward.id} className={redemptionId === reward.id ? "selected" : ""} onClick={() => setRedemptionId(reward.id)}>
-                <span>{reward.code}</span><b>Save ₱{Number(reward.discount_amount).toLocaleString()}</b><small>Expires {new Date(reward.expires_at).toLocaleDateString("en-PH")}</small>
-              </button>)}
+              {redemptions.map((reward) => {
+                const minimumOrder = mobileRewardMinimumOrder(reward)
+                const eligible = isMobileRewardEligible(reward, total)
+                return <button
+                  key={reward.id}
+                  className={`${redemptionId === reward.id ? "selected" : ""} ${reward.reward_source === "welcome" ? "welcome-reward" : ""}`.trim()}
+                  disabled={!eligible}
+                  onClick={() => eligible && setRedemptionId(reward.id)}
+                >
+                  <span>{reward.reward_source === "welcome" ? "WELCOME REWARD" : reward.code}</span>
+                  <b>Save ₱{Number(reward.discount_amount).toLocaleString()}</b>
+                  <small>{eligible
+                    ? `Expires ${new Date(reward.expires_at).toLocaleDateString("en-PH")}`
+                    : `Available on orders of ₱${minimumOrder.toLocaleString("en-PH")} or more`}</small>
+                </button>
+              })}
             </section>}
             <p className="secure-note">
               <span className="material-symbols-rounded">verified_user</span>
-              Your payment information is encrypted and protected.
+              {onlinePaymentMethodFor(payment)
+                ? `After your review, we’ll email a one-time code to ${paymentEmailDestination}. PayMongo opens only after verification.`
+                : "Pay when your furniture arrives. No payment code is needed for cash on delivery."}
             </p>
+            {error && <p className="form-notice checkout-flow-error" role="alert">{error}</p>}
           </section>
         )}
         {step === 2 && (
@@ -5253,14 +5465,22 @@ function CheckoutPage({
                   <div>
                     <b>{line.product.name}</b>
                     <small>
-                      {line.product.category} · Qty {line.quantity}
+                      {line.product.category} · Qty {line.quantity}{line.quantity > 1 ? ` · ${line.product.price} each` : ""}
                     </small>
                   </div>
-                  <strong>{line.product.price}</strong>
+                  <strong>{peso(Number(line.product.price.replace(/[₱,]/g, "")) * line.quantity)}</strong>
                 </article>
               ))}
             </div>
-            <dl>
+            <dl className="checkout-fulfilment-summary">
+              <div>
+                <dt>Recipient</dt>
+                <dd>{selectedDeliveryAddress ? `${selectedDeliveryAddress.recipient_name} · ${selectedDeliveryAddress.mobile}` : profile.name}</dd>
+              </div>
+              <div>
+                <dt>Email receipt</dt>
+                <dd>{selectedDeliveryAddress?.email?.trim() || paymentEmailDestination}</dd>
+              </div>
               <div>
                 <dt>Delivery to</dt>
                 <dd>{address}</dd>
@@ -5274,8 +5494,22 @@ function CheckoutPage({
                 <dd>{deliveryArea ? `${deliveryArea.name} · ${deliveryFee ? `₱${deliveryFee.toLocaleString()}` : "Free"}` : "Select an address"}</dd>
               </div>
               {deliveryArea && <div><dt>Estimated arrival</dt><dd>{deliveryArea.lead_time_min_days}–{deliveryArea.lead_time_max_days} business days · {deliveryArea.assembly_available ? "Assembly available" : "Assembly not included"}</dd></div>}
-              {rewardDiscount > 0 && <div className="checkout-reward-total"><dt>Home Circle reward</dt><dd>−₱{rewardDiscount.toLocaleString()}</dd></div>}
+              {selectedDeliveryAddress?.delivery_note && <div><dt>Delivery note</dt><dd>{selectedDeliveryAddress.delivery_note}</dd></div>}
             </dl>
+            <dl className="checkout-price-summary" aria-label="Order total breakdown">
+              <div><dt>Furniture subtotal</dt><dd>{peso(total)}</dd></div>
+              <div><dt>Delivery fee</dt><dd>{deliveryFee > 0 ? peso(deliveryFee) : "Free"}</dd></div>
+              {rewardDiscount > 0 && <div className="checkout-reward-total"><dt>Home Circle reward</dt><dd>−{peso(rewardDiscount)}</dd></div>}
+              <div className="checkout-grand-total"><dt>Total</dt><dd>{peso(grandTotal)}</dd></div>
+            </dl>
+            {onlinePaymentMethodFor(payment) && <aside className="checkout-verification-next">
+              <span className="material-symbols-rounded" aria-hidden="true">mark_email_unread</span>
+              <div>
+                <b>Next: verify this payment by email</b>
+                <p>We’ll send a six-digit code, then open PayMongo. The code itself does not charge your GCash or card.</p>
+              </div>
+            </aside>}
+            {error && <p className="form-notice checkout-flow-error" role="alert">{error}</p>}
             {checkoutError && <p className="form-notice" role="alert">{checkoutError}</p>}
           </section>
         )}
@@ -5308,14 +5542,17 @@ function CheckoutPage({
           }}
         >
           {placing
-            ? onlinePaymentMethodFor(payment) ? "Preparing secure payment…" : "Placing order…"
+            ? onlinePaymentMethodFor(payment) ? "Sending payment code…" : "Placing order…"
             : step < 2
               ? "Continue →"
-              : checkoutError || "Place order →"}
+              : checkoutError || (onlinePaymentMethodFor(payment) ? "Send payment code →" : "Place order →")}
         </button>
       </footer>
       {paymentChallenge && <PaymentEmailVerificationDialog
         challenge={paymentChallenge}
+        subtotal={total}
+        deliveryFee={deliveryFee}
+        rewardDiscount={rewardDiscount}
         total={grandTotal}
         onCancel={() => {
           if (placing) return
@@ -5457,7 +5694,9 @@ function MembershipPage({ points, tier, lifetimeSpend, orderCount, activity, red
         {redemptions.length > 0 && <section className="membership-activity membership-rewards-list">
           <div className="membership-list-title"><p className="hello">MY REWARDS</p><small>{availableRewards} available</small></div>
           {redemptions.map((reward) => <article key={reward.id}>
-            <span><strong>{reward.code}</strong><small>{reward.status === "available" ? `₱${Number(reward.discount_amount).toLocaleString()} off · expires ${new Date(reward.expires_at).toLocaleDateString("en-PH")}` : `₱${Number(reward.discount_amount).toLocaleString()} off · ${reward.status}`}</small></span>
+            <span><strong>{reward.reward_source === "welcome" ? "WELCOME REWARD" : reward.code}</strong><small>{reward.status === "available"
+              ? `₱${Number(reward.discount_amount).toLocaleString()} off${mobileRewardMinimumOrder(reward) > 0 ? ` on ₱${mobileRewardMinimumOrder(reward).toLocaleString("en-PH")} orders` : ""} · expires ${new Date(reward.expires_at).toLocaleDateString("en-PH")}`
+              : `₱${Number(reward.discount_amount).toLocaleString()} off · ${reward.status}`}</small></span>
             <b className={reward.status === "available" ? "earned" : "used"}>{reward.status}</b>
           </article>)}
         </section>}
@@ -6396,7 +6635,7 @@ function ShopPage({
           <span className="material-symbols-rounded">weekend</span>
           <h2>No pieces in this edit yet.</h2>
           <p>{subcategory ? `There are currently no active products assigned to ${subcategory}.` : "Try raising your price range or exploring another room."}</p>
-          <button onClick={() => { setMaxPrice(40000); setSubcategory("") }}>Reset filters</button>
+          <button onClick={() => { setMaxPrice(500000); setSubcategory("") }}>Reset filters</button>
         </section>
       )}
       <section className="room-family">
@@ -6440,19 +6679,6 @@ function ShopPage({
           <p>SELECTED CATEGORY</p>
           <h2>{subcategory}</h2>
           <span>Explore a considered edit from this family.</span>
-          <div className="lux-grid">
-            {roomProducts.map((p) => (
-              <Card
-                key={p.id}
-                p={p}
-                saved={saved.includes(p.id)}
-                bagQuantity={bagQuantities[p.id] || 0}
-                save={() => save(p.id)}
-                add={() => add(p)}
-                open={() => openProduct(p)}
-              />
-            ))}
-          </div>
         </section>
       )}
     </section>

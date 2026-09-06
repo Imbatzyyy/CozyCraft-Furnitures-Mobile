@@ -1,9 +1,10 @@
 import { lazy, Suspense, useEffect, useState } from "react"
 import { createHashRouter, Link, useLocation, useNavigate } from "react-router"
 import CustomerSecurityGate from "./features/auth/CustomerSecurityGate"
+import { googleOAuthOptions } from "./features/auth/google-oauth"
 import cozyLogo from "./imports/COZy.png"
 import googleMark from "./assets/google-g.ico"
-import { enterGuestMode, isGuestMode, leaveGuestMode, mobileRedirectUrl, supabase, verifyCustomerSession } from "./lib/supabase"
+import { clearMobileCustomerCache, enterGuestMode, isGuestMode, leaveGuestMode, mobileRedirectUrl, supabase, verifyCustomerSession } from "./lib/supabase"
 import { acceptCurrentMobilePolicies, loadMobileContentPage, type MobileContentPage } from "./lib/mobile-data"
 
 const Storefront = lazy(() => import("./Storefront"))
@@ -567,6 +568,7 @@ function SignIn() {
       setNotice("Incorrect email or password. Please check your credentials.")
       return
     }
+    clearMobileCustomerCache()
     leaveGuestMode()
     await finishPendingPolicyAcceptance().catch((cause) => {
       console.warn("Policy acceptance will retry after sign-in", cause)
@@ -670,11 +672,12 @@ function SignIn() {
         <button
           className="google"
           onClick={async () => {
+            clearMobileCustomerCache()
             leaveGuestMode()
             setNotice("")
             const { data, error } = await supabase.auth.signInWithOAuth({
               provider: "google",
-              options: { redirectTo: mobileRedirectUrl(), skipBrowserRedirect: window.parent !== window },
+              options: googleOAuthOptions(mobileRedirectUrl()),
             })
             if (error) {
               setNoticeKind("error")
@@ -884,6 +887,7 @@ function CreateAccount() {
       setVerification(true)
       return
     }
+    clearMobileCustomerCache()
     leaveGuestMode()
     await finishPendingPolicyAcceptance().catch((cause) => {
       console.warn("Policy acceptance will retry on the next session", cause)
@@ -965,15 +969,13 @@ function CreateAccount() {
               type="button"
               className="google create-google"
               onClick={async () => {
+                clearMobileCustomerCache()
                 leaveGuestMode()
                 setNotice("")
                 window.localStorage.setItem(MOBILE_POLICY_PENDING_KEY, MOBILE_POLICY_VERSION)
                 const { data, error } = await supabase.auth.signInWithOAuth({
                   provider: "google",
-                  options: {
-                    redirectTo: mobileRedirectUrl(),
-                    skipBrowserRedirect: window.parent !== window,
-                  },
+                  options: googleOAuthOptions(mobileRedirectUrl()),
                 })
                 if (error) setNotice(error.message)
                 else if (data.url && window.parent !== window) {

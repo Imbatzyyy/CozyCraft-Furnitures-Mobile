@@ -1,4 +1,5 @@
 import type { User } from "@supabase/supabase-js"
+import { readAllPages } from "./paged-query"
 import { supabase, supabaseUrl } from "./supabase"
 import type { MobileDeliveryServiceArea } from "./mobile-delivery"
 
@@ -52,6 +53,8 @@ export type MobileRedemption = {
   id: string
   points_cost: number
   discount_amount: number
+  reward_source: "points" | "welcome"
+  minimum_order_amount: number
   status: "available" | "applied" | "used" | "expired" | "cancelled"
   code: string
   created_at: string
@@ -59,10 +62,21 @@ export type MobileRedemption = {
   used_at: string | null
 }
 
+export function mobileRewardMinimumOrder(reward: Pick<MobileRedemption, "minimum_order_amount">) {
+  return Math.max(0, Number(reward.minimum_order_amount) || 0)
+}
+
+export function isMobileRewardEligible(
+  reward: Pick<MobileRedemption, "minimum_order_amount">,
+  merchandiseSubtotal: number,
+) {
+  return Math.max(0, Number(merchandiseSubtotal) || 0) >= mobileRewardMinimumOrder(reward)
+}
+
 export async function loadMobileRedemptions(userId: string): Promise<MobileRedemption[]> {
   const { data, error } = await supabase
     .from("mobile_loyalty_redemptions")
-    .select("id,points_cost,discount_amount,status,code,created_at,expires_at,used_at")
+    .select("id,points_cost,discount_amount,reward_source,minimum_order_amount,status,code,created_at,expires_at,used_at")
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
   if (error) throw error
@@ -167,8 +181,9 @@ export const mapProduct = (row: Record<string, any>): MobileProduct => {
   }
 }
 
-export async function loadProducts() {
-  const { data, error } = await supabase
+export async function loadProducts(ids?: string[]) {
+  const data = await readAllPages<Record<string, any>>((from, to) => {
+    let query = supabase
     .from("products")
     // Keep the mobile catalog payload deliberate. Color and administrative
     // timestamps are not rendered by the app and do not need to cross the
@@ -176,7 +191,10 @@ export async function loadProducts() {
     .select("id,name,category,subcategory,price,stock_quantity,status,material,dimensions,description,images,main_image_index,rating,review_count")
     .eq("status", "active")
     .order("created_at", { ascending: false })
-  if (error) throw error
+    .order("id")
+    if (ids) query = query.in("id", ids)
+    return query.range(from, to)
+  })
   return (data || []).map(mapProduct)
 }
 
@@ -232,6 +250,18 @@ async function resolveProfileAvatar(source: string) {
   return url
 }
 
+export function customerSelectedAvatarSource(source: unknown) {
+  const value = String(source || "").trim()
+  if (!value) return ""
+  try {
+    const hostname = new URL(value).hostname.toLocaleLowerCase("en-PH")
+    if (hostname === "googleusercontent.com" || hostname.endsWith(".googleusercontent.com")) return ""
+  } catch {
+    // Customer-uploaded avatars are stored as private bucket paths, not URLs.
+  }
+  return value
+}
+
 export async function loadProfile(user: User) {
   const { data, error } = await supabase
     .from("profiles")
@@ -239,7 +269,9 @@ export async function loadProfile(user: User) {
     .eq("id", user.id)
     .single()
   if (error) throw error
-  const avatar = await resolveProfileAvatar(data.avatar_url || user.user_metadata.avatar_url || "")
+  // Google identity photos are never treated as customer-selected profile
+  // photos. Only an avatar explicitly saved in the CozyCraft profile is shown.
+  const avatar = await resolveProfileAvatar(customerSelectedAvatarSource(data.avatar_url))
   return {
     name: data.username || data.full_name || user.user_metadata.full_name || "Member",
     username: data.username || "",
@@ -393,23 +425,16 @@ export async function placeOrder(input: {
   const checkoutKey = input.checkoutKey || crypto.randomUUID()
   const items = input.items.map(({ product, quantity }) => ({ product_id: product.id, quantity }))
   if (paymentMethod === "cod") {
-    const { data, error } = await supabase.rpc("place_order", {
+    items.sort((a, b) => a.product_id.localeCompare(b.product_id))
+    const { data, error } = await supabase.rpc("place_mobile_cod_order", {
       p_address_id: address.id,
-      p_payment_method: paymentMethod,
       p_items: items,
       p_checkout_key: checkoutKey,
+      p_redemption_id: input.redemptionId || null,
     })
     if (error) throw error
-    const orderId = typeof data === "string" ? data : data?.id
-    if (orderId && input.redemptionId) {
-      const { error: rewardError } = await supabase.rpc("apply_mobile_reward_to_order", {
-        p_order_id: orderId,
-        p_redemption_id: input.redemptionId,
-      })
-      if (rewardError) throw rewardError
-    }
-    if (orderId) await markMobileOrder(orderId)
-    return { order: { id: orderId }, checkoutUrl: null }
+    if (!data?.id) throw new Error("The order response was interrupted. Retry to recover the same order.")
+    return { order: data, checkoutUrl: null }
   }
   if (!input.paymentAuthorizationId) {
     throw new Error("Verify the payment code sent to your email before opening PayMongo.")
@@ -449,20 +474,25 @@ export async function placeOrder(input: {
   if (typeof checkoutUrl !== "string" || !/^https:\/\//i.test(checkoutUrl)) {
     throw new Error("PayMongo did not return a secure payment page. Please try again.")
   }
-  if (data?.orderId || data?.order?.id) await markMobileOrder(data?.orderId || data.order.id)
+  // The checkout already exists. Optional attribution must never block handoff.
+  if (data?.orderId || data?.order?.id) void markMobileOrder(data?.orderId || data.order.id).catch(console.warn)
   return {
     order: data?.order || { id: data?.orderId, order_number: data?.orderNumber },
     checkoutUrl,
   }
 }
 
-export async function loadOrders(userId: string, catalog: MobileProduct[]) {
-  const [{ data, error }, { data: customerReviews, error: reviewsError }] = await Promise.all([
-    supabase.from("orders").select("*,order_items(*),order_status_history(status,changed_at)").eq("user_id", userId).order("created_at", { ascending: false }),
-    supabase.from("reviews").select("id,order_item_id,product_id,rating,body,image_urls,approved,created_at").eq("user_id", userId),
-  ])
-  if (error) throw error
-  if (reviewsError) throw reviewsError
+export async function loadOrders(userId: string, catalog: MobileProduct[], ids?: string[]) {
+  const data = await readAllPages<Record<string, any>>((from, to) => {
+    let query = supabase.from("orders").select("*,order_items(*),order_status_history(status,changed_at)").eq("user_id", userId).order("created_at", { ascending: false }).order("id")
+    if (ids) query = query.in("id", ids)
+    return query.range(from, to)
+  })
+  const itemIds = data.flatMap((order) => (order.order_items || []).map((item: Record<string, any>) => item.id))
+  const customerReviews: Record<string, any>[] = []
+  for (let index = 0; index < itemIds.length; index += 100) {
+    customerReviews.push(...await readAllPages<Record<string, any>>((from, to) => supabase.from("reviews").select("id,order_item_id,product_id,rating,body,image_urls,approved,created_at").eq("user_id", userId).in("order_item_id", itemIds.slice(index, index + 100)).order("id").range(from, to)))
+  }
   const reviewsByOrderItem = new Map((customerReviews || []).map((review) => [String(review.order_item_id), review]))
   const normalizedStatus = (value: string) => {
     if (value === "cancelled" || value === "canceled" || value === "refunded") return "Cancelled"
@@ -502,12 +532,14 @@ export async function loadOrders(userId: string, catalog: MobileProduct[]) {
     pointsEarned: (rewards || []).filter((row) => row.order_id === order.id && Number(row.points) > 0).reduce((sum, row) => sum + Number(row.points), 0),
     address: [order.shipping_address?.line, order.shipping_address?.barangay, order.shipping_address?.city, order.shipping_address?.province, order.shipping_address?.postal].filter(Boolean).join(", "),
     items: (order.order_items || []).flatMap((line: Record<string, any>) => {
-      const product = catalog.find((item) => item.id === String(line.product_id)) || {
+      const currentProduct = catalog.find((item) => item.id === String(line.product_id))
+      const product = {
+        ...currentProduct,
         id: String(line.product_id),
-        name: line.product_name || "CozyCraft product",
-        category: "Furniture",
+        name: line.product_name || currentProduct?.name || "CozyCraft product",
+        category: currentProduct?.category || "Furniture",
         price: peso(Number(line.unit_price || 0)),
-        image: line.product_image || "",
+        image: line.image_url || line.product_image || currentProduct?.image || "",
         alt: line.product_name || "CozyCraft product",
       }
       const review = reviewsByOrderItem.get(String(line.id))
@@ -636,9 +668,7 @@ export async function savePaymentPreference(userId: string, method: string) {
 }
 
 export async function loadSupportTickets(userId: string) {
-  const { data, error } = await supabase.from("support_tickets").select("*").eq("user_id", userId).order("created_at", { ascending: false })
-  if (error) throw error
-  return data || []
+  return readAllPages<Record<string, any>>((from, to) => supabase.from("support_tickets").select("*").eq("user_id", userId).order("created_at", { ascending: false }).order("id").range(from, to))
 }
 
 export async function loadNotifications(userId: string) {
@@ -1031,6 +1061,7 @@ export type MobileFaqPage = {
 
 const MOBILE_FAQ_CACHE_KEY = "cozycraft-mobile-faq-v1"
 const MOBILE_FAQ_CACHE_MS = 24 * 60 * 60 * 1000
+export const MOBILE_FAQ_REQUEST_TIMEOUT_MS = 6_000
 
 const FAQ_FALLBACK: MobileFaqItem[] = [
   { question: "How do I know if a product is available?", answer: "Product pages show the latest CozyCraft stock. An unavailable piece stays viewable, but the app will not let you add more than the available quantity.", category: "shopping" },
@@ -1079,6 +1110,31 @@ const readFaqCache = (): (MobileFaqPage & { cachedAt: number }) | null => {
   }
 }
 
+const offlineFaqPage = (): MobileFaqPage => ({
+  title: "Frequently asked questions.",
+  summary: "Quick answers for shopping, payment, delivery, orders, reviews, and account care.",
+  items: FAQ_FALLBACK,
+  updatedAt: "",
+  source: "offline",
+})
+
+/**
+ * Returns useful FAQ content synchronously so a native WebView never has to
+ * wait for the network before showing Care & support. Stale cached answers are
+ * still preferable to an indefinite loading card and are refreshed quietly.
+ */
+export function readMobileFaqSnapshot(): MobileFaqPage {
+  const cached = readFaqCache()
+  if (!cached) return offlineFaqPage()
+  return {
+    title: cached.title,
+    summary: cached.summary,
+    items: cached.items,
+    updatedAt: cached.updatedAt,
+    source: "cache",
+  }
+}
+
 /**
  * FAQ content is fetched only when Care & support is opened and then reused
  * for 24 hours. This keeps the help center current without adding a catalog-
@@ -1090,13 +1146,23 @@ export async function loadMobileFaq(): Promise<MobileFaqPage> {
     return { ...cached, source: "cache" }
   }
 
+  const controller = new AbortController()
+  let timeoutId = 0
   try {
-    const { data, error } = await supabase
+    const request = supabase
       .from("content_pages")
       .select("title,summary,body,updated_at")
       .eq("slug", "faq")
       .eq("published", true)
+      .abortSignal(controller.signal)
       .maybeSingle()
+    const timeout = new Promise<never>((_, reject) => {
+      timeoutId = window.setTimeout(() => {
+        controller.abort()
+        reject(new Error("FAQ request timed out"))
+      }, MOBILE_FAQ_REQUEST_TIMEOUT_MS)
+    })
+    const { data, error } = await Promise.race([request, timeout])
     if (error) throw error
     if (!data) throw new Error("FAQ content is not published")
     const page: MobileFaqPage & { cachedAt: number } = {
@@ -1111,13 +1177,9 @@ export async function loadMobileFaq(): Promise<MobileFaqPage> {
     return page
   } catch {
     if (cached) return { ...cached, source: "cache" }
-    return {
-      title: "Frequently asked questions.",
-      summary: "Quick answers for shopping, payment, delivery, orders, reviews, and account care.",
-      items: FAQ_FALLBACK,
-      updatedAt: "",
-      source: "offline",
-    }
+    return offlineFaqPage()
+  } finally {
+    if (timeoutId) window.clearTimeout(timeoutId)
   }
 }
 
@@ -1190,8 +1252,7 @@ export async function loadReviews(productId: string) {
   // Product pages only request reviews currently visible on the storefront.
   // New verified reviews are inserted with approved=true and appear through
   // the product-scoped realtime subscription immediately after publication.
-  const { data, error } = await supabase.from("reviews").select("id,rating,body,image_urls,created_at,approved,reviewer_display_name").eq("product_id", productId).eq("approved", true).order("created_at", { ascending: false })
-  if (error) throw error
+  const data = await readAllPages<Record<string, any>>((from, to) => supabase.from("reviews").select("id,rating,body,image_urls,created_at,approved,reviewer_display_name").eq("product_id", productId).eq("approved", true).order("created_at", { ascending: false }).order("id").range(from, to))
   return (data || []).map((review) => ({
     ...review,
     // The endpoint only serves photos belonging to visible reviews. It keeps
@@ -1244,19 +1305,24 @@ function detectReviewImageFormat(bytes: ArrayBuffer, declaredType = "", fileName
   return byType[declaredType.toLowerCase()] || byExtension[extension] || null
 }
 
-async function prepareReviewImage(image: File) {
+export async function prepareReviewImage(image: File) {
   // Always copy first. Decoding a picker-backed File directly can consume or
   // invalidate Android's one-shot content stream before a fallback can read it.
   const originalBytes = await readReviewImageBytes(image)
   const format = detectReviewImageFormat(originalBytes, image.type, image.name)
   if (!format) throw new Error("Choose a JPG, PNG, WebP, HEIC, or HEIF photo.")
-  const originalBlob = new Blob([originalBytes], { type: format.contentType })
-
-  // HEIC/HEIF decoding is not consistently available in Android WebView.
-  // Those formats still use the stable ArrayBuffer upload path unchanged.
-  if (format.contentType === "image/heic" || format.contentType === "image/heif" || typeof createImageBitmap !== "function") {
-    return { bytes: originalBytes, ...format }
+  let displayBytes = originalBytes
+  let displayFormat = format
+  if (format.contentType === "image/heic" || format.contentType === "image/heif") {
+    // Loaded only for HEIC, from the packaged app; never send originals to a
+    // conversion service. The CSP build does not require unsafe-eval.
+    const { heicTo } = await import("heic-to/csp")
+    const jpeg = await heicTo({ blob: new Blob([originalBytes], { type: format.contentType }), type: "image/jpeg", quality: 0.84 })
+    displayBytes = await jpeg.arrayBuffer()
+    displayFormat = { contentType: "image/jpeg", extension: "jpg" }
   }
+  const originalBlob = new Blob([displayBytes], { type: displayFormat.contentType })
+  if (typeof createImageBitmap !== "function") return { bytes: displayBytes, ...displayFormat }
 
   let bitmap: ImageBitmap | null = null
   try {
@@ -1280,7 +1346,7 @@ async function prepareReviewImage(image: File) {
   } catch {
     // The bytes have already been validated and detached from the picker, so a
     // WebView decode failure must not prevent the original image from uploading.
-    return { bytes: originalBytes, ...format }
+    return { bytes: displayBytes, ...displayFormat }
   } finally {
     bitmap?.close()
   }
@@ -1316,6 +1382,10 @@ export async function submitReview(
   const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"])
   const allowedExtensions = new Set(["jpg", "jpeg", "png", "webp", "heic", "heif"])
   const imageUrls: string[] = []
+  const newlyUploadedPaths: string[] = []
+  let publicationStarted = false
+  let publicationRolledBack = false
+  try {
   for (const [index, image] of images.entries()) {
     const extension = image.name.split(".").pop()?.toLowerCase() || "jpg"
     if (image.size > 5 * 1024 * 1024 || (!allowedTypes.has(image.type) && !(image.type === "" && allowedExtensions.has(extension)))) {
@@ -1331,24 +1401,30 @@ export async function submitReview(
     } catch {
       throw new Error(`We couldn't read ${image.name}. Remove it and choose the photo again.`)
     }
-    const path = `${userId}/${orderItemId}/${crypto.randomUUID()}-${index}.${prepared.extension}`
+    // Content-addressed paths make retries reuse the same photo, including
+    // when a response was lost after Storage accepted the upload.
+    const digest = await crypto.subtle.digest("SHA-256", prepared.bytes)
+    const fingerprint = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("")
+    const path = `${userId}/${orderItemId}/${fingerprint}.${prepared.extension}`
     reportProgress?.(`Uploading photo ${index + 1} of ${images.length}…`)
     const { error: uploadError } = await supabase.storage.from("review-images").upload(path, prepared.bytes, {
       cacheControl: "3600",
       contentType: prepared.contentType,
       upsert: false,
     })
-    if (uploadError) {
+    if (uploadError && !["409", "Duplicate"].includes(String((uploadError as { statusCode?: string }).statusCode || "")) && !/already exists/i.test(uploadError.message || "")) {
       const detail = uploadError.message?.trim()
       throw new Error(`Photo ${index + 1} couldn't be uploaded${detail ? `: ${detail}` : ". Please try that photo again."}`)
     }
     const { data: publicUrl } = supabase.storage.from("review-images").getPublicUrl(path)
+    if (!uploadError) newlyUploadedPaths.push(path)
     imageUrls.push(publicUrl.publicUrl)
     // Yield between files so the WebView can release the completed request and
     // decoded image before allocating the next photo in a two-image batch.
     await new Promise<void>((resolve) => window.setTimeout(resolve, 40))
   }
   reportProgress?.("Saving your verified review…")
+  publicationStarted = true
   const { data, error } = await supabase.rpc("submit_order_item_review", {
     p_order_item_id: orderItemId,
     p_rating: rating,
@@ -1356,13 +1432,24 @@ export async function submitReview(
     p_body: body,
     p_image_urls: imageUrls,
   })
-  if (error) throw new Error(error.message || "The review could not be saved.")
+  if (error) {
+    // A PostgreSQL error means its transaction rolled back. A transport error
+    // may mean success with a lost response, so retain the retryable hash path.
+    publicationRolledBack = /^[0-9A-Z]{5}$/.test(error.code || "")
+    throw new Error(error.message || "The review could not be saved.")
+  }
   const review = Array.isArray(data) ? data[0] : data
   if (!review?.id) throw new Error("The review was not returned after publishing. Please try again.")
   if (review.approved !== true) {
     throw new Error("This review is not visible on the product page. Please contact CozyCraft Care.")
   }
   return review
+  } catch (error) {
+    if (newlyUploadedPaths.length && (!publicationStarted || publicationRolledBack)) {
+      await supabase.storage.from("review-images").remove(newlyUploadedPaths).catch(console.warn)
+    }
+    throw error
+  }
 }
 
 export async function submitMobileReturnRequest(input: {

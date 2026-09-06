@@ -27,11 +27,12 @@ beforeEach(() => {
     select: mocks.select,
     eq: mocks.eq,
     order: mocks.order,
+    range: vi.fn(async () => ({ data: [], error: null })),
   }
   mocks.from.mockReturnValue(query)
   mocks.select.mockReturnValue(query)
   mocks.eq.mockReturnValue(query)
-  mocks.order.mockResolvedValue({ data: [], error: null })
+  mocks.order.mockReturnValue(query)
   mocks.getSession.mockResolvedValue({
     data: { session: { user: { id: "customer-a" } } },
     error: null,

@@ -12,6 +12,9 @@ import {
 
 type PaymentEmailVerificationDialogProps = {
   challenge: PaymentEmailChallenge
+  subtotal: number
+  deliveryFee: number
+  rewardDiscount: number
   total: number
   onCancel: () => void
   onChallengeChange: (challenge: PaymentEmailChallenge) => void
@@ -23,6 +26,9 @@ const paymentLabel = (challenge: PaymentEmailChallenge) =>
 
 export default function PaymentEmailVerificationDialog({
   challenge,
+  subtotal,
+  deliveryFee,
+  rewardDiscount,
   total,
   onCancel,
   onChallengeChange,
@@ -54,6 +60,15 @@ export default function PaymentEmailVerificationDialog({
     now,
   )
   const method = paymentLabel(challenge)
+  const formattedSubtotal = useMemo(() => `₱${subtotal.toLocaleString("en-PH")}`, [subtotal])
+  const formattedDelivery = useMemo(
+    () => deliveryFee > 0 ? `₱${deliveryFee.toLocaleString("en-PH")}` : "Free",
+    [deliveryFee],
+  )
+  const formattedReward = useMemo(
+    () => `−₱${rewardDiscount.toLocaleString("en-PH")}`,
+    [rewardDiscount],
+  )
   const formattedTotal = useMemo(() => `₱${total.toLocaleString("en-PH")}`, [total])
 
   const openSecureCheckout = async (verified: PaymentEmailAuthorization) => {
@@ -127,6 +142,13 @@ export default function PaymentEmailVerificationDialog({
           <div><dt>Order total</dt><dd>{formattedTotal}</dd></div>
         </dl>
 
+        <dl className="payment-verification-breakdown" aria-label="Payment amount breakdown">
+          <div><dt>Furniture subtotal</dt><dd>{formattedSubtotal}</dd></div>
+          <div><dt>Delivery fee</dt><dd>{formattedDelivery}</dd></div>
+          {rewardDiscount > 0 && <div className="reward"><dt>Home Circle reward</dt><dd>{formattedReward}</dd></div>}
+          <div className="total"><dt>Amount to pay in PayMongo</dt><dd>{formattedTotal}</dd></div>
+        </dl>
+
         {authorization ? (
           <div className="payment-verification-approved" role="status">
             <span className="material-symbols-rounded" aria-hidden="true">verified_user</span>
@@ -182,7 +204,7 @@ export default function PaymentEmailVerificationDialog({
 
         <aside>
           <span className="material-symbols-rounded" aria-hidden="true">lock</span>
-          <p><b>One checkout only.</b> This code never reveals or stores your GCash or card details.</p>
+          <p><b>One checkout only.</b> Verifying this code does not charge you. PayMongo opens next so you can review and complete the actual GCash or card payment.</p>
         </aside>
       </div>
     </section>

@@ -6,6 +6,388 @@
   font-display: swap;
 }
 
+/* First Google sign-in: a single, account-backed setup flow shared by iOS and
+   Android. It lives outside the app root so the page underneath can be inert
+   without disabling the dialog itself. */
+html.google-onboarding-open,
+body.google-onboarding-open {
+  overflow: hidden !important;
+  overscroll-behavior: none;
+}
+
+.google-onboarding-overlay {
+  position: fixed;
+  z-index: 2147483010;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 100dvh;
+  padding:
+    max(16px, env(safe-area-inset-top))
+    clamp(12px, 4vw, 24px)
+    max(16px, env(safe-area-inset-bottom));
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background:
+    radial-gradient(circle at 78% 15%, rgba(193, 209, 183, .2), transparent 28%),
+    rgba(29, 27, 24, .66);
+  -webkit-backdrop-filter: blur(20px) saturate(112%);
+  backdrop-filter: blur(20px) saturate(112%);
+  -webkit-overflow-scrolling: touch;
+  animation: google-onboarding-backdrop-in 180ms ease-out both;
+}
+
+.google-onboarding-overlay,
+.google-onboarding-overlay * {
+  box-sizing: border-box;
+}
+
+.google-onboarding-overlay:focus {
+  outline: none;
+}
+
+.google-onboarding-card {
+  position: relative;
+  display: grid;
+  width: min(100%, 440px);
+  max-height: calc(100dvh - max(32px, env(safe-area-inset-top)) - max(32px, env(safe-area-inset-bottom)));
+  padding: clamp(22px, 6vw, 34px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid rgba(255, 255, 255, .78);
+  border-radius: clamp(26px, 8vw, 38px);
+  background:
+    radial-gradient(circle at 100% 0, rgba(220, 231, 213, .72), transparent 31%),
+    linear-gradient(155deg, #fbf9f4 0%, #f4f0e9 100%);
+  color: #25221e;
+  box-shadow:
+    0 34px 90px rgba(17, 14, 11, .38),
+    inset 0 1px rgba(255, 255, 255, .82);
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  animation: google-onboarding-card-in 260ms cubic-bezier(.2, .82, .2, 1) both;
+}
+
+.google-onboarding-card::-webkit-scrollbar {
+  display: none;
+}
+
+.google-onboarding-monogram,
+.welcome-voucher-mark {
+  display: grid;
+  place-items: center;
+  width: clamp(58px, 17vw, 72px);
+  aspect-ratio: 1;
+  margin-bottom: 22px;
+  border: 1px solid rgba(94, 117, 84, .18);
+  border-radius: 23px;
+  background: rgba(229, 237, 224, .9);
+  color: #587153;
+  font: 500 clamp(21px, 6vw, 28px)/1 "DM Serif Display", Georgia, serif;
+  box-shadow: inset 0 1px rgba(255, 255, 255, .72);
+}
+
+.welcome-voucher-mark {
+  border-radius: 50%;
+  background: #61795a;
+  color: #fffdf8;
+  font-family: Georgia, serif;
+}
+
+.google-onboarding-eyebrow {
+  margin: 0 0 10px;
+  color: #6a7d63;
+  font-size: clamp(10px, calc(9px * var(--cozy-layout-font-scale, 1)), 12px);
+  font-weight: 850;
+  letter-spacing: .19em;
+  line-height: 1.35;
+}
+
+.google-onboarding-card h1 {
+  max-width: 360px;
+  margin: 0;
+  color: #211f1b;
+  font: 400 clamp(34px, 10vw, 48px)/.97 "DM Serif Display", Georgia, serif;
+  letter-spacing: -.045em;
+  text-wrap: balance;
+}
+
+.google-onboarding-card h1 em {
+  color: #586d52;
+  font-weight: 400;
+}
+
+.google-onboarding-lead {
+  max-width: 370px;
+  margin: 16px 0 22px;
+  color: #716a61;
+  font-size: clamp(14px, calc(13px * var(--cozy-reading-font-scale, 1)), 18px);
+  line-height: 1.55;
+}
+
+.google-onboarding-card > label {
+  display: grid;
+  gap: 8px;
+}
+
+.google-onboarding-card > label > span {
+  color: #4d4942;
+  font-size: clamp(12px, calc(11px * var(--cozy-layout-font-scale, 1)), 15px);
+  font-weight: 780;
+}
+
+.google-onboarding-card > label input {
+  width: 100%;
+  min-width: 0;
+  min-height: 56px;
+  padding: 0 17px;
+  border: 1px solid rgba(83, 76, 66, .2);
+  border-radius: 17px;
+  outline: none;
+  background: rgba(255, 255, 255, .82);
+  color: #24211e;
+  font-size: clamp(16px, calc(15px * var(--cozy-layout-font-scale, 1)), 19px);
+  font-weight: 650;
+  caret-color: #5b7355;
+  box-shadow: inset 0 1px 2px rgba(48, 41, 34, .04);
+  transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
+}
+
+.google-onboarding-card > label input:focus {
+  border-color: #687f61;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(103, 129, 94, .14);
+}
+
+.google-onboarding-card > label input::placeholder {
+  color: #aaa197;
+  opacity: 1;
+}
+
+.google-onboarding-help,
+.google-onboarding-footnote,
+.welcome-voucher-note {
+  color: #7a7369;
+  font-size: clamp(11px, calc(10px * var(--cozy-reading-font-scale, 1)), 14px);
+  line-height: 1.5;
+}
+
+.google-onboarding-help {
+  margin: 10px 1px 0;
+}
+
+.google-onboarding-error {
+  margin: 12px 0 0;
+  padding: 12px 14px;
+  border: 1px solid rgba(151, 82, 66, .24);
+  border-radius: 15px;
+  background: #f3dfda;
+  color: #824f43;
+  font-size: clamp(12px, calc(11px * var(--cozy-reading-font-scale, 1)), 15px);
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.google-onboarding-primary,
+.google-onboarding-secondary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 56px;
+  margin-top: 20px;
+  padding: 13px 18px;
+  border: 0;
+  border-radius: 18px;
+  background: #24211e;
+  color: #fffdf9;
+  font-size: clamp(14px, calc(13px * var(--cozy-layout-font-scale, 1)), 17px);
+  font-weight: 780;
+  line-height: 1.2;
+  touch-action: manipulation;
+  box-shadow: 0 13px 25px rgba(35, 31, 27, .16);
+}
+
+.google-onboarding-primary .material-symbols-rounded {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.google-onboarding-primary:disabled,
+.google-onboarding-secondary:disabled {
+  cursor: wait;
+  opacity: .6;
+}
+
+.google-onboarding-secondary {
+  min-height: 48px;
+  margin-top: 8px;
+  background: transparent;
+  color: #5c574f;
+  box-shadow: none;
+}
+
+.google-onboarding-footnote {
+  margin-top: 12px;
+  text-align: center;
+}
+
+.welcome-voucher-ticket {
+  display: grid;
+  grid-template-columns: minmax(118px, .8fr) minmax(0, 1.2fr);
+  gap: 18px;
+  align-items: stretch;
+  margin-top: 2px;
+  padding: 17px;
+  border: 1px dashed rgba(89, 109, 80, .48);
+  border-radius: 22px;
+  background: rgba(235, 241, 230, .72);
+}
+
+.welcome-voucher-ticket > div:first-child {
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  min-width: 0;
+  padding-right: 14px;
+  border-right: 1px solid rgba(93, 111, 85, .18);
+}
+
+.welcome-voucher-ticket small,
+.welcome-voucher-ticket p {
+  margin: 0;
+  color: #657660;
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: .13em;
+}
+
+.welcome-voucher-ticket strong {
+  margin: 5px 0 2px;
+  color: #293127;
+  font: 500 clamp(34px, 11vw, 46px)/.95 "DM Serif Display", Georgia, serif;
+  letter-spacing: -.04em;
+}
+
+.welcome-voucher-ticket strong span {
+  margin-right: 2px;
+  font-size: .56em;
+  vertical-align: .48em;
+}
+
+.welcome-voucher-ticket dl {
+  display: grid;
+  align-content: center;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+}
+
+.welcome-voucher-ticket dl > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1px;
+  min-width: 0;
+}
+
+.welcome-voucher-ticket dt {
+  color: #7b756c;
+  font-size: 10px;
+}
+
+.welcome-voucher-ticket dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: #36322d;
+  font-size: 12px;
+  font-weight: 780;
+}
+
+.welcome-voucher-note {
+  margin: 13px 2px 0;
+}
+
+@media (max-width: 359px) {
+  .google-onboarding-overlay {
+    padding-right: 10px;
+    padding-left: 10px;
+  }
+
+  .google-onboarding-card {
+    padding: 20px 18px;
+    border-radius: 26px;
+  }
+
+  .google-onboarding-monogram,
+  .welcome-voucher-mark {
+    width: 56px;
+    margin-bottom: 17px;
+    border-radius: 18px;
+  }
+
+  .welcome-voucher-mark {
+    border-radius: 50%;
+  }
+
+  .welcome-voucher-ticket {
+    grid-template-columns: 1fr;
+    gap: 13px;
+  }
+
+  .welcome-voucher-ticket > div:first-child {
+    padding: 0 0 12px;
+    border-right: 0;
+    border-bottom: 1px solid rgba(93, 111, 85, .18);
+  }
+}
+
+@media (max-height: 700px) {
+  .google-onboarding-card {
+    padding-top: 20px;
+    padding-bottom: 20px;
+  }
+
+  .google-onboarding-monogram,
+  .welcome-voucher-mark {
+    width: 54px;
+    margin-bottom: 14px;
+  }
+
+  .google-onboarding-lead {
+    margin: 11px 0 15px;
+  }
+
+  .google-onboarding-primary {
+    margin-top: 14px;
+  }
+}
+
+@media (min-width: 700px) {
+  .google-onboarding-card {
+    width: min(100%, 500px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .google-onboarding-overlay,
+  .google-onboarding-card {
+    animation: none;
+  }
+}
+
+@keyframes google-onboarding-backdrop-in {
+  from { opacity: 0; }
+}
+
+@keyframes google-onboarding-card-in {
+  from { opacity: 0; transform: translateY(18px) scale(.985); }
+}
+
 /* The customer controls this scale from Account. Explicit typography tokens
    resolve through it while layout dimensions remain unchanged. */
 html {
@@ -2018,6 +2400,15 @@ body.review-dialog-open .order-review-dialog form > button[type="submit"] {
 .checkout-rewards>button.selected { border-color:#24211e; box-shadow:inset 0 0 0 1px #24211e; }
 .checkout-rewards>button b { text-align:right; }
 .checkout-rewards>button small { grid-column:1/-1; color:#7b736a; }
+.checkout-rewards>button:disabled {
+  cursor: not-allowed;
+  opacity: .58;
+  box-shadow: none;
+}
+.checkout-rewards>button.welcome-reward:not(:disabled) {
+  border-color: rgba(101, 125, 91, .42);
+  background: linear-gradient(135deg, #f1f5ed, #f8f4ed);
+}
 .checkout-reward-total { color:#607b55; }
 .membership-rewards-list strong { font-size: calc(12px * var(--cozy-font-scale, 1.15)); letter-spacing:.05em; }
 
@@ -5256,6 +5647,16 @@ textarea:focus-visible {
   background: var(--cozy-sand);
 }
 
+.checkout-review .checkout-fulfilment-summary {
+  margin-bottom: 10px;
+}
+
+.checkout-review .checkout-price-summary {
+  margin-top: 0;
+  border: 1px solid var(--cozy-line);
+  background: rgba(255, 253, 249, 0.94);
+}
+
 .checkout-review dl > div {
   display: grid;
   grid-template-columns: 85px 1fr;
@@ -5275,6 +5676,68 @@ textarea:focus-visible {
 .checkout-review dd {
   margin: 0;
   text-align: right;
+}
+
+.checkout-price-summary .checkout-reward-total dt,
+.checkout-price-summary .checkout-reward-total dd {
+  color: #567052;
+}
+
+.checkout-review .checkout-grand-total {
+  align-items: baseline;
+  padding-top: 12px;
+}
+
+.checkout-review .checkout-grand-total dt,
+.checkout-review .checkout-grand-total dd {
+  color: var(--cozy-ink);
+  font-size: calc(11px * var(--cozy-font-scale, 1.15));
+  font-weight: 850;
+}
+
+.checkout-verification-next {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  align-items: start;
+  gap: 11px;
+  margin: 0 0 14px;
+  padding: 13px;
+  color: #4f624a;
+  border: 1px solid rgba(91, 116, 83, 0.24);
+  border-radius: 17px;
+  background: linear-gradient(135deg, #eef3ea, #f7f3ec);
+}
+
+.checkout-verification-next > span {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.8);
+  font-size: 21px;
+}
+
+.checkout-verification-next > div {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.checkout-verification-next b {
+  font-size: calc(9px * var(--cozy-font-scale, 1.15));
+  line-height: 1.35;
+}
+
+.checkout-verification-next p {
+  margin: 0;
+  color: #70766b;
+  font-size: calc(8px * var(--cozy-font-scale, 1.15));
+  line-height: 1.48;
+}
+
+.checkout-flow-error {
+  margin-top: 12px;
 }
 
 .checkout-footer {
@@ -12021,6 +12484,15 @@ html.text-size-dialog-open .lux-body {
     grid-column: 2;
     text-align: left;
   }
+
+  html:is([data-cozy-text-size="large"], [data-cozy-text-size="extra-large"]) .checkout-review dl > div {
+    grid-template-columns: 1fr;
+    gap: 3px;
+  }
+
+  html:is([data-cozy-text-size="large"], [data-cozy-text-size="extra-large"]) .checkout-review dd {
+    text-align: left;
+  }
 }
 
 @media (max-width: 359px) {
@@ -12180,6 +12652,60 @@ html.text-size-dialog-open .lux-body {
   color: #332f2a;
   font-size: calc(10px * var(--cozy-font-scale));
   font-weight: 800;
+}
+
+.payment-verification-breakdown {
+  display: grid;
+  margin: -3px 0 14px;
+  padding: 9px 13px;
+  border: 1px solid #e2dbd1;
+  border-radius: 15px;
+  background: rgba(247, 243, 237, .82);
+}
+
+.payment-verification-breakdown > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 12px;
+  padding: 5px 0;
+}
+
+.payment-verification-breakdown dt,
+.payment-verification-breakdown dd {
+  min-width: 0;
+  margin: 0;
+  font-size: calc(8px * var(--cozy-font-scale));
+  line-height: 1.35;
+}
+
+.payment-verification-breakdown dt {
+  color: #7a736a;
+  overflow-wrap: anywhere;
+}
+
+.payment-verification-breakdown dd {
+  color: #3d3832;
+  font-weight: 780;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.payment-verification-breakdown .reward dt,
+.payment-verification-breakdown .reward dd {
+  color: #567052;
+}
+
+.payment-verification-breakdown .total {
+  margin-top: 4px;
+  padding-top: 9px;
+  border-top: 1px solid #d9d1c7;
+}
+
+.payment-verification-breakdown .total dt,
+.payment-verification-breakdown .total dd {
+  color: #2f2b27;
+  font-weight: 850;
 }
 
 .payment-verification-code {
@@ -12411,6 +12937,15 @@ html.text-size-dialog-open .lux-body {
   .payment-verification-meta button {
     grid-column: 1 / -1;
     width: 100%;
+  }
+
+  html:is([data-cozy-text-size="large"], [data-cozy-text-size="extra-large"]) .payment-verification-breakdown > div {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+
+  html:is([data-cozy-text-size="large"], [data-cozy-text-size="extra-large"]) .payment-verification-breakdown dd {
+    text-align: left;
   }
 }
 

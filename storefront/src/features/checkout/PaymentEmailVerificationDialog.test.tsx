@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import type { ComponentProps } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import PaymentEmailVerificationDialog from "./PaymentEmailVerificationDialog"
 import type { PaymentEmailChallenge } from "./payment-email-verification"
@@ -27,15 +28,41 @@ const challenge: PaymentEmailChallenge = {
   },
 }
 
+const renderDialog = (
+  overrides: Partial<ComponentProps<typeof PaymentEmailVerificationDialog>> = {},
+) => render(
+  <PaymentEmailVerificationDialog
+    challenge={challenge}
+    subtotal={12_999}
+    deliveryFee={650}
+    rewardDiscount={500}
+    total={13_149}
+    onCancel={() => {}}
+    onChallengeChange={() => {}}
+    onAuthorized={async () => {}}
+    {...overrides}
+  />,
+)
+
 beforeEach(() => vi.resetAllMocks())
 
 describe("payment email verification dialog", () => {
   it("shows only the masked email and exact payment summary", () => {
-    render(<PaymentEmailVerificationDialog challenge={challenge} total={12_999} onCancel={() => {}} onChallengeChange={() => {}} onAuthorized={async () => {}} />)
+    renderDialog()
     expect(screen.getByText("al••••@e••••••.com")).toBeTruthy()
     expect(screen.getByText("GCash")).toBeTruthy()
     expect(screen.getByText("₱12,999")).toBeTruthy()
+    expect(screen.getByText("₱650")).toBeTruthy()
+    expect(screen.getByText("−₱500")).toBeTruthy()
+    expect(screen.getAllByText("₱13,149")).toHaveLength(2)
+    expect(screen.getByText("Amount to pay in PayMongo")).toBeTruthy()
     expect(screen.queryByText("alex@example.com")).toBeNull()
+  })
+
+  it("labels a zero delivery charge as free", () => {
+    renderDialog({ deliveryFee: 0, rewardDiscount: 0, total: 12_999 })
+    expect(screen.getByText("Free")).toBeTruthy()
+    expect(screen.queryByText("Home Circle reward")).toBeNull()
   })
 
   it("verifies a complete code and opens checkout with the server authorization", async () => {
@@ -46,7 +73,7 @@ describe("payment email verification dialog", () => {
       paymentMethod: "gcash",
       expiresAt: Date.now() + 240_000,
     })
-    render(<PaymentEmailVerificationDialog challenge={challenge} total={12_999} onCancel={() => {}} onChallengeChange={() => {}} onAuthorized={onAuthorized} />)
+    renderDialog({ onAuthorized })
     fireEvent.change(screen.getByLabelText("PAYMENT CODE"), { target: { value: "012 345" } })
     fireEvent.click(screen.getByRole("button", { name: /verify and continue/i }))
     await waitFor(() => expect(mocks.confirm).toHaveBeenCalledWith(challenge, "012345"))
@@ -56,7 +83,7 @@ describe("payment email verification dialog", () => {
   it("keeps the dialog recoverable when PayMongo cannot open", async () => {
     mocks.confirm.mockResolvedValue({ id: challenge.id, checkoutKey: challenge.intent.checkoutKey, paymentMethod: "gcash", expiresAt: Date.now() + 240_000 })
     const onAuthorized = vi.fn().mockRejectedValue(new Error("PayMongo is taking too long to respond."))
-    render(<PaymentEmailVerificationDialog challenge={challenge} total={12_999} onCancel={() => {}} onChallengeChange={() => {}} onAuthorized={onAuthorized} />)
+    renderDialog({ onAuthorized })
     fireEvent.change(screen.getByLabelText("PAYMENT CODE"), { target: { value: "012345" } })
     fireEvent.click(screen.getByRole("button", { name: /verify and continue/i }))
     expect(await screen.findByText("PayMongo is taking too long to respond.")).toBeTruthy()
@@ -67,7 +94,7 @@ describe("payment email verification dialog", () => {
     const replacement = { ...challenge, id: "576cab56-8818-49e6-9ee8-6891e6e93166", resendAvailableAt: Date.now() + 60_000 }
     const onChallengeChange = vi.fn()
     mocks.request.mockResolvedValue(replacement)
-    render(<PaymentEmailVerificationDialog challenge={challenge} total={12_999} onCancel={() => {}} onChallengeChange={onChallengeChange} onAuthorized={async () => {}} />)
+    renderDialog({ onChallengeChange })
     expect(mocks.request).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole("button", { name: /send a new code/i }))
     await waitFor(() => expect(mocks.request).toHaveBeenCalledWith(challenge.intent))

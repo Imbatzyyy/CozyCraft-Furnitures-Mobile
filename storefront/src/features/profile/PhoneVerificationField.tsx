@@ -23,7 +23,8 @@ export default function PhoneVerificationField({ phone, savedPhone, verifiedAt, 
       </div>
       <div className="mobile-phone-control">
         <input id="profile-mobile-number" type="tel" inputMode="tel" autoComplete="tel" maxLength={24}
-          value={phone} onChange={(event) => onChange(event.target.value)} placeholder="0917 123 4567"
+          value={phone} onChange={(event) => onChange(event.target.value)}
+          placeholder={editing ? "Enter your mobile number" : "No mobile number added"}
           disabled={!editing || disabled || Boolean(flow.busy) || Boolean(verifiedAt && !flow.changing)}
           aria-describedby="profile-phone-help" />
         {editing && verifiedAt && !flow.changing && <button type="button" className="mobile-phone-change" disabled={disabled || Boolean(flow.busy)} onClick={flow.changeNumber}>Change number</button>}
