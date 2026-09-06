@@ -172,7 +172,7 @@ function DesignFixture() {
 
 createRoot(document.getElementById("root")!).render(<React.StrictMode>
   <DialogAccessibility />
-  {params.has("motion") ? <CozyLaunchScreen /> : params.has("account") || params.has("product") || params.has("notifications") ? <DesignFixture /> : params.has("google-onboarding")
+  {params.has("motion") ? <CozyLaunchScreen animated /> : params.has("account") || params.has("product") || params.has("notifications") ? <DesignFixture /> : params.has("google-onboarding")
     ? <GoogleOnboardingFixture />
     : params.has("checkout")
       ? <CheckoutFixture />

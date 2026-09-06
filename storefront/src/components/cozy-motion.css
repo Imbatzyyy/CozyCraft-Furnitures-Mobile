@@ -30,8 +30,11 @@
 @keyframes cozy-pillow-right { 0%, 34% { transform: translateY(-9px) rotate(12deg); opacity: 0; } 56% { transform: translateY(1px) rotate(-3deg); opacity: 1; } 68% { transform: translateY(-2px) rotate(2deg); opacity: 1; } 80%, 100% { transform: translateY(0) rotate(0); opacity: 1; } }
 @keyframes cozy-sofa-shadow { 0%, 70%, 100% { transform: scaleX(1); opacity: .12; } 35% { transform: scaleX(.82); opacity: .07; } 55% { transform: scaleX(1.05); opacity: .15; } }
 
-/* The launch presentation is a single five-second drawing, then a still pose. */
-.cozy-launch-screen .cozy-loader :is(.cozy-loader__trace,.cozy-loader__cushions,.cozy-loader__pillow,.cozy-loader__body,.cozy-loader__shadow) {
+/* Only the cold-launch presentation draws. Every later preparation state is still. */
+.cozy-launch-screen:not(.cozy-launch-screen--animated) .cozy-loader :is(.cozy-loader__trace,.cozy-loader__cushions,.cozy-loader__pillow,.cozy-loader__body,.cozy-loader__shadow) {
+  animation: none;
+}
+.cozy-launch-screen--animated .cozy-loader :is(.cozy-loader__trace,.cozy-loader__cushions,.cozy-loader__pillow,.cozy-loader__body,.cozy-loader__shadow) {
   animation-iteration-count: 1;
   animation-fill-mode: forwards;
 }

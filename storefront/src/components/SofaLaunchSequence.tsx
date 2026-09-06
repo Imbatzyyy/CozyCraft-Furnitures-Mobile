@@ -13,5 +13,5 @@ export default function SofaLaunchSequence({ onComplete }: { onComplete: () => v
     const timer = window.setTimeout(() => complete.current(), SOFA_LAUNCH_DURATION_MS)
     return () => window.clearTimeout(timer)
   }, [])
-  return <CozyLaunchScreen />
+  return <CozyLaunchScreen animated />
 }
