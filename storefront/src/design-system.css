@@ -257,6 +257,19 @@ html[data-cozy-text-size="extra-large"] { --ui-reading-scale: 1.4; }
 .lux-card .card-add, .lux-card .card-save { min-width: 44px; min-height: 44px; }
 .atelier-bag .bag-item-info :is(h3, strong) { font-size: var(--ui-body); line-height: 1.45; }
 .atelier-bag .bag-item-info p { font-size: var(--ui-support); }
+.atelier-bag .bag-item-stock {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 7px 0 10px;
+  color: var(--cozy-muted);
+  font-size: var(--ui-support);
+  line-height: 1.35;
+  letter-spacing: .01em;
+}
+.atelier-bag .bag-item-stock .material-symbols-rounded { font-size: 16px; }
+.atelier-bag .bag-item-stock--limit { color: #806342; }
+.atelier-bag .bag-item-stock--warning { color: #9a5b51; }
 .atelier-bag .bag-item-purchase-row {
   display: flex;
   align-items: center;
@@ -277,7 +290,18 @@ html[data-cozy-text-size="extra-large"] { --ui-reading-scale: 1.4; }
 }
 .atelier-bag .quantity { display: inline-flex; max-width: 100%; height: auto; align-items: center; }
 .atelier-bag .quantity button { width: 44px; min-width: 44px; height: 44px; }
+.atelier-bag .quantity button:disabled { cursor: not-allowed; opacity: .42; }
 .atelier-bag .quantity span { min-width: 24px; font-size: var(--ui-body); }
+.atelier-bag .bag-stock-alert {
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  border: 1px solid rgba(154, 91, 81, .28);
+  border-radius: 14px;
+  background: rgba(246, 226, 221, .7);
+  color: #77463f;
+  font-size: var(--ui-support);
+  line-height: 1.45;
+}
 .order-detail-view :is(p, dt, dd, label, .order-detail-address b),
 .order-detail-view .order-detail-products :is(b, strong) { font-size: var(--ui-body); line-height: 1.5; }
 .order-detail-view :is(small, time, em),

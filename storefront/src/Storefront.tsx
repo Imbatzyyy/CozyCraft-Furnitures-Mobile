@@ -83,6 +83,7 @@ import {
   type MobileSearchSynonym,
 } from "./lib/mobile-data"
 import { buildMobileRecommendations } from "./lib/mobile-recommendations"
+import { mobileCartStockStatus } from "./lib/mobile-cart-stock"
 import { clearStorefrontReturnState, notificationBadgeCount, readStorefrontReturnState, rememberStorefrontReturnState } from "./lib/mobile-navigation"
 import { MOBILE_TEXT_SIZE_OPTIONS, readMobileTextSize, saveMobileTextSize, type MobileTextSize } from "./lib/mobile-text-size"
 import { normalizeMobilePushPermission, readMobilePushPermission, saveMobilePushPermission, type MobilePushPermission } from "./lib/mobile-push-permission"
@@ -1254,6 +1255,31 @@ export default function Storefront() {
           const merged = ids ? [...catalogRef.current.filter((product) => !ids.includes(product.id)), ...next] as Product[] : next as Product[]
           catalogRef.current = merged
           setProducts(merged)
+          // Product realtime events are already coalesced and scoped to the
+          // changed IDs above. Keep the bag's embedded product snapshots in
+          // sync with that same response so stock labels update without a
+          // second cart query or a whole-catalog reload.
+          const latestById = new Map(merged.map((product) => [product.id, product]))
+          setBag((current) => {
+            let changed = false
+            const next = current.map((line) => {
+              const latest = latestById.get(line.product.id)
+              if (latest) {
+                if (latest === line.product) return line
+                changed = true
+                return { ...line, product: latest }
+              }
+              if (ids?.includes(line.product.id)) {
+                changed = true
+                return {
+                  ...line,
+                  product: { ...line.product, stock: 0, label: "Unavailable" },
+                }
+              }
+              return line
+            })
+            return changed ? next : current
+          })
           cacheOfflineValue(OFFLINE_CATALOG_KEY, merged)
         }
       } catch (error) {
@@ -1605,6 +1631,11 @@ export default function Storefront() {
       return
     }
     const existing = bagRef.current.find((line) => line.product.id === p.id)
+    const stock = mobileCartStockStatus(p.stock, existing?.quantity || 0)
+    if (!stock.canIncrease && stock.availableStock !== null) {
+      flash(`${p.name} is at the maximum available stock (${stock.availableStock}).`)
+      return
+    }
     persistCartLine(p.id, { product: p, quantity: Math.min((existing?.quantity || 0) + 1, p.stock ?? 99), selected: true }, "Added to your bag")
   }
   const moveSavedToBag = async (p: Product) => {
@@ -1616,6 +1647,11 @@ export default function Storefront() {
     const previousSaved = saved
     const previousBag = bag
     const existing = bag.find((line) => line.product.id === p.id)
+    const stock = mobileCartStockStatus(p.stock, existing?.quantity || 0)
+    if (!stock.canIncrease && stock.availableStock !== null) {
+      flash(`${p.name} is at the maximum available stock (${stock.availableStock}).`)
+      return
+    }
     const optimisticQuantity = Math.min((existing?.quantity || 0) + 1, p.stock ?? 99)
     setMovingSaved((current) => [...current, p.id])
     setSaved((current) => current.filter((id) => id !== p.id))
@@ -1642,7 +1678,15 @@ export default function Storefront() {
   const updateLine = (id: string, patch: Partial<CartLine>) => {
     if (!requireConnection()) return
     const line = bagRef.current.find((item) => item.product.id === id)
-    if (line) persistCartLine(id, { ...line, ...patch })
+    if (!line) return
+    if (patch.quantity !== undefined) {
+      const stock = mobileCartStockStatus(line.product.stock, patch.quantity)
+      if (stock.exceedsStock && stock.availableStock !== null) {
+        flash(`${line.product.name} has only ${stock.availableStock} available right now.`)
+        return
+      }
+    }
+    persistCartLine(id, { ...line, ...patch })
   }
   const removeLine = (id: string) => {
     if (!requireConnection()) return
@@ -3236,6 +3280,10 @@ function Bag({
     ? mobileDeliveryFeeFor(deliveryArea, subtotal)
     : null
   const total = subtotal + (delivery ?? 0)
+  const selectedStockIssue = selected.some((line) => {
+    const stock = mobileCartStockStatus(line.product.stock, line.quantity)
+    return stock.outOfStock || stock.exceedsStock
+  })
   const freeDeliveryRemaining = deliveryArea?.free_delivery_minimum !== null
     && deliveryArea
     && deliveryArea.free_delivery_minimum > subtotal
@@ -3288,8 +3336,23 @@ function Bag({
             <small>{selected.length} selected for checkout</small>
           </section>
           <div className="atelier-bag-items">
-            {lines.map(({ product: p, quantity, selected }) => (
-              <article key={p.id} className={selected ? "selected" : ""}>
+            {lines.map(({ product: p, quantity, selected }) => {
+              const stock = mobileCartStockStatus(p.stock, quantity)
+              const stockCopy = stock.availableStock === null
+                ? "Availability checked at checkout"
+                : stock.outOfStock
+                  ? "Currently out of stock"
+                  : stock.exceedsStock
+                    ? `Only ${stock.availableStock} available · reduce quantity`
+                    : stock.maxReached
+                      ? `Maximum available · ${stock.availableStock} in stock`
+                      : `Available stock: ${stock.availableStock}`
+              const stockClass = stock.outOfStock || stock.exceedsStock
+                ? "bag-item-stock bag-item-stock--warning"
+                : stock.maxReached
+                  ? "bag-item-stock bag-item-stock--limit"
+                  : "bag-item-stock"
+              return <article key={p.id} className={selected ? "selected" : ""}>
                 <label
                   className="line-selector"
                   aria-label={`Select ${p.name}`}
@@ -3317,10 +3380,15 @@ function Bag({
                   <h3 role="button" tabIndex={0} onClick={() => open(p)} onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") open(p)
                   }}>{p.name}</h3>
+                  <p className={stockClass} aria-live="polite">
+                    <span className="material-symbols-rounded" aria-hidden="true">inventory_2</span>
+                    {stockCopy}
+                  </p>
                   <div className="bag-item-purchase-row">
                     <strong>{p.price}</strong>
                     <div className="quantity">
                       <button
+                        disabled={quantity <= 1}
                         onClick={() =>
                           update(p.id, { quantity: Math.max(1, quantity - 1) })
                         }
@@ -3330,6 +3398,7 @@ function Bag({
                       </button>
                       <span>{quantity}</span>
                       <button
+                        disabled={!stock.canIncrease}
                         onClick={() =>
                           update(p.id, {
                             quantity: Math.min(quantity + 1, p.stock ?? 99),
@@ -3350,8 +3419,11 @@ function Bag({
                   ×
                 </button>
               </article>
-            ))}
+            })}
           </div>
+          {selectedStockIssue && <p className="bag-stock-alert" role="alert">
+            One or more selected pieces no longer have enough stock. Adjust the quantity before checkout.
+          </p>}
           <section className="bag-summary">
             <p>
               <span>Subtotal</span>
@@ -3369,10 +3441,12 @@ function Bag({
           <button
             className="bag-checkout"
             onClick={checkout}
-            disabled={!selected.length}
+            disabled={!selected.length || selectedStockIssue}
           >
             <span>
-              {selected.length
+              {selectedStockIssue
+                ? "Update stock before checkout"
+                : selected.length
                 ? "Continue to checkout"
                 : "Select an item to continue"}
               <small>{deliveryArea ? `Secure checkout · ${deliveryArea.name}` : "Secure checkout · final delivery at address"}</small>
