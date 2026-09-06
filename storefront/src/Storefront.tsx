@@ -86,6 +86,7 @@ import {
 } from "./lib/mobile-data"
 import { buildMobileRecommendations } from "./lib/mobile-recommendations"
 import { mobileCartStockStatus } from "./lib/mobile-cart-stock"
+import { preserveMobileCartOrder } from "./lib/mobile-cart-order"
 import { clearStorefrontReturnState, notificationBadgeCount, readStorefrontReturnState, rememberStorefrontReturnState } from "./lib/mobile-navigation"
 import { MOBILE_TEXT_SIZE_OPTIONS, readMobileTextSize, saveMobileTextSize, type MobileTextSize } from "./lib/mobile-text-size"
 import { normalizeMobilePushPermission, readMobilePushPermission, saveMobilePushPermission, type MobilePushPermission } from "./lib/mobile-push-permission"
@@ -637,6 +638,7 @@ export default function Storefront() {
   const [bag, setBag] = useStoredState<CartLine[]>("cozycraft-bag", [])
   const bagRef = useRef(bag)
   bagRef.current = bag
+  const preserveBagOrder = (next: CartLine[]) => preserveMobileCartOrder(bagRef.current, next)
   const [orders, setOrders] = useStoredState<CustomerOrder[]>(
     "cozycraft-orders",
     [],
@@ -849,7 +851,7 @@ export default function Storefront() {
           }
           setProfile(nextProfile)
           setSaved(nextSaved)
-          setBag(nextCart as CartLine[])
+          setBag(preserveBagOrder(nextCart as CartLine[]))
           setOrders(nextOrders as CustomerOrder[])
           applyNotifications(nextNotifications)
           setGoogleIdentityUserId(isGoogleCustomer(session.user) ? reconnectUserId : "")
@@ -1031,7 +1033,7 @@ export default function Storefront() {
           flash("Checkout cancelled. No payment was completed.")
         }
         void loadCart(activeUserId, catalog)
-          .then((nextBag) => { if (identityRef.current === activeUserId) setBag(nextBag as CartLine[]) })
+          .then((nextBag) => { if (identityRef.current === activeUserId) setBag(preserveBagOrder(nextBag as CartLine[])) })
           .catch((error) => console.error("Unable to refresh the bag after payment", error))
         if (payment !== "success") {
           window.localStorage.setItem("cozycraft-last-payment-callback", callbackUrl)
@@ -1161,7 +1163,7 @@ export default function Storefront() {
           window.localStorage.setItem(LAST_PRESENTED_PAYMENT_ORDER_KEY, pending.orderId!)
           window.localStorage.removeItem("cozycraft-pending-payment")
           void loadCart(userId, catalog)
-            .then((nextBag) => { if (!disposed) setBag(nextBag as CartLine[]) })
+          .then((nextBag) => { if (!disposed) setBag(preserveBagOrder(nextBag as CartLine[])) })
             .catch((error) => console.warn("Cart refresh after payment failed", error))
           flash(returnedOrder.paymentStatus === "paid" ? "Payment confirmed" : "Payment received and being verified")
         } catch (error) {
@@ -1384,7 +1386,7 @@ export default function Storefront() {
             loadOrders(userIdToHydrate, catalog),
           ])
           if (!live || activeAuthUserId !== userIdToHydrate) return
-          setBag(nextCart as CartLine[])
+          setBag(preserveBagOrder(nextCart as CartLine[]))
           setOrders(nextOrders as CustomerOrder[])
           setAccountSnapshotUserId(userIdToHydrate)
         } catch (error) {
@@ -1480,7 +1482,7 @@ export default function Storefront() {
       try {
         if (cartWrites.current.pending) return
         const next = await loadCart(userId, catalogRef.current) as CartLine[]
-        if (current() && revision === revisions.cart && !cartWrites.current.pending) setBag(next)
+        if (current() && revision === revisions.cart && !cartWrites.current.pending) setBag(preserveBagOrder(next))
       } catch (error) { console.error(error) }
     }
     const refreshWishlist = async () => {
@@ -1628,7 +1630,7 @@ export default function Storefront() {
         ])
         if (identityRef.current !== owner) return
         if (nextSaved) setSaved(nextSaved)
-        if (nextCart) setBag(nextCart as CartLine[])
+        if (nextCart) setBag(preserveBagOrder(nextCart as CartLine[]))
       }
 
       if (owner && refreshAccount) {
@@ -1648,7 +1650,7 @@ export default function Storefront() {
           if (identityRef.current !== owner) return
           if (nextProfile) setProfile(nextProfile)
           if (nextSaved) setSaved(nextSaved)
-          if (nextCart) setBag(nextCart as CartLine[])
+          if (nextCart) setBag(preserveBagOrder(nextCart as CartLine[]))
           if (nextOrders) setOrders(nextOrders as CustomerOrder[])
           if (nextNotifications) applyNotifications(nextNotifications)
           if (nextLoyalty) setLoyalty(nextLoyalty)
