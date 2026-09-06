@@ -2015,6 +2015,21 @@ export default function Storefront() {
     disabled: checkoutOpen || paymentReturning || search || chatOpen || compareOpen || categoryOpen !== null || placedOrder !== null,
   })
 
+  // Care is a floating browsing shortcut. Keep it off task-focused pages and
+  // account surfaces where it would compete with the page's primary action.
+  const showCareLauncher = !chatOpen
+    && !checkoutOpen
+    && !paymentReturning
+    && !search
+    && !detail
+    && !compareOpen
+    && categoryOpen === null
+    && !placedOrder
+    && !profileOpen
+    && !notificationsOpen
+    && !membershipOpen
+    && tab !== "account"
+
   const completeGoogleUsername = async (username: string) => {
     const next = await completeMobileGoogleOnboarding(username)
     if (next.userId !== userId) throw new Error("Your account changed. Please try again.")
@@ -2541,7 +2556,7 @@ export default function Storefront() {
             </button>
           ))}
         </nav>}
-        {!chatOpen && <button className="mobile-ai-launcher" type="button" onClick={() => setChatOpen(true)} aria-label="Open CozyCraft Care">
+        {showCareLauncher && <button className="mobile-ai-launcher" type="button" onClick={() => setChatOpen(true)} aria-label="Open CozyCraft Care">
           <span className="material-symbols-rounded" aria-hidden="true">chat_bubble_outline</span>
           <i aria-hidden="true" />
         </button>}

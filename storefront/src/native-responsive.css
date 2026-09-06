@@ -10379,6 +10379,14 @@ body.profile-crop-open {
   pointer-events: none;
 }
 
+/* Keep the floating Care shortcut out of full-screen or task-focused pages
+   even during the short state transition before React removes the button. */
+.lux-phone:has(:is(.checkout-page, .payment-returning, .search-overlay, .detail-sheet, .compare-sheet, .category-page, .profile-page, .notifications-page, .membership-page, .order-complete, .order-review-dialog, .order-review-success, .order-return-dialog, .order-return-success, .order-cancel-dialog, .order-cancellation-success)) > .mobile-ai-launcher {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 @media (hover: hover) {
   .mobile-ai-launcher:hover {
     transform: translateY(-2px);
