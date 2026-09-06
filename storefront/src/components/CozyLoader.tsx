@@ -9,10 +9,10 @@ export default function CozyLoader({ label, compact = false }: { label?: string;
         <rect className="cozy-loader__pillow cozy-loader__pillow--left" x="17" y="14" width="13" height="13" rx="3" fill="currentColor" fillOpacity=".14" strokeWidth="1.5" />
         <rect className="cozy-loader__pillow cozy-loader__pillow--right" x="34" y="14" width="13" height="13" rx="3" fill="currentColor" fillOpacity=".14" strokeWidth="1.5" />
       </g>
-      </g>
       <g stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
         <path d="M14 25v5h36v-5a5 5 0 0 1 10 0v10a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V25a5 5 0 0 1 10 0Z" fill="currentColor" fillOpacity=".12"/>
         <path d="M11 39v4m42-4v4"/>
+      </g>
       </g>
     </svg>
     {label && <span className="cozy-loader__label">{label}</span>}
