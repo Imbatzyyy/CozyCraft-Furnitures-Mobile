@@ -257,6 +257,24 @@ html[data-cozy-text-size="extra-large"] { --ui-reading-scale: 1.4; }
 .lux-card .card-add, .lux-card .card-save { min-width: 44px; min-height: 44px; }
 .atelier-bag .bag-item-info :is(h3, strong) { font-size: var(--ui-body); line-height: 1.45; }
 .atelier-bag .bag-item-info p { font-size: var(--ui-support); }
+.atelier-bag .bag-item-purchase-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px clamp(8px, 2.8vw, 18px);
+  width: 100%;
+  min-width: 0;
+}
+.atelier-bag .bag-item-purchase-row > strong {
+  min-width: 0;
+  flex: 0 1 auto;
+  white-space: nowrap;
+}
+.atelier-bag .bag-item-purchase-row .quantity {
+  flex: 0 0 auto;
+  margin-top: 0;
+  max-width: 100%;
+}
 .atelier-bag .quantity { display: inline-flex; max-width: 100%; height: auto; align-items: center; }
 .atelier-bag .quantity button { width: 44px; min-width: 44px; height: 44px; }
 .atelier-bag .quantity span { min-width: 24px; font-size: var(--ui-body); }
@@ -283,6 +301,14 @@ html[data-cozy-text-size="extra-large"] { --ui-reading-scale: 1.4; }
   .atelier-detail .atelier-specs { grid-template-columns: minmax(0, 1fr); }
   .payment-verification-card .payment-verification-meta button { flex-basis: 100%; text-align: left; }
   .order-summary-card .mini-tracking { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+}
+@media (max-width: 360px) {
+  .atelier-bag .bag-item-purchase-row { gap: 8px; }
+  .atelier-bag .bag-item-purchase-row .quantity button { width: 40px; min-width: 40px; }
+}
+@media (max-width: 330px) {
+  .atelier-bag .bag-item-purchase-row .quantity { width: 100%; justify-content: space-between; }
+  .atelier-bag .bag-item-purchase-row .quantity button { width: 44px; min-width: 44px; }
 }
 @media (min-width: 600px) {
   .deluxe-profile > main, .checkout-page > main, .atelier-account .mobile-account-workspace { max-width: 720px; margin-inline: auto; width: 100%; }

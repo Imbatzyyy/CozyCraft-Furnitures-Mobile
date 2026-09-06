@@ -3317,27 +3317,29 @@ function Bag({
                   <h3 role="button" tabIndex={0} onClick={() => open(p)} onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") open(p)
                   }}>{p.name}</h3>
-                  <strong>{p.price}</strong>
-                  <div className="quantity">
-                    <button
-                      onClick={() =>
-                        update(p.id, { quantity: Math.max(1, quantity - 1) })
-                      }
-                      aria-label={`Decrease quantity of ${p.name}`}
-                    >
-                      −
-                    </button>
-                    <span>{quantity}</span>
-                    <button
-                      onClick={() =>
-                        update(p.id, {
-                          quantity: Math.min(quantity + 1, p.stock ?? 99),
-                        })
-                      }
-                      aria-label={`Increase quantity of ${p.name}`}
-                    >
-                      +
-                    </button>
+                  <div className="bag-item-purchase-row">
+                    <strong>{p.price}</strong>
+                    <div className="quantity">
+                      <button
+                        onClick={() =>
+                          update(p.id, { quantity: Math.max(1, quantity - 1) })
+                        }
+                        aria-label={`Decrease quantity of ${p.name}`}
+                      >
+                        −
+                      </button>
+                      <span>{quantity}</span>
+                      <button
+                        onClick={() =>
+                          update(p.id, {
+                            quantity: Math.min(quantity + 1, p.stock ?? 99),
+                          })
+                        }
+                        aria-label={`Increase quantity of ${p.name}`}
+                      >
+                        +
+                      </button>
+                    </div>
                   </div>
                 </div>
                 <button
