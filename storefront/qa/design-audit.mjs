@@ -4,6 +4,7 @@ import assert from "node:assert/strict"
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || "playwright")
 const browser = await chromium.launch({ headless: true, ...(process.env.BROWSER_PATH ? { executablePath: process.env.BROWSER_PATH } : {}) })
 const origin = process.env.QA_ORIGIN || "http://127.0.0.1:5187"
+const platform = process.env.QA_PLATFORM || "ios"
 const sizes = [[320, 640], [390, 844], [768, 1024], [844, 390]]
 const fixtures = ["profile", "checkout", "payment", "google-onboarding=voucher", "account", "account=support", "account=payments", "account=orders", "product", "notifications"]
 let checked = 0
@@ -13,7 +14,7 @@ try {
     const errors = []
     page.on("pageerror", (error) => errors.push(error.message))
     for (const fixture of fixtures) {
-      await page.goto(`${origin}/?${fixture}&text=${text}`)
+      await page.goto(`${origin}/?${fixture}&text=${text}&platform=${platform}`)
       await page.waitForTimeout(150)
       if (fixture === "account=orders") await page.getByRole("button", { name: "View complete order" }).click()
       if (fixture === "checkout") await page.getByRole("button", { name: "Continue →", exact: true }).click()
@@ -57,7 +58,7 @@ try {
   await page.getByRole("button", { name: "Try secure checkout again" }).scrollIntoViewIfNeeded()
   assert(await page.getByRole("button", { name: "Try secure checkout again" }).isVisible())
   await page.close()
-  console.log(`PASS: ${checked} responsive layouts; photo navigation and focus restoration; text-size focus containment; payment-code fixture and short viewport.`)
+  console.log(`PASS: ${checked} ${platform} responsive layouts; photo navigation and focus restoration; text-size focus containment; payment-code fixture and short viewport.`)
 } finally {
   await browser.close()
 }
