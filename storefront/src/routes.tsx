@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from "react"
 import DocumentSections from "./components/DocumentSections"
+import CozyLoader from "./components/CozyLoader"
 import { createHashRouter, Link, useLocation, useNavigate } from "react-router"
 import CustomerSecurityGate from "./features/auth/CustomerSecurityGate"
 import { googleOAuthOptions } from "./features/auth/google-oauth"
@@ -1096,6 +1097,6 @@ export const router = createHashRouter([
   { path: "/privacy-policy", Component: () => <LegalDocument kind="privacy" /> },
   { path: "/about", Component: () => <ContentDocument kind="about" /> },
   { path: "/contact", Component: () => <ContentDocument kind="contact" /> },
-  { path: "/shop", Component: () => <CustomerSecurityGate><Suspense fallback={<main className="storefront-loading" role="status"><span/><p>Preparing your home…</p></main>}><Storefront /></Suspense></CustomerSecurityGate> },
+  { path: "/shop", Component: () => <CustomerSecurityGate><Suspense fallback={<main className="storefront-loading"><CozyLoader label="Preparing your home…"/></main>}><Storefront /></Suspense></CustomerSecurityGate> },
   { path: "*", Component: Missing },
 ])

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import ReviewPhotoViewer from "./components/ReviewPhotoViewer"
+import CozyLoader from "./components/CozyLoader"
 import { PULL_TO_REFRESH_EVENT, PullToRefreshIndicator, usePullToRefresh } from "./components/PullToRefresh"
 import { MutationQueue, withDeadline } from "./lib/request-lifecycle"
 import { checkoutAttemptKey, completeCheckoutAttempt } from "./lib/checkout-attempt"
@@ -599,6 +600,15 @@ export default function Storefront() {
   const [returnState] = useState(readStorefrontReturnState)
   const [textSize, setTextSize] = useState<MobileTextSize>(readMobileTextSize)
   const [tab, setTab] = useState(returnState?.tab || "home")
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
+    const page = document.querySelector<HTMLElement>(".lux-body")
+    const animation = page?.animate?.([{ opacity: .65 }, { opacity: 1 }], {
+      duration: document.documentElement.dataset.cozyMotion === "economy" ? 100 : 180,
+      easing: "ease-out",
+    })
+    return () => animation?.cancel()
+  }, [tab])
   const [assistantAccountView, setAssistantAccountView] = useState<"orders" | "addresses" | "payments" | "support" | null>(null)
   const [navGlassIndex, setNavGlassIndex] = useState(returnState?.tab === "account" ? 4 : 2)
   const [navGlassPosition, setNavGlassPosition] = useState(returnState?.tab === "account" ? 90 : 50)
@@ -2276,7 +2286,7 @@ export default function Storefront() {
                 title="New to the edit"
                 action={() => setTab("shop")}
               />
-              {catalogLoading && <p className="hello">REFRESHING THE CATALOG…</p>}
+              {catalogLoading && <div className="catalog-loading"><CozyLoader compact label="Refreshing your pieces…"/></div>}
               <div className="lux-grid home-products">
                 {products.slice(0, 2).map((p) => (
                   <Card
@@ -2686,7 +2696,7 @@ export default function Storefront() {
         )}
         {paymentReturning && !placedOrder && (
           <section className="payment-returning" role="status" aria-live="polite">
-            <div><span className="material-symbols-rounded">verified_user</span><p className="hello">SECURE PAYMENT</p><h2>Confirming your order…</h2><p>Keep CozyCraft open while PayMongo and the store securely confirm your payment.</p><i aria-hidden="true" /></div>
+            <div><span className="material-symbols-rounded">verified_user</span><p className="hello">SECURE PAYMENT</p><h2>Confirming your order…</h2><p>Keep CozyCraft open while PayMongo and the store securely confirm your payment.</p><CozyLoader /></div>
           </section>
         )}
         {search && (
@@ -5759,7 +5769,7 @@ export function CheckoutPage({
           }}
         >
           {placing
-            ? onlinePaymentMethodFor(payment) ? "Sending payment code…" : "Placing order…"
+            ? <CozyLoader compact label={onlinePaymentMethodFor(payment) ? "Sending payment code…" : "Placing order…"}/>
             : step < 2
               ? "Continue →"
               : checkoutError || (onlinePaymentMethodFor(payment) ? "Send payment code →" : "Place order →")}

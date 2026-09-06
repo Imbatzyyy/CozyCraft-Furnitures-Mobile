@@ -1,5 +1,6 @@
 import { Component, useEffect, type ErrorInfo, type ReactNode } from "react"
 import { RouterProvider } from "react-router"
+import useAppMotion from "./components/useAppMotion"
 import { router } from "./routes"
 import { reportMobileClientError } from "./lib/mobile-data"
 import { hasStorefrontReturnState, mobileShellBackAction } from "./lib/mobile-navigation"
@@ -30,6 +31,7 @@ class MobileErrorBoundary extends Component<{ children: ReactNode }, { failed: b
 }
 
 export default function App() {
+  useAppMotion()
   useEffect(() => {
     const handleNativeBack = (event: MessageEvent) => {
       if (event.data?.type !== "cozycraft-native-back") return

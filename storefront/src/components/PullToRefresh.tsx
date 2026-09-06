@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties, type RefObject } from "react"
+import CozyLoader from "./CozyLoader"
 
 export const PULL_TO_REFRESH_EVENT = "cozycraft-pull-refresh"
 
@@ -165,9 +166,9 @@ export function PullToRefreshIndicator({ pullDistance, armed, refreshing }: Omit
       aria-live="polite"
       aria-label={refreshing ? "Refreshing CozyCraft" : armed ? "Release to refresh" : "Pull to refresh"}
     >
-      <span className="material-symbols-rounded" aria-hidden="true">
-        {refreshing ? "progress_activity" : armed ? "refresh" : "arrow_downward"}
-      </span>
+      {refreshing ? <CozyLoader compact/> : <span className="material-symbols-rounded" aria-hidden="true">
+        {armed ? "refresh" : "arrow_downward"}
+      </span>}
       <small>{refreshing ? "Refreshing" : armed ? "Release to refresh" : "Pull to refresh"}</small>
     </div>
   )

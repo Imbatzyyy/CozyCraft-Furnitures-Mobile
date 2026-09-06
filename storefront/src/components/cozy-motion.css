@@ -1,0 +1,38 @@
+/* Short compositor-friendly motion; no timers, animated shadows, or layout animation. */
+:root { --cozy-motion-duration: 180ms; --cozy-motion-ease: cubic-bezier(.2,.7,.2,1); }
+.cozy-loader.cozy-loader {
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  width: auto; height: auto; max-width: 100%; padding: 0; margin: 0;
+  border: 0; border-radius: 0; background: none; color: inherit;
+  animation: none; flex-shrink: 0; vertical-align: middle;
+}
+.cozy-loader__sofa { display: block; width: 56px; height: 42px; flex: 0 0 auto; overflow: visible; }
+.cozy-loader--compact .cozy-loader__sofa { width: 26px; height: 22px; }
+.cozy-loader__cushions { animation: cozy-cushion-settle 1500ms ease-in-out infinite; transform-origin: 32px 27px; }
+.cozy-loader .cozy-loader__label {
+  display: block; width: auto; height: auto; margin: 0; padding: 0; border: 0;
+  border-radius: 0; background: none; animation: none;
+  font: inherit; line-height: 1.5; overflow-wrap: anywhere;
+}
+.storefront-loading > .cozy-loader { flex-direction: column; padding: 24px; text-align: center; }
+.catalog-loading { min-height: 44px; margin-block: 8px; color: #615a52; font-size: 13px; }
+.pull-refresh-indicator.is-refreshing > .cozy-loader { animation: none; }
+@keyframes cozy-cushion-settle { 0%,100% { transform: translateY(0); opacity: .7; } 50% { transform: translateY(2px); opacity: 1; } }
+
+/* Opacity on page containers avoids changing the containing block of fixed dialogs. */
+.lux-phone :is(.search-overlay,.detail-sheet,.profile-page,.notifications-page,.category-page,.checkout-page,.account-sheet,.membership-page,.compare-sheet,.order-detail-view),
+.checkout-panel,.auth-phone:not(.splash),.document-page {
+  animation: cozy-page-enter var(--cozy-motion-duration) var(--cozy-motion-ease);
+}
+.lux-body { animation: cozy-tab-enter var(--cozy-motion-duration) var(--cozy-motion-ease); }
+@keyframes cozy-page-enter { from { opacity: .4; } to { opacity: 1; } }
+@keyframes cozy-tab-enter { from { opacity: .65; } to { opacity: 1; } }
+.lux-phone :is(.round-icon,.checkout-next,.auth-primary) { transition: opacity 120ms ease; }
+.lux-phone :is(.round-icon,.checkout-next,.auth-primary):active { opacity: .75; }
+html[data-cozy-motion="economy"] { --cozy-motion-duration: 100ms; }
+html[data-cozy-motion="economy"] .cozy-loader__cushions { animation: none; }
+html[data-cozy-motion="paused"] *, html[data-cozy-motion="paused"] *::before, html[data-cozy-motion="paused"] *::after { animation-play-state: paused !important; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+  .cozy-loader__cushions { animation: none !important; }
+}
