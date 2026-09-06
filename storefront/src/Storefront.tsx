@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
+import ReviewPhotoViewer from "./components/ReviewPhotoViewer"
 import { MutationQueue, withDeadline } from "./lib/request-lifecycle"
 import { checkoutAttemptKey, completeCheckoutAttempt } from "./lib/checkout-attempt"
 import { coalescedRefresh } from "./lib/paged-query"
@@ -1908,6 +1909,9 @@ export default function Storefront() {
             <img src={cozyLogo} alt="CozyCraft Furniture" />
           </button>
           <div>
+            <button className="round-icon care-header-trigger" onClick={() => setChatOpen(true)} aria-label="Open CozyCraft Care">
+              <span className="material-symbols-rounded" aria-hidden="true">chat_bubble</span>
+            </button>
             <button
               className="round-icon"
               onClick={() => setSearch(true)}
@@ -2374,7 +2378,7 @@ export default function Storefront() {
         </nav>}
         <MobileCareChat
           key={userId || "guest"}
-          available={!detail && !compareOpen && !search}
+          open={chatOpen}
           userId={userId}
           online={online}
           accountDataReady={Boolean(userId && accountSnapshotUserId === userId)}
@@ -2680,7 +2684,7 @@ function AssistantReply({ content, navigation, liveAccountData, navigate }: {
 }
 
 function MobileCareChat({
-  available,
+  open,
   userId,
   online,
   accountDataReady,
@@ -2695,7 +2699,7 @@ function MobileCareChat({
   openDestination,
   onOpenChange,
 }: {
-  available: boolean
+  open: boolean
   userId: string
   online: boolean
   accountDataReady: boolean
@@ -2710,7 +2714,7 @@ function MobileCareChat({
   openDestination: (destination: MobileAssistantDestination) => void
   onOpenChange: (open: boolean) => void
 }) {
-  const [open, setOpen] = useState(false)
+  const setOpen = onOpenChange
   const [draft, setDraft] = useState("")
   const [sending, setSending] = useState(false)
   const conversationGeneration = useRef(0)
@@ -2774,7 +2778,6 @@ function MobileCareChat({
   }, [draft])
   useEffect(() => {
     document.documentElement.classList.toggle("cozy-chat-open", open)
-    onOpenChange(open)
     return () => document.documentElement.classList.remove("cozy-chat-open")
   }, [open, onOpenChange])
   const send = async (value = draft) => {
@@ -2923,7 +2926,6 @@ function MobileCareChat({
     return () => window.clearTimeout(timer)
   }, [feedback])
   return <>
-    {!open && available && <button className="mobile-ai-launcher" onClick={() => setOpen(true)} aria-label="Open CozyCraft Care"><span className="material-symbols-rounded">chat_bubble</span><i/><b>Care</b></button>}
     {open && <section className="mobile-ai-chat" role="dialog" aria-modal="true" aria-label="CozyCraft customer care chat">
       <header>
         <button onClick={() => setOpen(false)} aria-label="Minimize CozyCraft Care"><span className="material-symbols-rounded">keyboard_arrow_down</span></button>
@@ -3389,7 +3391,7 @@ function Bag({
     </section>
   )
 }
-function Account({
+export function Account({
   userId,
   flash,
   name,
@@ -3943,14 +3945,9 @@ function Account({
           <p>{active.note}</p>
           {active.id === "support" ? (
             <div className="mobile-account-workspace support-care-workspace">
-              <section className="support-care-hero">
-                <span className="material-symbols-rounded" aria-hidden="true">volunteer_activism</span>
-                <div><small>COZYCRAFT CARE</small><h3>Here when your home needs us.</h3><p>From delivery questions to product care, our team will listen closely and help you find the next step.</p></div>
-                <aside><i/><span><b>Care team online</b><small>Typical reply within 2 hours</small></span></aside>
-              </section>
               <section className="support-faq" aria-labelledby="mobile-faq-title">
                 <header>
-                  <div><small>QUICK ANSWERS</small><h3 id="mobile-faq-title">Help, before you have to ask.</h3><p>{faq?.summary || "Straightforward answers for shopping, payment, delivery, orders, reviews, and your account."}</p></div>
+                  <div><small>QUICK ANSWERS</small><h3 id="mobile-faq-title">How can we help?</h3><p>Find an answer below, or send our care team a private request.</p></div>
                   <span className="material-symbols-rounded" aria-hidden="true">contact_support</span>
                 </header>
                 <label className="support-faq-search">
@@ -4355,10 +4352,7 @@ function Account({
             </div>
           ) : active.id === "payments" ? (
             <div className="mobile-payment-workspace">
-              <section className="payment-preference-hero">
-                <span className="material-symbols-rounded" aria-hidden="true">verified_user</span>
-                <div><small>SECURE CHECKOUT</small><h3>Checkout, your way.</h3><p>Choose what CozyCraft prepares first. You can still select another method for any order.</p></div>
-              </section>
+              <p className="payment-preference-note">You can still choose a different payment method for any order.</p>
               <header className="payment-method-heading"><div><small>DEFAULT PAYMENT</small><b>Preferred at checkout</b></div><span><i/>Synced securely</span></header>
               <div className="payment-method-list">
                 {[
@@ -4545,7 +4539,7 @@ function CompareSheet({ products, close, remove, open }: {
   )
 }
 
-function ProductDetail({
+export function ProductDetail({
   p,
   saved,
   compared,
@@ -4579,6 +4573,7 @@ function ProductDetail({
     reviewer_avatar_url: string
   }>>([])
   const [reviewFilter, setReviewFilter] = useState<number | null>(null)
+  const [reviewPhoto, setReviewPhoto] = useState<{ photos: string[]; index: number; description: string } | null>(null)
   const [deliveryAddress, setDeliveryAddress] = useState<MobileAddress | null>(null)
   useEffect(() => {
     const refresh = () => void loadReviews(p.id).then((data) => setCustomerReviews(data as typeof customerReviews)).catch(console.error)
@@ -4799,9 +4794,8 @@ function ProductDetail({
                 </div>
                 <p>{review.body}</p>
                 {Array.isArray(review.image_urls) && review.image_urls.length > 0 && <div className="review-card-photos" aria-label="Customer review photos">{review.image_urls.map((imageUrl, index) => (
-                  <a href={imageUrl} target="_blank" rel="noreferrer" key={`${review.id}-${index}`} aria-label={`Open review photo ${index + 1}`}><img src={imageUrl} alt={`${p.name} in ${review.reviewer_display_name || "a customer"}'s home, photo ${index + 1}`} loading="lazy"/></a>
+                  <button type="button" onClick={() => setReviewPhoto({ photos: review.image_urls, index, description: `${p.name} in ${review.reviewer_display_name || "a customer"}'s home` })} key={`${review.id}-${index}`} aria-label={`Open review photo ${index + 1}`}><img src={imageUrl} alt={`${p.name} in ${review.reviewer_display_name || "a customer"}'s home, photo ${index + 1}`} loading="lazy"/></button>
                 ))}</div>}
-                <footer><span><span className="material-symbols-rounded" aria-hidden="true">home</span> Real home review</span></footer>
               </article>
             ))}
             {filteredReviews.length === 0 && <section className="review-empty"><span className="material-symbols-rounded" aria-hidden="true">reviews</span><h3>{reviewFilter ? `No ${reviewFilter}-star reviews yet` : "No reviews yet"}</h3><p>{reviewFilter ? "Try another rating or view all customer reviews." : "The first real-home story for this piece could be yours."}</p>{reviewFilter && <button type="button" onClick={() => setReviewFilter(null)}>View all reviews</button>}</section>}
@@ -4821,6 +4815,7 @@ function ProductDetail({
           </p>
         </section>
       </article>
+      {reviewPhoto && <ReviewPhotoViewer photos={reviewPhoto.photos} initialIndex={reviewPhoto.index} description={reviewPhoto.description} close={() => setReviewPhoto(null)}/>}
     </section>
   )
 }
@@ -6220,7 +6215,7 @@ export function ProfilePage({
           </label>
           <PhoneVerificationField phone={draftPhone} savedPhone={phone} verifiedAt={phoneVerifiedAt}
             editing={editing} disabled={saving} onChange={setDraftPhone} verification={phoneVerification} />
-          <label><span>Gender</span><select value={draftGender} onChange={(e) => setDraftGender(e.target.value)} disabled={!editing}><option value="">Choose an option</option><option value="Female">Female</option><option value="Male">Male</option><option value="Other">Other / prefer not to say</option></select></label>
+          <label className="profile-field-wide"><span>Gender</span><select value={draftGender} onChange={(e) => setDraftGender(e.target.value)} disabled={!editing}><option value="">Select gender</option><option value="Female">Female</option><option value="Male">Male</option><option value="Other">Prefer not to say</option></select></label>
           <label className="profile-birth-field">
             <span>Date of birth <small>Month / Day / Year</small></span>
             <span className="profile-date-control">
@@ -6329,7 +6324,7 @@ function CategoryPage({
     >
       <header>
         <button onClick={close}>
-          ← <span>Home</span>
+          ← <span>Back</span>
         </button>
         <span>COZYCRAFT / ROOMS</span>
       </header>
@@ -6367,13 +6362,23 @@ function CategoryPage({
   )
 }
 
-function NotificationsPage({ close, items, userId, refresh }: {
+export function NotificationsPage({ close, items, userId, refresh }: {
   close: () => void
   items: Array<Record<string, any>>
   userId: string
   refresh: () => Promise<unknown>
 }) {
   const [filter, setFilter] = useState<"all" | "unread">("all")
+  const [notice, setNotice] = useState("")
+  const [saving, setSaving] = useState(false)
+  const markRead = async (id?: string) => {
+    if (saving) return
+    setSaving(true)
+    setNotice("")
+    try { await markNotification(userId, id); await refresh() }
+    catch { setNotice("Could not update notifications. Please try again.") }
+    finally { setSaving(false) }
+  }
   const visibleItems =
     filter === "unread" ? items.filter((item) => !item.read_at) : items
   return (
@@ -6385,19 +6390,21 @@ function NotificationsPage({ close, items, userId, refresh }: {
     >
       <header>
         <button onClick={close}>
-          ← <span>Home</span>
+          ← <span>Back</span>
         </button>
         <div>
           <p>NOTIFICATIONS</p>
           <h1>For you</h1>
         </div>
         <button
-          onClick={() => void markNotification(userId).then(refresh)}
+          disabled={saving}
+          onClick={() => void markRead()}
         >
           Read all
         </button>
       </header>
       <main>
+        {notice && <p className="form-notice" role="alert">{notice}</p>}
         <div className="notification-tabs">
           <button
             className={filter === "all" ? "active" : ""}
@@ -6416,8 +6423,18 @@ function NotificationsPage({ close, items, userId, refresh }: {
           <article
             key={item.id}
             data-kind={item.kind}
+            role="button"
+            tabIndex={0}
+            aria-label={`${item.read_at ? "Read" : "Unread"}: ${item.title}. Mark as read`}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault()
+                void markRead(String(item.id))
+              }
+            }}
             className={!item.read_at ? "new" : ""}
-            onClick={() => void markNotification(userId, String(item.id)).then(refresh)}
+            aria-disabled={saving}
+            onClick={() => void markRead(String(item.id))}
           >
             <span className="notification-mark">
               <span className="material-symbols-rounded" aria-hidden="true">

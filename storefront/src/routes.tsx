@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from "react"
+import DocumentSections from "./components/DocumentSections"
 import { createHashRouter, Link, useLocation, useNavigate } from "react-router"
 import CustomerSecurityGate from "./features/auth/CustomerSecurityGate"
 import { googleOAuthOptions } from "./features/auth/google-oauth"
@@ -271,9 +272,7 @@ function LegalDocument({ kind }: { kind: "terms" | "privacy" }) {
               : "A plain-language explanation of what CozyCraft collects, why it is needed, who receives it, and how you can exercise your rights.")}
           </p>
         </div>
-        {liveParagraphs.length > 0 ? liveParagraphs.map((paragraph, index) => (
-          <section key={`${kind}-${index}`}><p>{paragraph}</p></section>
-        )) : sections.map((section) => (
+        {liveParagraphs.length > 0 ? <DocumentSections body={livePage?.body || ""}/> : sections.map((section) => (
           <section key={section.title}>
             <h2>{section.title}</h2>
             {section.paragraphs?.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
@@ -315,7 +314,7 @@ function ContentDocument({ kind }: { kind: "about" | "contact" }) {
       <p className="eyebrow-auth">{page?.eyebrow || "COZYCRAFT FURNITURES"}</p>
       <h1>{page?.title || (loading ? "Preparing this page…" : kind === "about" ? "Thoughtful furniture for real homes." : "We are here to help.")}</h1>
       <div className="legal-summary"><span>{kind === "about" ? "Our approach" : "Customer care"}</span><p>{page?.summary || "Live CozyCraft information will appear here when your connection returns."}</p></div>
-      {paragraphs.map((paragraph, index) => <section key={`${kind}-${index}`}><p>{paragraph}</p></section>)}
+      {paragraphs.length > 0 && <DocumentSections body={page?.body || ""}/>}
       {kind === "contact" && <aside><b>Need help with an order?</b><p>Open Account › Care & support so your request stays private and linked to your order history.</p></aside>}
     </article>
     <footer><button type="button" onClick={() => nav(-1)}>Done</button></footer>

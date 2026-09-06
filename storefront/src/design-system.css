@@ -1,0 +1,294 @@
+/* Reading and interaction layer. Keep display type / icon geometry independent
+   of the customer's reading size; all transactional copy uses these tokens. */
+:root {
+  --ui-reading-scale: 1.15;
+  --ui-body: calc(14px * var(--ui-reading-scale));
+  --ui-support: calc(12px * var(--ui-reading-scale));
+  --ui-label: calc(12px * var(--ui-reading-scale));
+  --ui-space: 16px;
+  --ui-border: #d8d2c8;
+  --ui-muted: #625e56;
+  --ui-radius: 20px;
+}
+html[data-cozy-text-size="standard"] { --ui-reading-scale: 1; }
+html[data-cozy-text-size="large"] { --ui-reading-scale: 1.25; }
+html[data-cozy-text-size="extra-large"] { --ui-reading-scale: 1.4; }
+
+:where(button, a, input, select, textarea, [role="button"]):focus-visible {
+  outline: 3px solid #62765a;
+  outline-offset: 3px;
+}
+:where(button, input, select, textarea) { touch-action: manipulation; }
+[role="dialog"][tabindex="-1"]:focus { outline: none; }
+:where(.lux-phone, .auth-phone) { --ui-card-padding: clamp(16px, 4vw, 24px); }
+:where(.lux-phone, .auth-phone) :is(p, dt, dd, h1, h2, h3, label) { overflow-wrap: anywhere; }
+
+/* Primary forms: readable values, generous targets, no forced heights. */
+.deluxe-profile .profile-fields label > span,
+.deluxe-profile .profile-preferences label,
+.deluxe-profile .security-fields label > span,
+.checkout-page .checkout-address-grid label > span,
+.auth-phone .field > span { font-size: var(--ui-label); line-height: 1.4; color: var(--ui-muted); }
+.deluxe-profile .profile-fields :is(input, select),
+.checkout-page .checkout-address-grid :is(input, select),
+.auth-phone .field input,
+.atelier-account :is(input:not([type="checkbox"]), select, textarea) {
+  font-size: max(16px, var(--ui-body)); min-height: 48px; line-height: 1.45;
+  width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box;
+}
+.deluxe-profile .profile-fields label { min-width: 0; }
+.deluxe-profile .profile-fields .profile-field-wide { grid-column: 1 / -1; }
+.deluxe-profile .profile-fields input:disabled,
+.deluxe-profile .profile-fields select:disabled { color: #57534c; -webkit-text-fill-color: #57534c; opacity: 1; }
+.deluxe-profile .profile-birth-field small { font-size: var(--ui-support); letter-spacing: .03em; }
+.deluxe-profile > header button,
+.checkout-page .checkout-address-heading button,
+.checkout-page .checkout-address-edit,
+.payment-verification-card header button,
+.payment-verification-meta button,
+.text-size-dialog header > button,
+.notifications-page > header button { min-height: 44px; min-width: 44px; font-size: var(--ui-support); height: auto; }
+.deluxe-profile > header { gap: 8px; }
+.deluxe-profile .profile-hero :is(p, small),
+.deluxe-profile .profile-saved-note,
+.deluxe-profile .field-heading :is(p, small),
+.deluxe-profile .mobile-phone-field > p,
+.deluxe-profile .mobile-phone-badge,
+.deluxe-profile .profile-fields .profile-birth-field > span > small,
+.deluxe-profile .profile-preferences label small { font-size: var(--ui-support); line-height: 1.5; }
+.deluxe-profile .profile-preferences label b { font-size: var(--ui-body); line-height: 1.4; }
+.deluxe-profile .profile-preferences :is(p, small),
+.deluxe-profile :is(.profile-no-changes, .profile-notice, .security-notice),
+.auth-phone :is(.field-hint, .auth-notice, .auth-error, .auth-form-note) { font-size: var(--ui-support); line-height: 1.55; }
+
+/* Transaction details must not inherit the smaller decorative layout scale. */
+.checkout-page .checkout-address-recipient,
+.checkout-page .checkout-address-line,
+.checkout-page .checkout-contact small,
+.checkout-page .checkout-contact b,
+.checkout-page .checkout-address-title b,
+.checkout-page .checkout-address-heading b,
+.checkout-page .checkout-delivery-promise :is(b, p, strong),
+.checkout-page .payment-options b,
+.checkout-page .checkout-rewards :is(span, b),
+.checkout-page :is(dt, dd),
+.checkout-page .checkout-primary { font-size: var(--ui-body); line-height: 1.5; }
+.checkout-page .payment-options small,
+.checkout-page .checkout-rewards small,
+.checkout-page .checkout-delivery-promise :is(small, aside),
+.checkout-page .checkout-payment-assurance,
+.checkout-page .checkout-address-title small,
+.checkout-page .checkout-address-heading small { font-size: var(--ui-support); line-height: 1.5; }
+.checkout-page .checkout-delivery-promise aside span { font-size: var(--ui-support); }
+.checkout-page .checkout-address-select { grid-template-columns: 32px minmax(0, 1fr) 24px; gap: 10px; padding: 16px; }
+.checkout-page .checkout-address-copy { min-width: 0; gap: 6px; }
+.checkout-page .checkout-address-title { flex-wrap: wrap; gap: 6px; }
+.checkout-page .checkout-address-recipient, .checkout-page .checkout-address-line { white-space: normal; overflow-wrap: anywhere; }
+.checkout-page .checkout-address-heading { flex-wrap: wrap; align-items: center; gap: 12px; }
+.checkout-page .checkout-contact { align-items: start; }
+.checkout-page .checkout-contact > div { min-width: 0; }
+.checkout-page .checkout-panel > h1 { font-size: clamp(29px, 8vw, 38px); line-height: 1.08; margin-bottom: 24px; }
+.checkout-page .payment-options > button { padding: 16px; height: auto; min-height: 88px; gap: 12px; }
+.checkout-page .checkout-rewards button { height: auto; min-height: 64px; padding: 14px 16px; gap: 8px; align-content: start; }
+.checkout-page .checkout-rewards small { grid-column: 1 / -1; }
+.checkout-page > footer { gap: 10px; padding: 14px 16px max(14px, env(safe-area-inset-bottom)); }
+.checkout-page > footer button { min-height: 48px; font-size: var(--ui-support); padding: 12px; white-space: normal; }
+.checkout-page > footer > div { min-width: 0; }
+.checkout-page > footer b { font-size: var(--ui-body); }
+.checkout-page > main { padding-bottom: 24px; }
+.checkout-page :is(.form-notice, .checkout-save-address) { font-size: var(--ui-body); line-height: 1.5; }
+
+/* Payment sheet: one calm surface; the amount and code lead the hierarchy. */
+.payment-verification-dialog { align-items: center; padding: 12px; overflow: auto; }
+.payment-verification-dialog .payment-verification-card {
+  width: min(100%, 520px); max-height: calc(100dvh - 24px); overflow: auto;
+  overscroll-behavior: contain; padding: clamp(16px, 4vw, 24px); border-radius: 24px;
+}
+.payment-verification-card header { grid-template-columns: minmax(0, 1fr) 44px; gap: 12px; }
+.payment-verification-card .payment-verification-mark { display: none; }
+.payment-verification-card h2 { font-size: clamp(26px, 7vw, 32px); line-height: 1.12; }
+.payment-verification-card .payment-verification-lead,
+.payment-verification-card :is(dt, dd),
+.payment-verification-card .payment-verification-primary { font-size: var(--ui-body); line-height: 1.5; }
+.payment-verification-card :is(aside p, .payment-verification-meta, .payment-verification-meta button, .payment-verification-code > span, .payment-verification-error),
+.payment-verification-card header small { font-size: var(--ui-support); line-height: 1.5; }
+.payment-verification-summary { background: transparent; padding: 0; box-shadow: none; border: 0; }
+.payment-verification-card .payment-verification-breakdown { padding: 14px 0; border-radius: 0; border-width: 1px 0; background: transparent; box-shadow: none; }
+.payment-verification-card :is(.payment-verification-summary, .payment-verification-breakdown) > div { gap: 12px; align-items: start; }
+.payment-verification-card dd { min-width: 0; text-align: right; }
+.payment-verification-meta { flex-wrap: wrap; gap: 8px; }
+.payment-verification-meta button { margin-left: 0; text-decoration: underline; }
+.payment-verification-card > aside { padding: 12px 0 0; border: 0; background: none; }
+
+/* Content pages: use real hierarchy for CMS sections and keep the actual logo. */
+.legal-document > article { padding: 28px 20px; max-width: 720px; margin-inline: auto; }
+.legal-document article > h1 { font-size: clamp(32px, 9vw, 46px); line-height: 1.1; margin-bottom: 20px; }
+.legal-document .legal-summary { margin-top: 20px; padding: 20px; border-radius: var(--ui-radius); box-shadow: none; }
+.legal-document article :is(p, li), .legal-document .legal-summary p { font-size: var(--ui-body); line-height: 1.7; }
+.legal-document > article > section :is(p, li), .legal-document > article > aside p { font-size: var(--ui-body); line-height: 1.7; }
+.legal-document article .eyebrow-auth, .legal-document article .legal-effective { font-size: var(--ui-support); }
+.legal-document article section { padding: 24px 0; }
+.legal-document article h2 { font-size: calc(19px * var(--ui-reading-scale)); line-height: 1.3; margin-bottom: 12px; }
+.legal-document .document-section-heading { text-transform: none; letter-spacing: 0; }
+.legal-document article a { color: #496343; text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
+.legal-document > footer button { min-height: 48px; font-size: var(--ui-body); }
+
+/* Product information and photography. Decorative title size stays bounded. */
+.atelier-detail .atelier-title { flex-wrap: wrap; gap: 12px; align-items: baseline; }
+.atelier-detail .atelier-title h1 { font-size: clamp(28px, 8vw, 40px); line-height: 1.1; overflow-wrap: anywhere; }
+.atelier-detail .atelier-title > p { font-size: calc(20px * var(--ui-reading-scale)); line-height: 1.25; }
+.atelier-detail :is(.atelier-intro, .atelier-specs li, .atelier-note small) { font-size: var(--ui-body); line-height: 1.6; }
+.atelier-detail .product-rating { flex-wrap: wrap; gap: 10px; }
+.atelier-detail .product-rating :is(small, button), .atelier-detail .product-utility-actions button { font-size: var(--ui-support); min-height: 44px; }
+.atelier-detail .product-utility-actions button { background: transparent; border: 1px solid var(--ui-border); border-radius: 14px; box-shadow: none; }
+.atelier-detail .product-purchase-direct { padding: 0; border: 0; border-radius: 16px; background: none; box-shadow: none; }
+.atelier-detail .product-purchase-direct > button { min-height: 56px; padding: 16px; border: 0; border-radius: 16px; background: #25231f; color: #fffdf8; gap: 12px; font-size: var(--ui-body); }
+.atelier-detail .product-purchase-direct > button span { font-size: var(--ui-body); }
+.atelier-detail .atelier-specs { gap: 12px; }
+.atelier-detail .atelier-specs article { padding: 16px; min-width: 0; border-radius: var(--ui-radius); }
+.atelier-detail .atelier-specs li { display: grid; grid-template-columns: 1fr; gap: 4px; }
+.product-reviews .review-list > article { padding: 20px; margin-bottom: 16px; border-radius: 24px; box-shadow: 0 5px 20px #332b2105; }
+.product-reviews .review-list > article > p { font-size: var(--ui-body); line-height: 1.65; margin-bottom: 16px; }
+.product-reviews .review-card-header { grid-template-columns: 44px minmax(0, 1fr); gap: 6px 12px; }
+.product-reviews .reviewer-avatar { width: 44px; height: 44px; grid-row: 1 / 3; }
+.product-reviews .reviewer-identity b { font-size: var(--ui-body); }
+.product-reviews .reviewer-identity small, .product-reviews .review-card-header time { font-size: var(--ui-support); line-height: 1.45; }
+.product-reviews .review-card-header time { grid-column: 2; text-align: left; }
+.product-reviews .review-filters { display: flex; flex-wrap: wrap; gap: 8px; padding-bottom: 10px; overflow: visible; }
+.product-reviews .review-filters button { min-height: 44px; font-size: var(--ui-support); }
+.product-reviews .review-card-photos button { width: 88px; height: 88px; padding: 0; border: 1px solid var(--ui-border); border-radius: 14px; overflow: hidden; flex: 0 0 auto; }
+.product-reviews .review-card-photos img { width: 100%; height: 100%; object-fit: cover; }
+.review-photo-viewer { position: fixed; z-index: 30000; inset: 0; display: flex; flex-direction: column; height: 100dvh; background: #171816; color: #fff; padding: max(12px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); }
+.review-photo-viewer header { display: flex; align-items: center; gap: 16px; }
+.review-photo-viewer header p { flex: 1; font-size: var(--ui-body); }
+.review-photo-viewer button { min-width: 48px; min-height: 48px; border-radius: 50%; color: #fff; background: #ffffff20; border: 1px solid #ffffff60; font-size: 24px; }
+.review-photo-stage { flex: 1; min-height: 0; display: grid; place-items: center; padding-block: 16px; }
+.review-photo-stage img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.review-photo-viewer footer { display: flex; justify-content: center; align-items: center; gap: 24px; font-size: var(--ui-body); }
+
+/* Account and customer care: useful information before decoration. */
+.atelier-account .account-sheet :is(p, label, textarea),
+.atelier-account .support-faq-list > article > p,
+.atelier-account .support-faq-list > article > button b,
+.atelier-account .support-ticket blockquote p { font-size: var(--ui-body); line-height: 1.6; }
+.atelier-account .account-sheet :is(small, time),
+.atelier-account .support-faq :is(footer p, header p),
+.atelier-account .account-preferences-card small,
+.account-text-size-trigger small { font-size: var(--ui-support); line-height: 1.5; }
+.atelier-account .account-sheet :is(h2, h3) { font-size: clamp(25px, 7vw, 34px); line-height: 1.15; }
+.atelier-account .account-sheet { padding-top: 64px; }
+.atelier-account .account-sheet > .account-sheet-icon { width: 44px; height: 44px; margin: 0 auto 16px; font-size: 24px; }
+.atelier-account .account-sheet > .hello { font-size: var(--ui-support); margin-bottom: 8px; letter-spacing: .1em; }
+.atelier-account .account-sheet > p:not(.hello) { font-size: var(--ui-support); margin: 12px auto 24px; line-height: 1.5; }
+.atelier-account .payment-preference-note { margin: 0 0 20px; font-size: var(--ui-support); line-height: 1.6; color: var(--ui-muted); }
+.atelier-account .support-faq > header > div > p,
+.atelier-account .payment-privacy-note small,
+.atelier-account .payment-method-heading > span { font-size: var(--ui-support); line-height: 1.55; }
+.atelier-account .support-care-hero :is(p, small),
+.atelier-account .support-compose-card header p,
+.atelier-account .support-care-hero aside :is(b, small),
+.atelier-account .payment-preferences :is(p, small),
+.atelier-account .support-faq header p,
+.atelier-account .support-form-assurance { font-size: var(--ui-support); line-height: 1.55; }
+.atelier-account .support-care-hero { padding: 18px; }
+.atelier-account .support-care-hero h3 { font-size: 27px; }
+.atelier-account .account-sheet :is(button:not(.account-sheet-close), select) { min-height: 44px; }
+.atelier-account .account-actions button { min-height: 64px; }
+.atelier-account .account-actions button b,
+.atelier-account .account-preferences-card b,
+.account-text-size-trigger b { font-size: var(--ui-body); }
+.atelier-account .account-preferences-card { flex-wrap: wrap; gap: 12px; }
+.atelier-account .account-preferences-card button { min-height: 44px; font-size: var(--ui-support); }
+.account-text-size-trigger { grid-template-columns: 40px minmax(0, 1fr) 20px; }
+.account-text-size-trigger > em { display: none; }
+.text-size-dialog > div { max-width: 520px; }
+.text-size-dialog header { grid-template-columns: minmax(0, 1fr) 44px; }
+.text-size-dialog header > .material-symbols-rounded { display: none; }
+.text-size-dialog > div > p,
+.text-size-dialog .text-size-options strong,
+.text-size-dialog .text-size-dialog-done { font-size: var(--ui-body); line-height: 1.5; }
+.text-size-dialog header small,
+.text-size-dialog .text-size-options small,
+.text-size-dialog aside :is(b, small) { font-size: var(--ui-support); line-height: 1.45; }
+.text-size-dialog .text-size-options button { padding: 12px; }
+.notifications-page main article { padding: 18px; border-radius: var(--ui-radius); cursor: pointer; }
+.notifications-page main article h2 { font-size: var(--ui-body); line-height: 1.4; }
+.notifications-page main article :is(p, small) { font-size: var(--ui-support); line-height: 1.6; }
+.notifications-page main article.new { border-left: 3px solid #657c5b; }
+.mobile-ai-chat .ai-welcome h2 { font-size: clamp(27px, 8vw, 36px); line-height: 1.12; }
+.mobile-ai-chat .ai-welcome > span,
+.mobile-ai-chat .ai-message :is(p, li),
+.mobile-ai-chat .ai-guidance :is(p, li),
+.mobile-ai-chat textarea { font-size: var(--ui-body); line-height: 1.6; }
+.mobile-ai-chat .ai-messages article :is(p, li),
+.mobile-ai-chat .ai-reply-guidance li,
+.mobile-ai-chat .ai-quick-prompts button b { font-size: var(--ui-body); line-height: 1.6; }
+.mobile-ai-chat .ai-account-context-note :is(b, small),
+.mobile-ai-chat .ai-messages article :is(time, small),
+.mobile-ai-chat > form > p { font-size: var(--ui-support); line-height: 1.5; }
+.mobile-ai-chat :is(.ai-message small, .ai-feedback small) { font-size: var(--ui-support); }
+
+/* Shared commerce cards and statuses. Never constrain text to a fixed height. */
+.lux-header > div { gap: 4px; }
+.lux-header .round-icon { min-width: 44px; min-height: 44px; width: 44px; height: 44px; }
+.lux-header .logo-button { min-width: 0; flex-shrink: 1; }
+.lux-header .logo-button img { max-width: 100%; }
+.lux-phone .home-intro h1 { font-size: clamp(32px, 10vw, 42px); line-height: 1.08; }
+.lux-phone .home-intro { margin-bottom: 20px; }
+.lux-phone .home-showcase { min-height: 320px; }
+.lux-phone .home-showcase .home-hero-copy { padding: 20px; }
+.lux-phone .home-showcase .home-hero-copy h2 { font-size: clamp(26px, 7.5vw, 34px); line-height: 1.1; }
+.lux-phone .home-showcase .home-showcase-note { font-size: var(--ui-support); line-height: 1.5; max-width: 28ch; }
+.lux-phone .home-showcase .home-hero-copy > button { min-height: 48px; font-size: var(--ui-support); }
+.lux-phone .home-rooms button > span { font-size: calc(17px * var(--ui-reading-scale)); line-height: 1.2; }
+.lux-phone .home-rooms button small { font-size: var(--ui-support); line-height: 1.4; }
+.lux-phone .home-rooms button { min-height: 150px; }
+.auth-phone :is(.intro, .form-notice, .password-guidance, .agree, .switch-auth, .signin-security-note p, .signin-security-note small) { font-size: var(--ui-support); line-height: 1.55; }
+.auth-phone .field input { padding: 12px 14px; }
+.auth-phone .auth-primary, .auth-phone .auth-secondary, .auth-phone .google { min-height: 48px; font-size: var(--ui-body); }
+.google-onboarding-card .welcome-voucher-note, .google-onboarding-card .google-onboarding-footnote { font-size: var(--ui-support); line-height: 1.5; }
+.lux-card :is(h3, .card-name) { font-size: var(--ui-body); line-height: 1.35; }
+.lux-card :is(.price, .card-price) { font-size: var(--ui-body); }
+.lux-card .card-copy > p, .lux-card .card-rating { font-size: var(--ui-support); line-height: 1.45; }
+.lux-card .card-copy > div { flex-wrap: wrap; gap: 8px; align-items: center; }
+.lux-card .card-copy strong { font-size: var(--ui-body); }
+.lux-card .card-copy h3 { height: auto; min-height: 0; white-space: normal; }
+.lux-card .card-add, .lux-card .card-save { min-width: 44px; min-height: 44px; }
+.atelier-bag .bag-item-info :is(h3, strong) { font-size: var(--ui-body); line-height: 1.45; }
+.atelier-bag .bag-item-info p { font-size: var(--ui-support); }
+.atelier-bag .quantity { display: inline-flex; max-width: 100%; height: auto; align-items: center; }
+.atelier-bag .quantity button { width: 44px; min-width: 44px; height: 44px; }
+.atelier-bag .quantity span { min-width: 24px; font-size: var(--ui-body); }
+.order-detail-view :is(p, dt, dd, label, .order-detail-address b),
+.order-detail-view .order-detail-products :is(b, strong) { font-size: var(--ui-body); line-height: 1.5; }
+.order-detail-view :is(small, time, em),
+.order-detail-view .full-order-timeline b { font-size: var(--ui-support); line-height: 1.45; }
+.order-detail-view button { min-height: 44px; font-size: var(--ui-support); }
+.order-detail-view .order-detail-meta > p { min-width: 0; overflow-wrap: anywhere; }
+.order-detail-view .order-detail-meta { gap: 12px; }
+.order-detail-view .full-order-timeline { display: grid; grid-template-columns: 1fr; gap: 16px; }
+.atelier-bag :is(.bag-delivery p, .bag-delivery small, dt, dd),
+.order-summary-card :is(p, small),
+.order-detail :is(p, dt, dd, small) { font-size: var(--ui-support); line-height: 1.5; }
+.order-summary-card header { flex-wrap: wrap; gap: 8px; }
+.order-summary-card > strong { font-size: calc(20px * var(--ui-reading-scale)); }
+.atelier-bag .bag-delivery { flex-wrap: wrap; gap: 12px; }
+.atelier-bag .bag-delivery strong { font-size: var(--ui-support); white-space: normal; }
+.atelier-bag button { min-height: 44px; }
+
+@media (max-width: 420px) {
+  .deluxe-profile .profile-fields { grid-template-columns: minmax(0, 1fr); }
+  .checkout-page .checkout-address-grid { grid-template-columns: minmax(0, 1fr); }
+  .atelier-detail .atelier-specs { grid-template-columns: minmax(0, 1fr); }
+  .payment-verification-card .payment-verification-meta button { flex-basis: 100%; text-align: left; }
+  .order-summary-card .mini-tracking { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+}
+@media (min-width: 600px) {
+  .deluxe-profile > main, .checkout-page > main, .atelier-account .mobile-account-workspace { max-width: 720px; margin-inline: auto; width: 100%; }
+  .atelier-account .support-faq-list > article > p,
+  .atelier-account .support-faq-list > article > button b { font-size: var(--ui-body); }
+  .atelier-detail .atelier-content { max-width: 800px; margin-inline: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .review-photo-viewer, .text-size-dialog, .text-size-dialog > div { animation: none; scroll-behavior: auto; }
+}

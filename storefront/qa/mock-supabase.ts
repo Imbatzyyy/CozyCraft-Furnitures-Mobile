@@ -40,6 +40,9 @@ export const createClient = () => ({
     const result = () => ({
       data: table === "addresses"
         ? [fixtureAddress]
+        : table === "reviews" ? [{ id: "qa-review", rating: 5, body: "The seat is comfortable and the finish looks beautiful in our home. Delivery was carefully handled.", image_urls: ["/furniture/photo-1599696848652-f0ff23bc911f.jpg", "/furniture/photo-1599696848652-f0ff23bc911f.jpg"], created_at: "2026-09-01T09:00:00Z", approved: true, reviewer_display_name: "Alexandra Rivera Santos" }]
+        : ["support_tickets", "return_requests"].includes(table) ? []
+        : table === "content_pages" ? null
         : {
             phone: verifiedPhone,
             phone_verified_at: verifiedAt,
@@ -53,6 +56,8 @@ export const createClient = () => ({
       select: () => query,
       eq: () => query,
       order: () => query,
+      range: () => query,
+      limit: () => query,
       abortSignal: () => query,
       single: async () => result(),
       maybeSingle: async () => result(),

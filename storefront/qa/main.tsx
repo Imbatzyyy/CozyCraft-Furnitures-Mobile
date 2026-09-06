@@ -1,6 +1,7 @@
 import React, { useState } from "react"
 import { createRoot } from "react-dom/client"
-import { CheckoutPage, ProfilePage } from "../src/Storefront"
+import { Account, CheckoutPage, ProductDetail, ProfilePage, NotificationsPage } from "../src/Storefront"
+import { readMobileTextSize, saveMobileTextSize } from "../src/lib/mobile-text-size"
 import CustomerSecurityGate from "../src/features/auth/CustomerSecurityGate"
 import PaymentEmailVerificationDialog from "../src/features/checkout/PaymentEmailVerificationDialog"
 import GoogleCustomerOnboarding from "../src/features/auth/GoogleCustomerOnboarding"
@@ -9,6 +10,8 @@ import type { PaymentEmailChallenge } from "../src/features/checkout/payment-ema
 import type { MobileGoogleOnboardingStatus } from "../src/features/auth/google-customer-onboarding"
 import "../src/index.css"
 import "../src/native-responsive.css"
+import "../src/design-system.css"
+import DialogAccessibility from "../src/components/DialogAccessibility"
 
 const params = new URLSearchParams(window.location.search)
 document.documentElement.classList.add(params.get("platform") === "android" ? "cozy-platform-android" : "cozy-platform-ios")
@@ -154,8 +157,20 @@ function GoogleOnboardingFixture() {
   </div></div>
 }
 
+const fixtureProduct = { id: "EKOLSUND", name: "EKOLSUND reclining armchair", category: "Living room", price: "₱12,999", image: "/furniture/photo-1599696848652-f0ff23bc911f.jpg", alt: "Armchair", stock: 12, description: "A comfortable reclining armchair with a generous seat and a soft, easy-care cover.", materials: [{ type: "Seat and back", description: "High-resilience foam with polyester cushioning" }], dimensions: [{ label: "Width", value: "85", unit: "cm" }] }
+function DesignFixture() {
+  const [size, setSize] = useState(readMobileTextSize())
+  const view = params.get("account") as "orders" | "addresses" | "payments" | "support" | null
+  return <div className="lux-shell"><div className="lux-phone">
+    {params.has("product") ? <ProductDetail p={fixtureProduct} saved={false} compared={false} userId="" deliveryAreas={[]} close={() => {}} save={() => {}} compare={() => {}} add={() => {}}/>
+    : params.has("notifications") ? <NotificationsPage close={() => {}} userId="fixture" refresh={async () => {}} items={[{ id: "fixture-notification", kind: "order_confirmation", title: "Your order is confirmed", message: "Your furniture is being prepared. We will keep you updated on its delivery.", created_at: "2026-09-01T09:00:00Z" }]}/>
+    : <Account userId="fixture" flash={() => {}} name="Alex Rivera" email="alex@example.test" image="" orders={[{ id: "CC-01041", databaseId: "fixture-order", status: "Processing", payment: "GCash", paymentStatus: "paid", total: 26648, subtotal: 25998, deliveryFee: 650, deliveryAreaName: "Metro Manila", address: "18 Narra Street, Bagong Pag-asa, Quezon City, Metro Manila 1105", createdAt: "2026-09-01T09:00:00Z", cancellationStatus: "pending", items: [{ product: fixtureProduct, quantity: 2, selected: true }] }]} points={120} tier="Member" lifetimeSpend={26648} completedOrders={2} savedCount={3} bagCount={2} unreadNotificationCount={1} textSize={size} changeTextSize={(next) => { saveMobileTextSize(next); setSize(next) }} pushPermission="granted" enableNotifications={() => {}} edit={() => {}} shop={() => {}} openMembership={() => {}} reviewPublished={() => {}} initialView={view} onInitialViewHandled={() => {}}/>}
+  </div></div>
+}
+
 createRoot(document.getElementById("root")!).render(<React.StrictMode>
-  {params.has("google-onboarding")
+  <DialogAccessibility />
+  {params.has("account") || params.has("product") || params.has("notifications") ? <DesignFixture /> : params.has("google-onboarding")
     ? <GoogleOnboardingFixture />
     : params.has("checkout")
       ? <CheckoutFixture />

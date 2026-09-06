@@ -3,6 +3,8 @@ import ReactDOM from 'react-dom/client'
 import App from './App'
 import './index.css'
 import './native-responsive.css'
+import './design-system.css'
+import DialogAccessibility from './components/DialogAccessibility'
 import { applyMobileTextSize, readMobileTextSize } from './lib/mobile-text-size'
 
 // Apply before React renders so opening the app or moving between routes never
@@ -39,6 +41,7 @@ if (typeof navigator !== 'undefined') {
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
+    <DialogAccessibility />
     <App />
   </React.StrictMode>,
 )
