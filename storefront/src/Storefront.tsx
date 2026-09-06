@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import ReviewPhotoViewer from "./components/ReviewPhotoViewer"
 import CozyLoader from "./components/CozyLoader"
 import CozyLaunchScreen from "./components/CozyLaunchScreen"
+import { clearLaunchHandoff } from "./components/launch-handoff"
 import { PULL_TO_REFRESH_EVENT, PullToRefreshIndicator, usePullToRefresh } from "./components/PullToRefresh"
 import { MutationQueue, withDeadline } from "./lib/request-lifecycle"
 import { checkoutAttemptKey, completeCheckoutAttempt } from "./lib/checkout-attempt"
@@ -598,7 +599,7 @@ const categories = [
   },
 ]
 
-export default function Storefront() {
+export default function Storefront({ launchHandoff = false }: { launchHandoff?: boolean }) {
   const [returnState] = useState(readStorefrontReturnState)
   const [textSize, setTextSize] = useState<MobileTextSize>(readMobileTextSize)
   const [tab, setTab] = useState(returnState?.tab || "home")
@@ -623,6 +624,10 @@ export default function Storefront() {
   const [currentDate, setCurrentDate] = useState(() => new Date())
   const [products, setProducts] = useState<Product[]>(() => readOfflineCache<Product[]>(OFFLINE_CATALOG_KEY, []))
   const [catalogLoading, setCatalogLoading] = useState(() => !readOfflineCache<Product[]>(OFFLINE_CATALOG_KEY, []).length)
+  useEffect(() => {
+    if (!launchHandoff || (catalogLoading && products.length === 0)) return
+    clearLaunchHandoff()
+  }, [launchHandoff, catalogLoading, products.length])
   const [online, setOnline] = useState(() => navigator.onLine)
   const [reconnected, setReconnected] = useState(false)
   const [resourceRevision, setResourceRevision] = useState(0)
@@ -2060,7 +2065,7 @@ export default function Storefront() {
   // Keep the initial catalog request on the same launch surface as auth and
   // route loading. Once cached products exist, later refreshes stay inline so
   // they never interrupt an already interactive page.
-  if (catalogLoading && products.length === 0) return <CozyLaunchScreen />
+  if (catalogLoading && products.length === 0) return <CozyLaunchScreen handoff={launchHandoff} />
 
   return (
     <main className="lux-shell">

@@ -7,10 +7,11 @@ import CozyLoader from "./CozyLoader"
  * at different times. Keeping them on the same surface prevents the customer
  * from seeing a sequence of unrelated loading screens during launch.
  */
-export default function CozyLaunchScreen({ label = "Preparing your home…", animated = false, exiting = false }: { label?: string; animated?: boolean; exiting?: boolean }) {
+export default function CozyLaunchScreen({ label = "Preparing your home…", animated = false, exiting = false, handoff = false }: { label?: string; animated?: boolean; exiting?: boolean; handoff?: boolean }) {
+  const className = `storefront-loading cozy-launch-screen${animated ? " cozy-launch-screen--animated" : ""}${exiting ? " cozy-launch-screen--exiting" : ""}${handoff ? " cozy-launch-screen--handoff" : ""}`
   return (
-    <main className={`storefront-loading cozy-launch-screen${animated ? " cozy-launch-screen--animated" : ""}${exiting ? " cozy-launch-screen--exiting" : ""}`} aria-live="polite">
-      <CozyLoader label={label} />
+    <main className={className} aria-live="polite" role={handoff ? "status" : undefined} aria-label={handoff ? label : undefined}>
+      {!handoff && <CozyLoader label={label} />}
     </main>
   )
 }

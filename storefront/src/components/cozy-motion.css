@@ -11,6 +11,8 @@
 .cozy-launch-screen { position: relative; isolation: isolate; overflow: hidden; }
 .cozy-launch-screen::before { content: ""; position: absolute; z-index: 0; width: min(26vw, 112px); aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle, rgba(218, 196, 170, .86), rgba(247, 245, 241, 0) 70%); opacity: 0; transform: scale(.35); pointer-events: none; }
 .cozy-launch-screen > .cozy-loader { position: relative; z-index: 1; }
+.cozy-launch-screen--handoff { background: #f7f5f1; }
+.cozy-launch-screen--handoff::before { opacity: .16; transform: scale(7); }
 .cozy-loader__trace { stroke-dasharray: 100; animation: cozy-sofa-trace var(--cozy-sofa-cycle) ease-in-out infinite; }
 .cozy-loader__body { animation: cozy-sofa-breathe var(--cozy-sofa-cycle) ease-in-out infinite; transform-origin: 32px 43px; }
 .cozy-loader__shadow { animation: cozy-sofa-shadow var(--cozy-sofa-cycle) ease-in-out infinite; transform-origin: 32px 51px; }

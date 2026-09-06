@@ -20,7 +20,7 @@ function initialAccess(): Access {
   return { kind: "checking" }
 }
 
-export default function CustomerSecurityGate({ children }: { children: ReactNode }) {
+export default function CustomerSecurityGate({ children, handoff = false }: { children: ReactNode; handoff?: boolean }) {
   const [access, setAccess] = useState<Access>(initialAccess)
   const [code, setCode] = useState("")
   const [error, setError] = useState("")
@@ -158,7 +158,7 @@ export default function CustomerSecurityGate({ children }: { children: ReactNode
   }
 
   if (access.kind === "allowed") return children
-  if (access.kind === "checking") return <CozyLaunchScreen />
+  if (access.kind === "checking") return <CozyLaunchScreen handoff={handoff} />
 
   return (
     <main className="mobile-auth-check">

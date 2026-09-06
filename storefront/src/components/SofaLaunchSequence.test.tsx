@@ -2,8 +2,10 @@ import { StrictMode } from "react"
 import { act, render, screen } from "@testing-library/react"
 import { afterEach, expect, it, vi } from "vitest"
 import SofaLaunchSequence, { SOFA_LAUNCH_DURATION_MS, SOFA_TRANSITION_DURATION_MS } from "./SofaLaunchSequence"
+import CozyLaunchScreen from "./CozyLaunchScreen"
+import { clearLaunchHandoff, hasLaunchHandoff } from "./launch-handoff"
 
-afterEach(() => vi.useRealTimers())
+afterEach(() => { vi.useRealTimers(); clearLaunchHandoff() })
 
 it("runs once, holds the finished sofa for two seconds, then completes", () => {
   vi.useFakeTimers()
@@ -21,14 +23,16 @@ it("runs once, holds the finished sofa for two seconds, then completes", () => {
   expect(complete).not.toHaveBeenCalled()
   act(() => vi.advanceTimersByTime(1))
   expect(complete).toHaveBeenCalledTimes(1)
+  expect(hasLaunchHandoff()).toBe(true)
   act(() => vi.advanceTimersByTime(SOFA_TRANSITION_DURATION_MS))
   expect(complete).toHaveBeenCalledTimes(1)
 })
 
 it("marks later preparation screens as static so the launch cycle cannot restart", async () => {
-  const { default: CozyLaunchScreen } = await import("./CozyLaunchScreen")
-  const view = render(<CozyLaunchScreen />)
+  const view = render(<CozyLaunchScreen handoff label="Opening CozyCraft…" />)
   expect(document.querySelector(".cozy-launch-screen--animated")).toBeNull()
+  expect(document.querySelector(".cozy-launch-screen--handoff")).toBeTruthy()
+  expect(document.querySelector(".cozy-loader")).toBeNull()
   expect(document.querySelector(".cozy-launch-screen")).toBeTruthy()
   view.unmount()
 })

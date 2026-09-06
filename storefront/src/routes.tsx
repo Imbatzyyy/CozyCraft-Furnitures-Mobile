@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState } from "react"
 import DocumentSections from "./components/DocumentSections"
 import CozyLaunchScreen from "./components/CozyLaunchScreen"
 import SofaLaunchSequence from "./components/SofaLaunchSequence"
+import { hasLaunchHandoff } from "./components/launch-handoff"
 import { createHashRouter, Link, useLocation, useNavigate } from "react-router"
 import CustomerSecurityGate from "./features/auth/CustomerSecurityGate"
 import { googleOAuthOptions } from "./features/auth/google-oauth"
@@ -1093,6 +1094,14 @@ function Missing() {
     </main>
   )
 }
+function CustomerHomeRoute() {
+  const handoff = hasLaunchHandoff()
+  return <CustomerSecurityGate handoff={handoff}>
+    <Suspense fallback={<CozyLaunchScreen handoff={handoff} />}>
+      <Storefront launchHandoff={handoff} />
+    </Suspense>
+  </CustomerSecurityGate>
+}
 export const router = createHashRouter([
   { path: "/", Component: Splash },
   { path: "/welcome", Component: Welcome },
@@ -1103,6 +1112,6 @@ export const router = createHashRouter([
   { path: "/privacy-policy", Component: () => <LegalDocument kind="privacy" /> },
   { path: "/about", Component: () => <ContentDocument kind="about" /> },
   { path: "/contact", Component: () => <ContentDocument kind="contact" /> },
-  { path: "/shop", Component: () => <CustomerSecurityGate><Suspense fallback={<CozyLaunchScreen />}><Storefront /></Suspense></CustomerSecurityGate> },
+  { path: "/shop", Component: CustomerHomeRoute },
   { path: "*", Component: Missing },
 ])
