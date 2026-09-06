@@ -23,12 +23,18 @@
 .storefront-loading > .cozy-loader { flex-direction: column; padding: 24px; text-align: center; }
 .catalog-loading { min-height: 44px; margin-block: 8px; color: #615a52; font-size: 13px; }
 .pull-refresh-indicator.is-refreshing > .cozy-loader { animation: none; }
-@keyframes cozy-sofa-trace { 0% { stroke-dashoffset: 100; fill-opacity: 0; } 42%, 88% { stroke-dashoffset: 0; fill-opacity: .12; } 100% { stroke-dashoffset: -100; fill-opacity: 0; } }
-@keyframes cozy-backrest-rise { 0%, 10%, 100% { transform: translateY(12px) scaleY(.35); opacity: .2; } 44% { transform: translateY(-3px) scaleY(1.06); opacity: 1; } 56%, 88% { transform: translateY(0) scaleY(1); opacity: 1; } }
+@keyframes cozy-sofa-trace { 0% { stroke-dashoffset: 100; fill-opacity: 0; } 42% { stroke-dashoffset: 0; fill-opacity: .12; } 58%, 100% { stroke-dashoffset: 0; fill-opacity: .12; } }
+@keyframes cozy-backrest-rise { 0%, 10% { transform: translateY(12px) scaleY(.35); opacity: .2; } 44% { transform: translateY(-3px) scaleY(1.06); opacity: 1; } 56%, 100% { transform: translateY(0) scaleY(1); opacity: 1; } }
 @keyframes cozy-sofa-breathe { 0%, 70%, 100% { transform: translateY(0) scaleY(1); } 35% { transform: translateY(-2px) scaleY(1.025); } 55% { transform: translateY(1px) scaleY(.97); } }
-@keyframes cozy-pillow-hop { 0%, 26%, 100% { transform: translateY(-9px) rotate(-12deg); opacity: 0; } 48% { transform: translateY(1px) rotate(3deg); opacity: 1; } 60% { transform: translateY(-2px) rotate(-2deg); opacity: 1; } 74%, 88% { transform: translateY(0) rotate(0); opacity: 1; } }
-@keyframes cozy-pillow-right { 0%, 34%, 100% { transform: translateY(-9px) rotate(12deg); opacity: 0; } 56% { transform: translateY(1px) rotate(-3deg); opacity: 1; } 68% { transform: translateY(-2px) rotate(2deg); opacity: 1; } 80%, 88% { transform: translateY(0) rotate(0); opacity: 1; } }
+@keyframes cozy-pillow-hop { 0%, 26% { transform: translateY(-9px) rotate(-12deg); opacity: 0; } 48% { transform: translateY(1px) rotate(3deg); opacity: 1; } 60% { transform: translateY(-2px) rotate(-2deg); opacity: 1; } 74%, 100% { transform: translateY(0) rotate(0); opacity: 1; } }
+@keyframes cozy-pillow-right { 0%, 34% { transform: translateY(-9px) rotate(12deg); opacity: 0; } 56% { transform: translateY(1px) rotate(-3deg); opacity: 1; } 68% { transform: translateY(-2px) rotate(2deg); opacity: 1; } 80%, 100% { transform: translateY(0) rotate(0); opacity: 1; } }
 @keyframes cozy-sofa-shadow { 0%, 70%, 100% { transform: scaleX(1); opacity: .12; } 35% { transform: scaleX(.82); opacity: .07; } 55% { transform: scaleX(1.05); opacity: .15; } }
+
+/* The launch presentation is a single five-second drawing, then a still pose. */
+.cozy-launch-screen .cozy-loader :is(.cozy-loader__trace,.cozy-loader__cushions,.cozy-loader__pillow,.cozy-loader__body,.cozy-loader__shadow) {
+  animation-iteration-count: 1;
+  animation-fill-mode: forwards;
+}
 
 /* Opacity on page containers avoids changing the containing block of fixed dialogs. */
 .lux-phone :is(.search-overlay,.detail-sheet,.profile-page,.notifications-page,.category-page,.checkout-page,.account-sheet,.membership-page,.compare-sheet,.order-detail-view),

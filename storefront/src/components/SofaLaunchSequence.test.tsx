@@ -5,17 +5,17 @@ import SofaLaunchSequence from "./SofaLaunchSequence"
 
 afterEach(() => vi.useRealTimers())
 
-it("keeps the sofa visible for five seconds and completes only once in StrictMode", () => {
+it("runs once, holds the finished sofa for two seconds, then completes", () => {
   vi.useFakeTimers()
   const complete = vi.fn()
   const view = render(<StrictMode><SofaLaunchSequence onComplete={complete} /></StrictMode>)
   expect(screen.getByRole("status").textContent).toContain("Preparing your home")
-  act(() => vi.advanceTimersByTime(4999))
+  act(() => vi.advanceTimersByTime(6999))
   expect(complete).not.toHaveBeenCalled()
   view.rerender(<StrictMode><SofaLaunchSequence onComplete={complete} /></StrictMode>)
   act(() => vi.advanceTimersByTime(1))
   expect(complete).toHaveBeenCalledTimes(1)
-  act(() => vi.advanceTimersByTime(5000))
+  act(() => vi.advanceTimersByTime(7000))
   expect(complete).toHaveBeenCalledTimes(1)
 })
 
@@ -24,6 +24,6 @@ it("cancels navigation when the launch screen is unmounted", () => {
   const complete = vi.fn()
   const view = render(<SofaLaunchSequence onComplete={complete} />)
   view.unmount()
-  act(() => vi.advanceTimersByTime(5000))
+  act(() => vi.advanceTimersByTime(7000))
   expect(complete).not.toHaveBeenCalled()
 })
