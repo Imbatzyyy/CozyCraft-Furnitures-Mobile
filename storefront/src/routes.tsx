@@ -3,7 +3,7 @@ import DocumentSections from "./components/DocumentSections"
 import CozyLaunchScreen from "./components/CozyLaunchScreen"
 import SofaLaunchSequence from "./components/SofaLaunchSequence"
 import { hasLaunchHandoff } from "./components/launch-handoff"
-import { createHashRouter, Link, useLocation, useNavigate } from "react-router"
+import { createHashRouter, Link, Navigate, useLocation, useNavigate } from "react-router"
 import CustomerSecurityGate from "./features/auth/CustomerSecurityGate"
 import { googleOAuthOptions } from "./features/auth/google-oauth"
 import cozyLogo from "./imports/COZy.png"
@@ -393,9 +393,9 @@ function Splash() {
       if (timer) window.clearTimeout(timer)
     }
   }, [navigate])
-  const finishLaunch = () => navigate(destination, { replace: true, viewTransition: destination === "/shop" })
+  const finishLaunch = () => navigate(destination, { replace: true })
   if (showSofa) {
-    if (destination === "/shop") return <LaunchHomeStage onComplete={finishLaunch} />
+    if (destination === "/shop") return <Navigate to="/shop" replace state={{ sofaLaunch: true }} />
     return <SofaLaunchSequence onComplete={finishLaunch} />
   }
   return (
@@ -1098,23 +1098,29 @@ function Missing() {
     </main>
   )
 }
-function LaunchHomeStage({ onComplete }: { onComplete: () => void }) {
+export function CustomerHomeRoute() {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const [launching, setLaunching] = useState(() => location.state?.sofaLaunch === true)
+  const [handoff] = useState(() => launching || hasLaunchHandoff())
   const [homeReady, setHomeReady] = useState(false)
   const [homeBlocked, setHomeBlocked] = useState(false)
-  return <main className="launch-home-stage">
-    <div className="launch-home-underlay" aria-hidden={!homeReady}>
-      <CustomerHomeRoute handoffOverride onReady={() => setHomeReady(true)} onBlocked={() => setHomeBlocked(true)} />
+  const finishLaunch = () => {
+    setLaunching(false)
+    // Same route and same component: discard the one-shot history flag without
+    // replacing the prepared storefront, its subscriptions, or its UI state.
+    void navigate({ pathname: location.pathname, search: location.search }, { replace: true, state: null, preventScrollReset: true })
+  }
+  return <div className="launch-home-stage">
+    <div className="launch-home-underlay" inert={launching} aria-hidden={launching || undefined}>
+      <CustomerSecurityGate handoff={handoff} onBlocked={() => setHomeBlocked(true)}>
+        <Suspense fallback={<CozyLaunchScreen handoff={handoff} />}>
+          <Storefront launchHandoff={handoff} onReady={() => setHomeReady(true)} />
+        </Suspense>
+      </CustomerSecurityGate>
     </div>
-    <SofaLaunchSequence homeReady={homeReady || homeBlocked} onComplete={onComplete} />
-  </main>
-}
-function CustomerHomeRoute({ handoffOverride, onReady, onBlocked }: { handoffOverride?: boolean; onReady?: () => void; onBlocked?: () => void } = {}) {
-  const handoff = handoffOverride ?? hasLaunchHandoff()
-  return <CustomerSecurityGate handoff={handoff} onBlocked={onBlocked}>
-    <Suspense fallback={<CozyLaunchScreen handoff={handoff} />}>
-      <Storefront launchHandoff={handoff} onReady={onReady} />
-    </Suspense>
-  </CustomerSecurityGate>
+    {launching && <SofaLaunchSequence homeReady={homeReady || homeBlocked} onComplete={finishLaunch} />}
+  </div>
 }
 export const router = createHashRouter([
   { path: "/", Component: Splash },

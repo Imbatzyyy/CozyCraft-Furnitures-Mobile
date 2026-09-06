@@ -14,8 +14,8 @@
 .cozy-launch-screen--handoff { background: #f7f5f1; }
 .cozy-launch-screen--handoff::before { opacity: .16; transform: scale(7); }
 .launch-home-stage { position: relative; min-height: 100dvh; overflow: hidden; background: #f7f5f1; }
-.launch-home-underlay { position: absolute; inset: 0; z-index: 1; overflow: hidden; }
-.launch-home-stage > .cozy-launch-screen { position: relative; z-index: 2; }
+.launch-home-underlay { position: relative; z-index: 1; }
+.launch-home-stage > .cozy-launch-screen { position: fixed; inset: 0; z-index: 2; }
 .launch-home-stage > .cozy-launch-screen--exiting { background: #f7f5f1; animation: cozy-launch-reveal 800ms cubic-bezier(.22,.8,.24,1) forwards; will-change: opacity; }
 .cozy-loader__trace { stroke-dasharray: 100; animation: cozy-sofa-trace var(--cozy-sofa-cycle) ease-in-out infinite; }
 .cozy-loader__body { animation: cozy-sofa-breathe var(--cozy-sofa-cycle) ease-in-out infinite; transform-origin: 32px 43px; }
@@ -60,12 +60,6 @@
 }
 .lux-body { animation: cozy-tab-enter var(--cozy-motion-duration) var(--cozy-motion-ease); }
 .lux-shell--handoff .lux-body { animation: none; opacity: 1; }
-@supports (view-transition-name: root) {
-  ::view-transition-group(root), ::view-transition-old(root), ::view-transition-new(root) {
-    animation-duration: 160ms;
-    animation-timing-function: var(--cozy-motion-ease);
-  }
-}
 @keyframes cozy-page-enter { from { opacity: .4; } to { opacity: 1; } }
 @keyframes cozy-tab-enter { from { opacity: .65; } to { opacity: 1; } }
 .lux-phone :is(.round-icon,.checkout-next,.auth-primary) { transition: opacity 120ms ease; }

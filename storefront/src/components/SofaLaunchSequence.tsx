@@ -22,8 +22,11 @@ export default function SofaLaunchSequence({ onComplete, homeReady = true }: { o
     if (!finished || !homeReady || exitingRef.current) return
     exitingRef.current = true
     setExiting(true)
+  }, [finished, homeReady])
+  useEffect(() => {
+    if (!exiting) return
     const timer = window.setTimeout(() => { markLaunchHandoff(); complete.current() }, SOFA_TRANSITION_DURATION_MS)
     return () => window.clearTimeout(timer)
-  }, [finished, homeReady])
+  }, [exiting])
   return <CozyLaunchScreen animated exiting={exiting} />
 }
