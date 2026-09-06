@@ -1100,11 +1100,12 @@ function Missing() {
 function LaunchHomeStage({ onComplete }: { onComplete: () => void }) {
   const [homeReady, setHomeReady] = useState(false)
   const [homeBlocked, setHomeBlocked] = useState(false)
+  const [revealing, setRevealing] = useState(false)
   return <main className="launch-home-stage">
-    <div className="launch-home-underlay" aria-hidden={!homeReady}>
+    <div className={`launch-home-underlay${revealing ? " launch-home-underlay--revealing" : ""}`} aria-hidden={!homeReady}>
       <CustomerHomeRoute handoffOverride onReady={() => setHomeReady(true)} onBlocked={() => setHomeBlocked(true)} />
     </div>
-    <SofaLaunchSequence homeReady={homeReady || homeBlocked} onComplete={onComplete} />
+    <SofaLaunchSequence homeReady={homeReady || homeBlocked} onExitStart={() => setRevealing(true)} onComplete={onComplete} />
   </main>
 }
 function CustomerHomeRoute({ handoffOverride, onReady, onBlocked }: { handoffOverride?: boolean; onReady?: () => void; onBlocked?: () => void } = {}) {

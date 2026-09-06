@@ -604,7 +604,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
   const [textSize, setTextSize] = useState<MobileTextSize>(readMobileTextSize)
   const [tab, setTab] = useState(returnState?.tab || "home")
   useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
+    if (launchHandoff || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
     const page = document.querySelector<HTMLElement>(".lux-body")
     const animation = page?.animate?.([{ opacity: .65 }, { opacity: 1 }], {
       duration: document.documentElement.dataset.cozyMotion === "economy" ? 100 : 180,
@@ -2072,7 +2072,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
   if (catalogLoading && products.length === 0) return <CozyLaunchScreen handoff={launchHandoff} />
 
   return (
-    <main className="lux-shell">
+    <main className={`lux-shell${launchHandoff ? " lux-shell--handoff" : ""}`}>
       <section className="lux-phone" ref={pullRefresh.ref}>
         <PullToRefreshIndicator
           pullDistance={pullRefresh.pullDistance}

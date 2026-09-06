@@ -8,9 +8,11 @@ export const SOFA_LAUNCH_DURATION_MS = SOFA_ANIMATION_DURATION_MS + SOFA_FINISH_
 export const SOFA_TRANSITION_DURATION_MS = 800
 
 /** Run one complete sofa drawing, hold the finished pose, then continue. */
-export default function SofaLaunchSequence({ onComplete, homeReady = true }: { onComplete: () => void; homeReady?: boolean }) {
+export default function SofaLaunchSequence({ onComplete, onExitStart, homeReady = true }: { onComplete: () => void; onExitStart?: () => void; homeReady?: boolean }) {
   const complete = useRef(onComplete)
   complete.current = onComplete
+  const exitStart = useRef(onExitStart)
+  exitStart.current = onExitStart
   const exitingRef = useRef(false)
   const [exiting, setExiting] = useState(false)
   const [finished, setFinished] = useState(false)
@@ -21,6 +23,7 @@ export default function SofaLaunchSequence({ onComplete, homeReady = true }: { o
   useEffect(() => {
     if (!finished || !homeReady || exitingRef.current) return
     exitingRef.current = true
+    exitStart.current?.()
     setExiting(true)
     const timer = window.setTimeout(() => { markLaunchHandoff(); complete.current() }, SOFA_TRANSITION_DURATION_MS)
     return () => window.clearTimeout(timer)

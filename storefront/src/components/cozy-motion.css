@@ -15,8 +15,9 @@
 .cozy-launch-screen--handoff::before { opacity: .16; transform: scale(7); }
 .launch-home-stage { position: relative; min-height: 100dvh; overflow: hidden; background: #f7f5f1; }
 .launch-home-underlay { position: absolute; inset: 0; z-index: 1; overflow: hidden; }
+.launch-home-underlay--revealing { animation: cozy-home-reveal 800ms cubic-bezier(.22,.8,.24,1) forwards; will-change: opacity; }
 .launch-home-stage > .cozy-launch-screen { position: relative; z-index: 2; }
-.launch-home-stage > .cozy-launch-screen--exiting { background: rgba(247, 245, 241, .62); }
+.launch-home-stage > .cozy-launch-screen--exiting { background: #f7f5f1; animation: cozy-launch-reveal 800ms cubic-bezier(.22,.8,.24,1) forwards; will-change: opacity; }
 .cozy-loader__trace { stroke-dasharray: 100; animation: cozy-sofa-trace var(--cozy-sofa-cycle) ease-in-out infinite; }
 .cozy-loader__body { animation: cozy-sofa-breathe var(--cozy-sofa-cycle) ease-in-out infinite; transform-origin: 32px 43px; }
 .cozy-loader__shadow { animation: cozy-sofa-shadow var(--cozy-sofa-cycle) ease-in-out infinite; transform-origin: 32px 51px; }
@@ -47,9 +48,11 @@
   animation-iteration-count: 1;
   animation-fill-mode: forwards;
 }
-.cozy-launch-screen--exiting::before { animation: cozy-launch-bloom 800ms cubic-bezier(.22,.8,.24,1) forwards; }
+.cozy-launch-screen--exiting::before { animation: cozy-launch-bloom 800ms cubic-bezier(.22,.8,.24,1) forwards; will-change: opacity, transform; }
 .cozy-launch-screen--exiting > .cozy-loader { animation: cozy-sofa-exit 800ms cubic-bezier(.22,.8,.24,1) forwards; }
-@keyframes cozy-launch-bloom { 0% { opacity: 0; transform: scale(.35); } 52% { opacity: .72; transform: scale(5.5); } 100% { opacity: .98; transform: scale(12); } }
+@keyframes cozy-home-reveal { 0% { opacity: .94; } 100% { opacity: 1; } }
+@keyframes cozy-launch-reveal { 0% { opacity: 1; } 58% { opacity: .92; } 100% { opacity: 0; } }
+@keyframes cozy-launch-bloom { 0% { opacity: 0; transform: scale(.35); } 42% { opacity: .54; transform: scale(5.5); } 72% { opacity: .2; transform: scale(9); } 100% { opacity: 0; transform: scale(14); } }
 @keyframes cozy-sofa-exit { 0% { opacity: 1; transform: translateY(0) scale(1); } 45% { opacity: 1; transform: translateY(-10px) scale(1.04); } 100% { opacity: 0; transform: translateY(-64px) scale(.78); } }
 
 /* Opacity on page containers avoids changing the containing block of fixed dialogs. */
@@ -58,6 +61,7 @@
   animation: cozy-page-enter var(--cozy-motion-duration) var(--cozy-motion-ease);
 }
 .lux-body { animation: cozy-tab-enter var(--cozy-motion-duration) var(--cozy-motion-ease); }
+.lux-shell--handoff .lux-body { animation: none; opacity: 1; }
 @keyframes cozy-page-enter { from { opacity: .4; } to { opacity: 1; } }
 @keyframes cozy-tab-enter { from { opacity: .65; } to { opacity: 1; } }
 .lux-phone :is(.round-icon,.checkout-next,.auth-primary) { transition: opacity 120ms ease; }

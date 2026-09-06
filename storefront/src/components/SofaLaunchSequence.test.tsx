@@ -7,18 +7,20 @@ import { clearLaunchHandoff, hasLaunchHandoff } from "./launch-handoff"
 
 afterEach(() => { vi.useRealTimers(); clearLaunchHandoff() })
 
-it("runs once, holds the finished sofa for two seconds, then completes", () => {
+it("runs once, holds the finished sofa for one second, then completes", () => {
   vi.useFakeTimers()
   const complete = vi.fn()
-  const view = render(<StrictMode><SofaLaunchSequence onComplete={complete} /></StrictMode>)
+  const exitStarted = vi.fn()
+  const view = render(<StrictMode><SofaLaunchSequence onComplete={complete} onExitStart={exitStarted} /></StrictMode>)
   expect(screen.getByRole("status").textContent).toContain("Preparing your home")
   expect(document.querySelector(".cozy-launch-screen--animated")).toBeTruthy()
   act(() => vi.advanceTimersByTime(SOFA_LAUNCH_DURATION_MS - 1))
   expect(complete).not.toHaveBeenCalled()
   expect(document.querySelector(".cozy-launch-screen--exiting")).toBeNull()
-  view.rerender(<StrictMode><SofaLaunchSequence onComplete={complete} /></StrictMode>)
+  view.rerender(<StrictMode><SofaLaunchSequence onComplete={complete} onExitStart={exitStarted} /></StrictMode>)
   act(() => vi.advanceTimersByTime(1))
   expect(document.querySelector(".cozy-launch-screen--exiting")).toBeTruthy()
+  expect(exitStarted).toHaveBeenCalledTimes(1)
   act(() => vi.advanceTimersByTime(SOFA_TRANSITION_DURATION_MS - 1))
   expect(complete).not.toHaveBeenCalled()
   act(() => vi.advanceTimersByTime(1))
