@@ -234,7 +234,8 @@ html[data-cozy-text-size="extra-large"] { --ui-reading-scale: 1.4; }
 .lux-header .logo-button { min-width: 0; flex-shrink: 1; }
 .lux-header .logo-button img { max-width: 100%; }
 .lux-phone .home-intro h1 { font-size: clamp(32px, 10vw, 42px); line-height: 1.08; }
-.lux-phone .home-intro { margin-bottom: 20px; }
+.lux-phone .home-intro { margin-bottom: 0; padding-bottom: 10px; }
+.lux-phone .recently-viewed-rail { margin-inline: 0; padding: 0 0 10px 8px; width: 100%; box-sizing: border-box; }
 .lux-phone .home-showcase { min-height: 320px; }
 .lux-phone .home-showcase .home-hero-copy { padding: 20px; }
 .lux-phone .home-showcase .home-hero-copy h2 { font-size: clamp(26px, 7.5vw, 34px); line-height: 1.1; }

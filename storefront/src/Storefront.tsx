@@ -2194,7 +2194,7 @@ export default function Storefront() {
                     title="Recently viewed"
                     action={() => setTab("shop")}
                   />
-                  <div className="horizontal-product-rail">
+                  <div className="horizontal-product-rail recently-viewed-rail">
                     {recentlyViewed
                       .map((id) =>
                         products.find((product) => product.id === id),
