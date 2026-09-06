@@ -340,6 +340,37 @@ html[data-cozy-text-size="extra-large"] { --ui-reading-scale: 1.4; }
   .atelier-account .support-faq-list > article > button b { font-size: var(--ui-body); }
   .atelier-detail .atelier-content { max-width: 800px; margin-inline: auto; }
 }
+
+/* Keep the product-detail favorite artwork platform-neutral. Unicode hearts
+   can become colorful Apple emoji in WKWebView, while this inline vector
+   matches the saved-card icon on every Android and iPhone device. */
+.atelier-detail .atelier-favorite-button {
+  display: grid;
+  place-items: center;
+  line-height: 0;
+  color: #2c2925;
+}
+.atelier-detail .atelier-favorite-heart {
+  display: block;
+  width: clamp(20px, 5.5vw, 23px);
+  height: clamp(20px, 5.5vw, 23px);
+  overflow: visible;
+  fill: transparent;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+  transition: transform 220ms cubic-bezier(.2, .8, .2, 1), fill 180ms ease, color 180ms ease;
+}
+.atelier-detail .atelier-favorite-button[aria-pressed="true"] {
+  background: #fff6f2;
+  color: #a85f50;
+}
+.atelier-detail .atelier-favorite-button[aria-pressed="true"] .atelier-favorite-heart {
+  transform: scale(1.08);
+  fill: currentColor;
+  stroke-width: 1.5;
+}
 @media (prefers-reduced-motion: reduce) {
   .review-photo-viewer, .text-size-dialog, .text-size-dialog > div { animation: none; scroll-behavior: auto; }
 }

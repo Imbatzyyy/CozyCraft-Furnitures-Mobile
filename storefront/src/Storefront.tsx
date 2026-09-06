@@ -4728,8 +4728,15 @@ export function ProductDetail({
           ←
         </button>
         <span>COZYCRAFT / OBJECTS</span>
-        <button onClick={save} aria-label="Save this item">
-          {saved ? "♥" : "♡"}
+        <button
+          onClick={save}
+          aria-label={saved ? "Remove this item from saved pieces" : "Save this item"}
+          aria-pressed={saved}
+          className="atelier-favorite-button"
+        >
+          <svg className="atelier-favorite-heart" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 21 10.55 19.7C5.4 15.1 2 12.05 2 8.3A5.3 5.3 0 0 1 7.35 3C9.25 3 11.08 3.88 12 5.27 12.92 3.88 14.75 3 16.65 3A5.3 5.3 0 0 1 22 8.3c0 3.75-3.4 6.8-8.55 11.4Z" />
+          </svg>
         </button>
       </header>
       <section
