@@ -2,6 +2,7 @@ import type { User } from "@supabase/supabase-js"
 import { readAllPages } from "./paged-query"
 import { supabase, supabaseUrl } from "./supabase"
 import type { MobileDeliveryServiceArea } from "./mobile-delivery"
+import { homeCircleTier } from "./home-circle"
 
 export type MobileProduct = {
   id: string
@@ -27,15 +28,21 @@ export type MobileLoyaltyAccount = {
   points_balance: number
   lifetime_eligible_spend: number
   tier: "member" | "plus" | "premium" | "elite"
+  tier_display_name?: string
   tier_valid_until: string | null
   last_activity_at: string | null
   updated_at: string
 }
 
-export async function loadMobileLoyalty(): Promise<MobileLoyaltyAccount> {
-  const { data, error } = await supabase.rpc("get_mobile_loyalty")
+export async function loadMobileLoyalty(userId?: string): Promise<MobileLoyaltyAccount> {
+  // Realtime refreshes must not invoke the calculating RPC: that RPC writes
+  // the watched account row and would start another realtime refresh.
+  const { data, error } = userId
+    ? await supabase.from("mobile_loyalty_accounts").select("*").eq("user_id", userId).single()
+    : await supabase.rpc("get_mobile_loyalty")
   if (error) throw error
-  return data as MobileLoyaltyAccount
+  if (!data) throw new Error("Your Home Circle account isn't available yet. Please refresh.")
+  return { ...data, tier_display_name: data.tier_display_name || homeCircleTier(data.tier).name } as MobileLoyaltyAccount
 }
 
 export async function loadMobileLoyaltyActivity(userId: string) {

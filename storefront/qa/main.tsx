@@ -14,8 +14,12 @@ import "../src/design-system.css"
 import "../src/components/cozy-motion.css"
 import CozyLaunchScreen from "../src/components/CozyLaunchScreen"
 import DialogAccessibility from "../src/components/DialogAccessibility"
+import HomeCirclePage from "../src/components/HomeCirclePage"
+import { isMobileTextSize } from "../src/lib/mobile-text-size"
 
 const params = new URLSearchParams(window.location.search)
+const requestedTextSize = params.get("text")
+if (isMobileTextSize(requestedTextSize)) saveMobileTextSize(requestedTextSize)
 document.documentElement.classList.add(params.get("platform") === "android" ? "cozy-platform-android" : "cozy-platform-ios")
 if (["standard", "comfortable", "large", "extra-large"].includes(params.get("text") || "")) {
   document.documentElement.dataset.cozyTextSize = params.get("text") || "comfortable"
@@ -170,9 +174,14 @@ function DesignFixture() {
   </div></div>
 }
 
+function HomeCircleFixture() {
+  const [points, setPoints] = useState(650)
+  return <div className="lux-shell"><div className="lux-phone"><HomeCirclePage points={points} tier="member" lifetimeSpend={12400} orderCount={2} activity={[{ id: "earned", description: "Points earned from your delivered furniture order", points: 124, created_at: "2026-09-01" }]} redemptions={[{ id: "welcome", points_cost: 0, discount_amount: 500, reward_source: "welcome", minimum_order_amount: 5000, status: "available", code: "QA", created_at: "2026-09-01", expires_at: "2030-10-04", used_at: null }]} close={() => {}} shop={() => {}} redeem={async cost => { setPoints(value => value - cost) }}/></div></div>
+}
+
 createRoot(document.getElementById("root")!).render(<React.StrictMode>
   <DialogAccessibility />
-  {params.has("motion") ? <CozyLaunchScreen animated /> : params.has("account") || params.has("product") || params.has("notifications") ? <DesignFixture /> : params.has("google-onboarding")
+  {params.has("membership") ? <HomeCircleFixture /> : params.has("motion") ? <CozyLaunchScreen animated /> : params.has("account") || params.has("product") || params.has("notifications") ? <DesignFixture /> : params.has("google-onboarding")
     ? <GoogleOnboardingFixture />
     : params.has("checkout")
       ? <CheckoutFixture />

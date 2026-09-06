@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import ReviewPhotoViewer from "./components/ReviewPhotoViewer"
 import CozyLoader from "./components/CozyLoader"
+import MembershipPage from "./components/HomeCirclePage"
+import { HOME_CIRCLE_TIERS, homeCircleTier } from "./lib/home-circle"
 import CozyLaunchScreen from "./components/CozyLaunchScreen"
 import { clearLaunchHandoff } from "./components/launch-handoff"
 import { PULL_TO_REFRESH_EVENT, PullToRefreshIndicator, usePullToRefresh } from "./components/PullToRefresh"
@@ -717,6 +719,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
   )
   const [membershipOpen, setMembershipOpen] = useState(false)
   const [loyalty, setLoyalty] = useState<MobileLoyaltyAccount | null>(null)
+  const [loyaltyError, setLoyaltyError] = useState("")
   const [loyaltyActivity, setLoyaltyActivity] = useState<Array<Record<string, any>>>([])
   const [loyaltyRedemptions, setLoyaltyRedemptions] = useState<MobileRedemption[]>([])
   const [chatOpen, setChatOpen] = useState(false)
@@ -1207,7 +1210,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
     () => orders.filter((order) => order.status === "Delivered").length,
     [orders],
   )
-  const memberTier = ({ member: "Cozy Member", plus: "Cozy Plus", premium: "Cozy Premium", elite: "Cozy Elite" } as const)[loyalty?.tier || "member"]
+  const memberTier = loyalty?.tier_display_name || homeCircleTier(loyalty?.tier).name
   useEffect(() => {
     if (!userId) {
       setLoyalty(null)
@@ -1216,30 +1219,34 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
       return
     }
     let live = true
-    const refresh = async () => {
+    const refresh = async (initial = false) => {
       try {
         const [account, activity, redemptions] = await Promise.all([
-          loadMobileLoyalty(),
-          loadMobileLoyaltyActivity(userId),
-          loadMobileRedemptions(userId),
+          withDeadline(loadMobileLoyalty(initial ? undefined : userId)),
+          withDeadline(loadMobileLoyaltyActivity(userId)),
+          withDeadline(loadMobileRedemptions(userId)),
         ])
         if (live) {
+          setLoyaltyError("")
           setLoyalty(account)
           setLoyaltyActivity(activity)
           setLoyaltyRedemptions(redemptions)
         }
       } catch (error) {
+        if (live) setLoyaltyError("We couldn't update Home Circle. Pull down to refresh when you're connected.")
         console.error("Unable to refresh Home Circle rewards", error)
       }
     }
-    void refresh()
+    void refresh(true)
+    const loyaltyRefresh = coalescedRefresh(() => refresh())
     const channel = supabase.channel(`mobile-loyalty-${userId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "mobile_loyalty_accounts", filter: `user_id=eq.${userId}` }, refresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "mobile_loyalty_transactions", filter: `user_id=eq.${userId}` }, refresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "mobile_loyalty_redemptions", filter: `user_id=eq.${userId}` }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "mobile_loyalty_accounts", filter: `user_id=eq.${userId}` }, loyaltyRefresh.request)
+      .on("postgres_changes", { event: "*", schema: "public", table: "mobile_loyalty_transactions", filter: `user_id=eq.${userId}` }, loyaltyRefresh.request)
+      .on("postgres_changes", { event: "*", schema: "public", table: "mobile_loyalty_redemptions", filter: `user_id=eq.${userId}` }, loyaltyRefresh.request)
       .subscribe()
     return () => {
       live = false
+      loyaltyRefresh.dispose()
       void supabase.removeChannel(channel)
     }
   }, [userId])
@@ -1664,6 +1671,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
           if (nextOrders) setOrders(nextOrders as CustomerOrder[])
           if (nextNotifications) applyNotifications(nextNotifications)
           if (nextLoyalty) setLoyalty(nextLoyalty)
+          if (nextLoyalty && nextLoyaltyActivity && nextRedemptions) setLoyaltyError("")
           if (nextLoyaltyActivity) setLoyaltyActivity(nextLoyaltyActivity)
           if (nextRedemptions) setLoyaltyRedemptions(nextRedemptions)
         }
@@ -2604,6 +2612,8 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
         )}
         {membershipOpen && (
           <MembershipPage
+            ready={Boolean(loyalty) && !loyaltyError}
+            loadError={loyaltyError}
             points={memberPoints}
             tier={memberTier}
             lifetimeSpend={lifetimeSpend}
@@ -2612,9 +2622,19 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
             redemptions={loyaltyRedemptions}
             redeem={async (points) => {
               await redeemMobilePoints(points)
-              setLoyalty(await loadMobileLoyalty())
-              setLoyaltyActivity(await loadMobileLoyaltyActivity(userId))
-              setLoyaltyRedemptions(await loadMobileRedemptions(userId))
+              try {
+                const [account, activity, rewards] = await Promise.all([
+                  withDeadline(loadMobileLoyalty(userId)),
+                  withDeadline(loadMobileLoyaltyActivity(userId)),
+                  withDeadline(loadMobileRedemptions(userId)),
+                ])
+                setLoyalty(account)
+                setLoyaltyActivity(activity)
+                setLoyaltyRedemptions(rewards)
+                setLoyaltyError("")
+              } catch {
+                setLoyaltyError("Your reward was created. Pull down to update your balance and wallet.")
+              }
               flash(`${points} points redeemed successfully`)
             }}
             close={() => setMembershipOpen(false)}
@@ -3942,12 +3962,7 @@ export function Account({
   const selectedReturn = selectedOrder?.databaseId
     ? returnRequests.find((request) => request.order_id === selectedOrder.databaseId)
     : undefined
-  const tierSteps = [
-    { name: "Cozy Member", target: 0 },
-    { name: "Cozy Plus", target: 15000 },
-    { name: "Cozy Premium", target: 50000 },
-    { name: "Cozy Elite", target: 120000 },
-  ]
+  const tierSteps = HOME_CIRCLE_TIERS
   const tierIndex = Math.max(0, tierSteps.findIndex((step) => step.name === tier))
   const nextTier = tierSteps[tierIndex + 1] || null
   const currentFloor = tierSteps[tierIndex].target
@@ -4040,7 +4055,7 @@ export function Account({
         <span className="rewards-orbit" aria-hidden="true" />
         <span className="rewards-card-head">
           <span className="rewards-eyebrow">COZYCRAFT HOME CIRCLE</span>
-          <span className="rewards-tier-badge">{tier.toUpperCase()} MEMBER</span>
+          <span className="rewards-tier-badge">{tier.toUpperCase()}</span>
         </span>
         <span className="rewards-card-body">
           <span className="rewards-card-copy">
@@ -4056,7 +4071,7 @@ export function Account({
           <span>{completedOrders} delivered order{completedOrders === 1 ? "" : "s"}</span>
           <span>{Math.round(tierProgress)}%</span>
         </span>
-        <span className="tier-progress" aria-label={`${Math.round(tierProgress)} percent progress to ${nextTier || "top tier"}`}>
+        <span className="tier-progress" aria-label={`${Math.round(tierProgress)} percent progress to ${nextTier?.name || "top tier"}`}>
           <i style={{ width: `${tierProgress}%` }} />
         </span>
         <span className="rewards-card-foot">
@@ -5867,105 +5882,6 @@ function OrderComplete({
   )
 }
 
-function MembershipPage({ points, tier, lifetimeSpend, orderCount, activity, redemptions, close, shop, redeem }: {
-  points: number
-  tier: string
-  lifetimeSpend: number
-  orderCount: number
-  activity: Array<Record<string, any>>
-  redemptions: MobileRedemption[]
-  close: () => void
-  shop: () => void
-  redeem: (points: 100 | 250 | 500) => Promise<void>
-}) {
-  const [redeeming, setRedeeming] = useState(0)
-  const levels = [
-    { name: "Cozy Member", target: 0, benefits: "1 point per ₱100 · synced wishlist · live order tracking" },
-    { name: "Cozy Plus", target: 15000, benefits: "₱300 welcome reward · early collection access · priority support" },
-    { name: "Cozy Premium", target: 50000, benefits: "1.5× order points · Metro Manila delivery benefit · birthday reward" },
-    { name: "Cozy Elite", target: 120000, benefits: "2× order points · priority scheduling · assembly and annual care" },
-  ]
-  const index = Math.max(0, levels.findIndex((level) => level.name === tier))
-  const next = levels[index + 1]
-  const floor = levels[index].target
-  const progress = next ? Math.min(100, ((lifetimeSpend - floor) / (next.target - floor)) * 100) : 100
-  const availableRewards = redemptions.filter((reward) => reward.status === "available").length
-  const earnedPoints = activity.reduce((total, entry) => total + Math.max(0, Number(entry.points) || 0), 0)
-  const performRedemption = async (value: 100 | 250 | 500) => {
-    setRedeeming(value)
-    try { await redeem(value) } finally { setRedeeming(0) }
-  }
-  return (
-    <section className="membership-page" role="dialog" aria-modal="true" aria-label="Home Circle membership">
-      <header>
-        <button onClick={close} aria-label="Close Home Circle">← <span>Back</span></button>
-        <p>HOME CIRCLE</p>
-        <span>{tier}</span>
-      </header>
-      <main>
-        <section className="membership-hero-card">
-          <div className="membership-hero-head">
-            <p>COZYCRAFT MEMBER WALLET</p>
-            <span>ESTD 2026</span>
-          </div>
-          <div className="membership-balance-row">
-            <span><strong>{points.toLocaleString()}</strong><small>available points</small></span>
-            <span className="membership-monogram">CC</span>
-          </div>
-          <div className="membership-progress-label"><span>{tier}</span><b>{Math.round(progress)}%</b></div>
-          <div className="membership-hero-progress"><i style={{ width: `${progress}%` }} /></div>
-          <span className="membership-next-note">{next ? `₱${Math.max(0, next.target - lifetimeSpend).toLocaleString()} eligible spend until ${next.name}` : "Highest Home Circle level unlocked"}</span>
-        </section>
-        <section className="membership-snapshot" aria-label="Membership summary">
-          <article><strong>{orderCount}</strong><span>delivered<br/>orders</span></article>
-          <article><strong>{earnedPoints.toLocaleString()}</strong><span>points<br/>earned</span></article>
-          <article><strong>{availableRewards}</strong><span>active<br/>rewards</span></article>
-        </section>
-        <div className="membership-section-heading"><span>YOUR JOURNEY</span><small>Four levels of considered living</small></div>
-        <section className="membership-levels">
-          {levels.map((level, levelIndex) => <article key={level.name} className={`${level.name === tier ? "active" : ""} ${levelIndex < index ? "complete" : ""}`}>
-            <span className="membership-level-number">{String(levelIndex + 1).padStart(2, "0")}</span>
-            <span className="membership-level-copy"><b>{level.name}</b><small>{level.benefits}</small></span>
-            <span className="membership-level-threshold">{level.name === tier ? "CURRENT" : levelIndex < index ? "UNLOCKED" : `₱${level.target.toLocaleString()}`}</span>
-          </article>)}
-        </section>
-        <section className="membership-redeem">
-          <div className="membership-redeem-title"><span><p className="hello">REWARD ATELIER</p><h2>Turn points into<br/><em>something special.</em></h2></span><small>{points.toLocaleString()} PTS</small></div>
-          <div>{([[100,100],[250,300],[500,700]] as const).map(([cost, value]) =>
-            <button key={cost} disabled={points < cost || Boolean(redeeming)} onClick={() => void performRedemption(cost)}>
-              <small>HOME REWARD</small><b>₱{value}</b><span>{redeeming === cost ? "Creating…" : `${cost} points`} <i>→</i></span>
-            </button>)}</div>
-          <small className="membership-redeem-note">Rewards expire after 30 days and can cover up to the checkout limit shown in the app.</small>
-        </section>
-        <section className="membership-how">
-          <p className="hello">HOW IT WORKS</p>
-          <h2>Good taste has<br/><em>its rewards.</em></h2>
-          <article><b>01</b><div><strong>Earn as you furnish</strong><span>Receive 1 point for every ₱100 from successfully delivered CozyCraft orders.</span></div></article>
-          <article><b>02</b><div><strong>Keep everything in sync</strong><span>Your {orderCount} successful order{orderCount === 1 ? "" : "s"} and member balance follow your account across devices.</span></div></article>
-          <article><b>03</b><div><strong>Enjoy member access</strong><span>Discover new collections, personal delivery updates, and member announcements first.</span></div></article>
-        </section>
-        {activity.length > 0 && <section className="membership-activity">
-          <div className="membership-list-title"><p className="hello">POINTS LEDGER</p><small>Latest activity</small></div>
-          {activity.slice(0, 6).map((entry) => <article key={entry.id}>
-            <span>{entry.description}<small>{new Date(entry.created_at).toLocaleDateString("en-PH")}</small></span>
-            <b className={Number(entry.points) > 0 ? "earned" : "used"}>{Number(entry.points) > 0 ? "+" : ""}{entry.points}</b>
-          </article>)}
-        </section>}
-        {redemptions.length > 0 && <section className="membership-activity membership-rewards-list">
-          <div className="membership-list-title"><p className="hello">MY REWARDS</p><small>{availableRewards} available</small></div>
-          {redemptions.map((reward) => <article key={reward.id}>
-            <span><strong>{reward.reward_source === "welcome" ? "WELCOME REWARD" : reward.code}</strong><small>{reward.status === "available"
-              ? `₱${Number(reward.discount_amount).toLocaleString()} off${mobileRewardMinimumOrder(reward) > 0 ? ` on ₱${mobileRewardMinimumOrder(reward).toLocaleString("en-PH")} orders` : ""} · expires ${new Date(reward.expires_at).toLocaleDateString("en-PH")}`
-              : `₱${Number(reward.discount_amount).toLocaleString()} off · ${reward.status}`}</small></span>
-            <b className={reward.status === "available" ? "earned" : "used"}>{reward.status}</b>
-          </article>)}
-        </section>}
-        <button className="membership-shop" onClick={shop}>Discover the latest edit <b>→</b></button>
-        <p className="membership-fineprint">Home Circle points are exclusive to the CozyCraft mobile app and are calculated from delivered-order totals. Cancelled, pending, refunded, or returned orders do not earn points.</p>
-      </main>
-    </section>
-  )
-}
 
 const PROFILE_CROP_SIZE = 640
 

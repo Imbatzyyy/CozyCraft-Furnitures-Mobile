@@ -1,3 +1,5 @@
+import { homeCircleTier } from "./home-circle"
+
 export type MobileAssistantReplyBlock =
   | { type: "paragraph"; text: string }
   | { type: "directions"; items: string[] }
@@ -446,7 +448,7 @@ function notificationReply(context: MobileAssistantAccountContext) {
 function membershipReply(context: MobileAssistantAccountContext) {
   if (!context.loyalty) return unavailableDataReply("membership")
   const points = Math.max(0, Number(context.loyalty.points_balance) || 0)
-  const tier = readableFact(context.loyalty.tier, "Member")
+  const tier = homeCircleTier(context.loyalty.tier).name
   return `Your Home Circle balance is ${plural(points, "point")}, and your current tier is ${tier}.`
 }
 
