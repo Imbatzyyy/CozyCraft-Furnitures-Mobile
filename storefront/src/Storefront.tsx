@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import ReviewPhotoViewer from "./components/ReviewPhotoViewer"
 import CozyLoader from "./components/CozyLoader"
+import CozyLaunchScreen from "./components/CozyLaunchScreen"
 import { PULL_TO_REFRESH_EVENT, PullToRefreshIndicator, usePullToRefresh } from "./components/PullToRefresh"
 import { MutationQueue, withDeadline } from "./lib/request-lifecycle"
 import { checkoutAttemptKey, completeCheckoutAttempt } from "./lib/checkout-attempt"
@@ -2056,6 +2057,11 @@ export default function Storefront() {
     }
   }
 
+  // Keep the initial catalog request on the same launch surface as auth and
+  // route loading. Once cached products exist, later refreshes stay inline so
+  // they never interrupt an already interactive page.
+  if (catalogLoading && products.length === 0) return <CozyLaunchScreen />
+
   return (
     <main className="lux-shell">
       <section className="lux-phone" ref={pullRefresh.ref}>
@@ -2300,7 +2306,7 @@ export default function Storefront() {
                 title="New to the edit"
                 action={() => setTab("shop")}
               />
-              {catalogLoading && <div className="catalog-loading"><CozyLoader compact label="Refreshing your pieces…"/></div>}
+              {catalogLoading && products.length > 0 && <div className="catalog-loading"><CozyLoader compact label="Refreshing your pieces…"/></div>}
               <div className="lux-grid home-products">
                 {products.slice(0, 2).map((p) => (
                   <Card

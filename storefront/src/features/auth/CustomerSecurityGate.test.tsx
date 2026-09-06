@@ -32,6 +32,14 @@ beforeEach(() => {
 const mount = () => render(<CustomerSecurityGate><p>Protected customer profile</p></CustomerSecurityGate>)
 
 describe("mobile compatibility with website two-step security", () => {
+  it("uses the shared launch surface while account security is pending", async () => {
+    let release!: (value: unknown) => void
+    mocks.session.mockReturnValue(new Promise((resolve) => { release = resolve }))
+    mount()
+    expect(screen.getByRole("status").textContent).toContain("Preparing your home…")
+    await act(async () => release({ data: { session: null }, error: null }))
+  })
+
   it("keeps guest browsing working without an MFA or device registry request", async () => {
     mocks.session.mockResolvedValue({ data: { session: null }, error: null })
     mount()

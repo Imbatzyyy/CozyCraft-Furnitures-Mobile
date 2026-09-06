@@ -10,6 +10,7 @@ import {
 } from "./account-security"
 import { isSixDigitOtp, normalizeOtp } from "../profile/phone-verification"
 import { hasStorefrontReturnState } from "../../lib/mobile-navigation"
+import CozyLaunchScreen from "../../components/CozyLaunchScreen"
 import "../profile/profile-security.css"
 
 type Access = { kind: "checking" | "allowed" | "error"; message?: string } | { kind: "challenge"; factorId: string }
@@ -157,26 +158,30 @@ export default function CustomerSecurityGate({ children }: { children: ReactNode
   }
 
   if (access.kind === "allowed") return children
-  return <main className="mobile-auth-check">
-    <section className="mobile-security-dialog">
-      <div className="mobile-security-body">
-        <span className="mobile-security-icon" aria-hidden="true">{access.kind === "checking" ? <span className="mobile-security-spinner"/> : "✓"}</span>
-        <p className="mobile-auth-eyebrow">COZYCRAFT · ACCOUNT SECURITY</p>
-        <h1>{access.kind === "challenge" ? "Confirm it’s you." : access.kind === "error" ? "Let’s reconnect securely." : "Checking your account."}</h1>
-        {access.kind === "challenge" ? <form onSubmit={(event) => { event.preventDefault(); void verify() }}>
-          <p>Your account has two-step verification enabled. Enter the six-digit code from your authenticator app to continue.</p>
-          <label className="mobile-otp-label" htmlFor="mobile-authenticator-code">Authenticator code</label>
-          <input id="mobile-authenticator-code" className="mobile-otp-input" autoFocus type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={6}
-            pattern="[0-9]{6}" value={code} onChange={(event) => { setCode(normalizeOtp(event.target.value)); setError("") }} disabled={busy} />
-          {error && <p role="alert" className="mobile-security-error">{error}</p>}
-          <button type="submit" className="mobile-security-primary" disabled={busy || !isSixDigitOtp(code)}>{busy ? "Verifying…" : "Verify and continue"}</button>
-        </form> : access.kind === "error" ? <>
-          <p role="alert">{access.message}</p>
-          <button type="button" className="mobile-security-primary" onClick={() => { setAccess({ kind: "checking" }); void check(true) }}>Retry secure check</button>
-        </> : <p>Preparing your protected CozyCraft account…</p>}
-        {access.kind !== "checking" && <button type="button" className="mobile-security-text" disabled={busy}
-          onClick={() => void enterGuestMode().then(() => { window.location.hash = "#/sign-in" })}>Use another account</button>}
-      </div>
-    </section>
-  </main>
+  if (access.kind === "checking") return <CozyLaunchScreen />
+
+  return (
+    <main className="mobile-auth-check">
+      <section className="mobile-security-dialog">
+        <div className="mobile-security-body">
+          <span className="mobile-security-icon" aria-hidden="true">✓</span>
+          <p className="mobile-auth-eyebrow">COZYCRAFT · ACCOUNT SECURITY</p>
+          <h1>{access.kind === "challenge" ? "Confirm it’s you." : "Let’s reconnect securely."}</h1>
+          {access.kind === "challenge" ? <form onSubmit={(event) => { event.preventDefault(); void verify() }}>
+            <p>Your account has two-step verification enabled. Enter the six-digit code from your authenticator app to continue.</p>
+            <label className="mobile-otp-label" htmlFor="mobile-authenticator-code">Authenticator code</label>
+            <input id="mobile-authenticator-code" className="mobile-otp-input" autoFocus type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={6}
+              pattern="[0-9]{6}" value={code} onChange={(event) => { setCode(normalizeOtp(event.target.value)); setError("") }} disabled={busy} />
+            {error && <p role="alert" className="mobile-security-error">{error}</p>}
+            <button type="submit" className="mobile-security-primary" disabled={busy || !isSixDigitOtp(code)}>{busy ? "Verifying…" : "Verify and continue"}</button>
+          </form> : <>
+            <p role="alert">{access.message}</p>
+            <button type="button" className="mobile-security-primary" onClick={() => { setAccess({ kind: "checking" }); void check(true) }}>Retry secure check</button>
+          </>}
+          <button type="button" className="mobile-security-text" disabled={busy}
+            onClick={() => void enterGuestMode().then(() => { window.location.hash = "#/sign-in" })}>Use another account</button>
+        </div>
+      </section>
+    </main>
+  )
 }

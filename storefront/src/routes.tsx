@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from "react"
 import DocumentSections from "./components/DocumentSections"
-import CozyLoader from "./components/CozyLoader"
+import CozyLaunchScreen from "./components/CozyLaunchScreen"
 import { createHashRouter, Link, useLocation, useNavigate } from "react-router"
 import CustomerSecurityGate from "./features/auth/CustomerSecurityGate"
 import { googleOAuthOptions } from "./features/auth/google-oauth"
@@ -365,57 +365,26 @@ function Field({
 }
 function Splash() {
   const navigate = useNavigate()
-  const [destination, setDestination] = useState("/welcome")
   useEffect(() => {
     let active = true
-    let timer: number | undefined
-    const startedAt = Date.now()
 
     void supabase.auth.getSession().then(({ data }) => {
       if (!active) return
       const nextDestination = data.session?.user && !isGuestMode() ? "/shop" : "/welcome"
-      setDestination(nextDestination)
-      const remaining = Math.max(0, 1850 - (Date.now() - startedAt))
-      timer = window.setTimeout(() => navigate(nextDestination, { replace: true }), remaining)
+      navigate(nextDestination, { replace: true })
     }).catch(() => {
       if (!active) return
-      timer = window.setTimeout(() => navigate("/welcome", { replace: true }), 1850)
+      navigate("/welcome", { replace: true })
     })
 
     return () => {
       active = false
-      if (timer) window.clearTimeout(timer)
     }
   }, [navigate])
-  return (
-    <main className="auth-phone splash">
-      <div className="splash-orbit orbit-one" />
-      <div className="splash-orbit orbit-two" />
-      <div className="splash-glass" />
-      <div className="splash-content">
-        <p className="splash-overline">ESTD 2026</p>
-        <Mark />
-        <div className="splash-rule" />
-        <p className="splash-line">
-          Furniture for a life
-          <br />
-          <em>well lived.</em>
-        </p>
-      </div>
-      <div className="splash-footer">
-        <div
-          className="splash-loader"
-          role="progressbar"
-          aria-label="Loading CozyCraft"
-        >
-          <i />
-        </div>
-        <button onClick={() => navigate(destination, { replace: true })}>
-          Enter CozyCraft <span>→</span>
-        </button>
-      </div>
-    </main>
-  )
+  // Keep the root route visually identical to the shared shop launch state.
+  // Auth, lazy route, and catalog work can therefore finish without flashing
+  // a second branded loader in between.
+  return <CozyLaunchScreen />
 }
 function Welcome() {
   const navigate = useNavigate()
@@ -1097,6 +1066,6 @@ export const router = createHashRouter([
   { path: "/privacy-policy", Component: () => <LegalDocument kind="privacy" /> },
   { path: "/about", Component: () => <ContentDocument kind="about" /> },
   { path: "/contact", Component: () => <ContentDocument kind="contact" /> },
-  { path: "/shop", Component: () => <CustomerSecurityGate><Suspense fallback={<main className="storefront-loading"><CozyLoader label="Preparing your home…"/></main>}><Storefront /></Suspense></CustomerSecurityGate> },
+  { path: "/shop", Component: () => <CustomerSecurityGate><Suspense fallback={<CozyLaunchScreen />}><Storefront /></Suspense></CustomerSecurityGate> },
   { path: "*", Component: Missing },
 ])
