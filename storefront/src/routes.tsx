@@ -365,26 +365,57 @@ function Field({
 }
 function Splash() {
   const navigate = useNavigate()
+  const [destination, setDestination] = useState("/welcome")
   useEffect(() => {
     let active = true
+    let timer: number | undefined
+    const startedAt = Date.now()
 
     void supabase.auth.getSession().then(({ data }) => {
       if (!active) return
       const nextDestination = data.session?.user && !isGuestMode() ? "/shop" : "/welcome"
-      navigate(nextDestination, { replace: true })
+      setDestination(nextDestination)
+      const remaining = Math.max(0, 1850 - (Date.now() - startedAt))
+      timer = window.setTimeout(() => navigate(nextDestination, { replace: true }), remaining)
     }).catch(() => {
       if (!active) return
-      navigate("/welcome", { replace: true })
+      timer = window.setTimeout(() => navigate("/welcome", { replace: true }), 1850)
     })
 
     return () => {
       active = false
+      if (timer) window.clearTimeout(timer)
     }
   }, [navigate])
-  // Keep the root route visually identical to the shared shop launch state.
-  // Auth, lazy route, and catalog work can therefore finish without flashing
-  // a second branded loader in between.
-  return <CozyLaunchScreen />
+  return (
+    <main className="auth-phone splash">
+      <div className="splash-orbit orbit-one" />
+      <div className="splash-orbit orbit-two" />
+      <div className="splash-glass" />
+      <div className="splash-content">
+        <p className="splash-overline">ESTD 2026</p>
+        <Mark />
+        <div className="splash-rule" />
+        <p className="splash-line">
+          Furniture for a life
+          <br />
+          <em>well lived.</em>
+        </p>
+      </div>
+      <div className="splash-footer">
+        <div
+          className="splash-loader"
+          role="progressbar"
+          aria-label="Loading CozyCraft"
+        >
+          <i />
+        </div>
+        <button onClick={() => navigate(destination, { replace: true })}>
+          Enter CozyCraft <span>→</span>
+        </button>
+      </div>
+    </main>
+  )
 }
 function Welcome() {
   const navigate = useNavigate()
