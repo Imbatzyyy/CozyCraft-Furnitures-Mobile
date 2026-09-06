@@ -37,6 +37,18 @@ it("marks later preparation screens as static so the launch cycle cannot restart
   view.unmount()
 })
 
+it("waits for the preloaded home before starting the exit transition", () => {
+  vi.useFakeTimers()
+  const complete = vi.fn()
+  const view = render(<SofaLaunchSequence homeReady={false} onComplete={complete} />)
+  act(() => vi.advanceTimersByTime(SOFA_LAUNCH_DURATION_MS))
+  expect(document.querySelector(".cozy-launch-screen--exiting")).toBeNull()
+  view.rerender(<SofaLaunchSequence homeReady onComplete={complete} />)
+  expect(document.querySelector(".cozy-launch-screen--exiting")).toBeTruthy()
+  act(() => vi.advanceTimersByTime(SOFA_TRANSITION_DURATION_MS))
+  expect(complete).toHaveBeenCalledTimes(1)
+})
+
 it("cancels navigation when the launch screen is unmounted", () => {
   vi.useFakeTimers()
   const complete = vi.fn()

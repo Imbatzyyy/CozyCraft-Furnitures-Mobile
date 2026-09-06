@@ -3,22 +3,27 @@ import CozyLaunchScreen from "./CozyLaunchScreen"
 import { markLaunchHandoff } from "./launch-handoff"
 
 export const SOFA_ANIMATION_DURATION_MS = 5000
-export const SOFA_FINISH_HOLD_MS = 2000
+export const SOFA_FINISH_HOLD_MS = 1000
 export const SOFA_LAUNCH_DURATION_MS = SOFA_ANIMATION_DURATION_MS + SOFA_FINISH_HOLD_MS
 export const SOFA_TRANSITION_DURATION_MS = 800
 
 /** Run one complete sofa drawing, hold the finished pose, then continue. */
-export default function SofaLaunchSequence({ onComplete }: { onComplete: () => void }) {
+export default function SofaLaunchSequence({ onComplete, homeReady = true }: { onComplete: () => void; homeReady?: boolean }) {
   const complete = useRef(onComplete)
   complete.current = onComplete
+  const exitingRef = useRef(false)
   const [exiting, setExiting] = useState(false)
+  const [finished, setFinished] = useState(false)
   useEffect(() => {
-    const transitionTimer = window.setTimeout(() => setExiting(true), SOFA_LAUNCH_DURATION_MS)
-    const completeTimer = window.setTimeout(() => { markLaunchHandoff(); complete.current() }, SOFA_LAUNCH_DURATION_MS + SOFA_TRANSITION_DURATION_MS)
-    return () => {
-      window.clearTimeout(transitionTimer)
-      window.clearTimeout(completeTimer)
-    }
+    const timer = window.setTimeout(() => setFinished(true), SOFA_LAUNCH_DURATION_MS)
+    return () => window.clearTimeout(timer)
   }, [])
+  useEffect(() => {
+    if (!finished || !homeReady || exitingRef.current) return
+    exitingRef.current = true
+    setExiting(true)
+    const timer = window.setTimeout(() => { markLaunchHandoff(); complete.current() }, SOFA_TRANSITION_DURATION_MS)
+    return () => window.clearTimeout(timer)
+  }, [finished, homeReady])
   return <CozyLaunchScreen animated exiting={exiting} />
 }

@@ -13,6 +13,10 @@
 .cozy-launch-screen > .cozy-loader { position: relative; z-index: 1; }
 .cozy-launch-screen--handoff { background: #f7f5f1; }
 .cozy-launch-screen--handoff::before { opacity: .16; transform: scale(7); }
+.launch-home-stage { position: relative; min-height: 100dvh; overflow: hidden; background: #f7f5f1; }
+.launch-home-underlay { position: absolute; inset: 0; z-index: 1; overflow: hidden; }
+.launch-home-stage > .cozy-launch-screen { position: relative; z-index: 2; }
+.launch-home-stage > .cozy-launch-screen--exiting { background: rgba(247, 245, 241, .62); }
 .cozy-loader__trace { stroke-dasharray: 100; animation: cozy-sofa-trace var(--cozy-sofa-cycle) ease-in-out infinite; }
 .cozy-loader__body { animation: cozy-sofa-breathe var(--cozy-sofa-cycle) ease-in-out infinite; transform-origin: 32px 43px; }
 .cozy-loader__shadow { animation: cozy-sofa-shadow var(--cozy-sofa-cycle) ease-in-out infinite; transform-origin: 32px 51px; }

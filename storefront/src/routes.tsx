@@ -393,7 +393,10 @@ function Splash() {
       if (timer) window.clearTimeout(timer)
     }
   }, [navigate])
-  if (showSofa) return <SofaLaunchSequence onComplete={() => navigate(destination, { replace: true })} />
+  if (showSofa) {
+    if (destination === "/shop") return <LaunchHomeStage onComplete={() => navigate(destination, { replace: true })} />
+    return <SofaLaunchSequence onComplete={() => navigate(destination, { replace: true })} />
+  }
   return (
     <main className="auth-phone splash">
       <div className="splash-orbit orbit-one" />
@@ -1094,11 +1097,21 @@ function Missing() {
     </main>
   )
 }
-function CustomerHomeRoute() {
-  const handoff = hasLaunchHandoff()
-  return <CustomerSecurityGate handoff={handoff}>
+function LaunchHomeStage({ onComplete }: { onComplete: () => void }) {
+  const [homeReady, setHomeReady] = useState(false)
+  const [homeBlocked, setHomeBlocked] = useState(false)
+  return <main className="launch-home-stage">
+    <div className="launch-home-underlay" aria-hidden={!homeReady}>
+      <CustomerHomeRoute handoffOverride onReady={() => setHomeReady(true)} onBlocked={() => setHomeBlocked(true)} />
+    </div>
+    <SofaLaunchSequence homeReady={homeReady || homeBlocked} onComplete={onComplete} />
+  </main>
+}
+function CustomerHomeRoute({ handoffOverride, onReady, onBlocked }: { handoffOverride?: boolean; onReady?: () => void; onBlocked?: () => void } = {}) {
+  const handoff = handoffOverride ?? hasLaunchHandoff()
+  return <CustomerSecurityGate handoff={handoff} onBlocked={onBlocked}>
     <Suspense fallback={<CozyLaunchScreen handoff={handoff} />}>
-      <Storefront launchHandoff={handoff} />
+      <Storefront launchHandoff={handoff} onReady={onReady} />
     </Suspense>
   </CustomerSecurityGate>
 }

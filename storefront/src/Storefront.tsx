@@ -599,7 +599,7 @@ const categories = [
   },
 ]
 
-export default function Storefront({ launchHandoff = false }: { launchHandoff?: boolean }) {
+export default function Storefront({ launchHandoff = false, onReady }: { launchHandoff?: boolean; onReady?: () => void }) {
   const [returnState] = useState(readStorefrontReturnState)
   const [textSize, setTextSize] = useState<MobileTextSize>(readMobileTextSize)
   const [tab, setTab] = useState(returnState?.tab || "home")
@@ -628,6 +628,10 @@ export default function Storefront({ launchHandoff = false }: { launchHandoff?: 
     if (!launchHandoff || (catalogLoading && products.length === 0)) return
     clearLaunchHandoff()
   }, [launchHandoff, catalogLoading, products.length])
+  useEffect(() => {
+    if (!onReady || (catalogLoading && products.length === 0)) return
+    onReady()
+  }, [onReady, catalogLoading, products.length])
   const [online, setOnline] = useState(() => navigator.onLine)
   const [reconnected, setReconnected] = useState(false)
   const [resourceRevision, setResourceRevision] = useState(0)

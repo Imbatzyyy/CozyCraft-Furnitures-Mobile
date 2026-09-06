@@ -15,13 +15,13 @@ import "../profile/profile-security.css"
 
 type Access = { kind: "checking" | "allowed" | "error"; message?: string } | { kind: "challenge"; factorId: string }
 
-function initialAccess(): Access {
-  if (currentCustomerSecurityWarmAccess() && hasStorefrontReturnState()) return { kind: "allowed" }
+function initialAccess(handoff = false): Access {
+  if (currentCustomerSecurityWarmAccess() && (handoff || hasStorefrontReturnState())) return { kind: "allowed" }
   return { kind: "checking" }
 }
 
-export default function CustomerSecurityGate({ children, handoff = false }: { children: ReactNode; handoff?: boolean }) {
-  const [access, setAccess] = useState<Access>(initialAccess)
+export default function CustomerSecurityGate({ children, handoff = false, onBlocked }: { children: ReactNode; handoff?: boolean; onBlocked?: () => void }) {
+  const [access, setAccess] = useState<Access>(() => initialAccess(handoff))
   const [code, setCode] = useState("")
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
@@ -32,6 +32,10 @@ export default function CustomerSecurityGate({ children, handoff = false }: { ch
   const pending = useRef<Promise<void> | null>(null)
   const retryAfterPending = useRef(false)
   const currentIdentity = useRef(currentCustomerSecurityWarmAccess()?.identity || "")
+
+  useEffect(() => {
+    if (access.kind === "challenge" || access.kind === "error") onBlocked?.()
+  }, [access.kind, onBlocked])
 
   const check = (force = false) => {
     if (pending.current) { retryAfterPending.current ||= force; return pending.current }
