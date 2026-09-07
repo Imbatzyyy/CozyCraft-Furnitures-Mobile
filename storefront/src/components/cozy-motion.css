@@ -9,14 +9,15 @@
 .cozy-loader__sofa { display: block; width: 64px; height: 56px; flex: 0 0 auto; overflow: visible; }
 .cozy-launch-screen .cozy-loader__sofa { width: clamp(112px, 32vw, 144px); height: auto; }
 .cozy-launch-screen { position: relative; isolation: isolate; overflow: hidden; }
-.cozy-launch-screen::before { content: ""; position: absolute; z-index: 0; width: min(26vw, 112px); aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle, rgba(218, 196, 170, .86), rgba(247, 245, 241, 0) 70%); opacity: 0; transform: scale(.35); pointer-events: none; }
+.cozy-launch-screen::before { content: ""; position: absolute; z-index: 0; left: 50%; top: 50%; width: 54vmax; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle, #f8e9d3 0%, rgba(218, 196, 170, .65) 28%, rgba(247, 245, 241, 0) 70%); opacity: 0; transform: translate(-50%, -50%) scale(.12); pointer-events: none; }
+.cozy-launch-screen::after { content: ""; position: absolute; z-index: 0; left: 50%; top: 50%; width: 42vmax; aspect-ratio: 1; border-radius: 50%; border: 1px solid rgba(167, 147, 116, .3); background: radial-gradient(circle, transparent 48%, rgba(232, 217, 193, .32) 62%, transparent 72%); opacity: 0; transform: translate(-50%, -50%) scale(.18); pointer-events: none; }
 .cozy-launch-screen > .cozy-loader { position: relative; z-index: 1; }
 .cozy-launch-screen--handoff { background: #f7f5f1; }
-.cozy-launch-screen--handoff::before { opacity: .16; transform: scale(7); }
+.cozy-launch-screen--handoff::before { opacity: .16; transform: translate(-50%, -50%) scale(1.8); }
 .launch-home-stage { position: relative; min-height: 100dvh; overflow: hidden; background: #f7f5f1; }
 .launch-home-underlay { position: relative; z-index: 1; }
 .launch-home-stage > .cozy-launch-screen { position: fixed; inset: 0; z-index: 2; }
-.launch-home-stage > .cozy-launch-screen--exiting { background: #f7f5f1; animation: cozy-launch-reveal 800ms cubic-bezier(.22,.8,.24,1) forwards; will-change: opacity; }
+.launch-home-stage > .cozy-launch-screen--exiting { background: #f7f5f1; animation: cozy-launch-reveal 800ms linear forwards; will-change: opacity; }
 .cozy-loader__trace { stroke-dasharray: 100; animation: cozy-sofa-trace var(--cozy-sofa-cycle) ease-in-out infinite; }
 .cozy-loader__body { animation: cozy-sofa-breathe var(--cozy-sofa-cycle) ease-in-out infinite; transform-origin: 32px 43px; }
 .cozy-loader__shadow { animation: cozy-sofa-shadow var(--cozy-sofa-cycle) ease-in-out infinite; transform-origin: 32px 51px; }
@@ -48,10 +49,13 @@
   animation-fill-mode: forwards;
 }
 .cozy-launch-screen--exiting::before { animation: cozy-launch-bloom 800ms cubic-bezier(.22,.8,.24,1) forwards; will-change: opacity, transform; }
+.cozy-launch-screen--exiting::after { animation: cozy-launch-ripple 800ms cubic-bezier(.2,.65,.25,1) forwards; will-change: opacity, transform; }
 .cozy-launch-screen--exiting > .cozy-loader { animation: cozy-sofa-exit 800ms cubic-bezier(.22,.8,.24,1) forwards; }
-@keyframes cozy-launch-reveal { 0% { opacity: 1; } 58% { opacity: .92; } 100% { opacity: 0; } }
-@keyframes cozy-launch-bloom { 0% { opacity: 0; transform: scale(.35); } 42% { opacity: .54; transform: scale(5.5); } 72% { opacity: .2; transform: scale(9); } 100% { opacity: 0; transform: scale(14); } }
-@keyframes cozy-sofa-exit { 0% { opacity: 1; transform: translateY(0) scale(1); } 45% { opacity: 1; transform: translateY(-10px) scale(1.04); } 100% { opacity: 0; transform: translateY(-64px) scale(.78); } }
+/* The already-mounted Home stays still; only these decorative layers move. */
+@keyframes cozy-launch-reveal { 0%, 12% { opacity: 1; } 40% { opacity: .8; } 65% { opacity: .42; } 85% { opacity: .12; } 100% { opacity: 0; } }
+@keyframes cozy-launch-bloom { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.12); } 28% { opacity: .85; } 65% { opacity: .55; } 100% { opacity: 0; transform: translate(-50%, -50%) scale(3.1); } }
+@keyframes cozy-launch-ripple { 0%, 10% { opacity: 0; transform: translate(-50%, -50%) scale(.18); } 35% { opacity: .65; } 100% { opacity: 0; transform: translate(-50%, -50%) scale(3.3); } }
+@keyframes cozy-sofa-exit { 0% { opacity: 1; transform: translateY(0) scale(1); } 35% { opacity: .85; transform: translateY(-4px) scale(1.045); } 75%, 100% { opacity: 0; transform: translateY(-18px) scale(1.09); } }
 
 /* Opacity on page containers avoids changing the containing block of fixed dialogs. */
 .lux-phone :is(.search-overlay,.detail-sheet,.profile-page,.notifications-page,.category-page,.checkout-page,.account-sheet,.membership-page,.compare-sheet,.order-detail-view),
@@ -67,6 +71,7 @@
 html[data-cozy-motion="economy"] { --cozy-motion-duration: 100ms; }
 /* Keep the defining outline/backrest motion even on economy devices. */
 html[data-cozy-motion="economy"] :is(.cozy-loader__body,.cozy-loader__shadow) { animation: none; }
+html[data-cozy-motion="economy"] .cozy-launch-screen::after { display: none; }
 html[data-cozy-motion="paused"] *, html[data-cozy-motion="paused"] *::before, html[data-cozy-motion="paused"] *::after { animation-play-state: paused !important; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
