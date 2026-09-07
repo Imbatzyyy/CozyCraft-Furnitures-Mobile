@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import ReviewPhotoViewer from "./components/ReviewPhotoViewer"
+import RecipientNameFields from "./components/RecipientNameFields"
 import CozyLoader from "./components/CozyLoader"
 import MembershipPage from "./components/HomeCirclePage"
 import SearchDiscoveries from "./components/SearchDiscoveries"
@@ -682,6 +683,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
   const [checkoutOpen, setCheckoutOpen] = useState(false)
   const checkoutBusy = useRef(false)
   const [placedOrder, setPlacedOrder] = useState<CustomerOrder | null>(null)
+  const [orderToView, setOrderToView] = useState<CustomerOrder | null>(null)
   // A pending checkout is not itself a payment return. Starting this as true
   // made every ordinary app launch flash the confirmation overlay.
   const [paymentReturning, setPaymentReturning] = useState(false)
@@ -2513,6 +2515,8 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
                 })))
               }}
               initialView={assistantAccountView}
+              initialOrder={orderToView}
+              onInitialOrderHandled={() => setOrderToView(null)}
               onInitialViewHandled={() => setAssistantAccountView(null)}
             />
           )}
@@ -2742,6 +2746,12 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
         {placedOrder && (
           <OrderComplete
             order={placedOrder}
+            viewOrder={() => {
+              setOrderToView(placedOrder)
+              setAssistantAccountView("orders")
+              setPlacedOrder(null)
+              setTab("account")
+            }}
             pushPermission={pushPermission}
             enableNotifications={requestPushPermission}
             close={() => setPlacedOrder(null)}
@@ -3655,6 +3665,8 @@ export function Account({
   reviewPublished,
   initialView,
   onInitialViewHandled,
+  initialOrder,
+  onInitialOrderHandled,
 }: {
   userId: string
   flash: (s: string) => void
@@ -3679,6 +3691,8 @@ export function Account({
   reviewPublished: (orderItemId: number, review: any) => void
   initialView: "orders" | "addresses" | "payments" | "support" | null
   onInitialViewHandled: () => void
+  initialOrder?: CustomerOrder | null
+  onInitialOrderHandled?: () => void
 }) {
   const [view, setView] = useState<string | null>(null)
   const [confirmSignOut, setConfirmSignOut] = useState(false)
@@ -3693,6 +3707,12 @@ export function Account({
   const [paymentPreference, setPaymentPreference] = useState("cod")
   const [paymentPreferenceSaving, setPaymentPreferenceSaving] = useState<string | null>(null)
   const [selectedOrder, setSelectedOrder] = useState<CustomerOrder | null>(null)
+  useEffect(() => {
+    if (!initialOrder) return
+    setView("orders")
+    setSelectedOrder(initialOrder)
+    onInitialOrderHandled?.()
+  }, [initialOrder, onInitialOrderHandled])
   const [cancelOrderOpen, setCancelOrderOpen] = useState(false)
   const [cancelReason, setCancelReason] = useState("")
   const [cancellingOrder, setCancellingOrder] = useState(false)
@@ -4225,7 +4245,7 @@ export function Account({
               </form>
               <section className="support-conversations"><header><div><small>CARE HISTORY</small><b>Your conversations</b></div><span>{tickets.length} total</span></header>{tickets.length ? tickets.map((ticket) => { const status = String(ticket.status || "open").split("_").join(" "); return <article key={ticket.id} className={`support-ticket status-${String(ticket.status || "open")}`}><header><div><span className="material-symbols-rounded" aria-hidden="true">forum</span><p><small>{ticket.ticket_number || "SUPPORT REQUEST"}</small><strong>{ticket.subject}</strong></p></div><em>{status}</em></header><blockquote className="support-customer-message"><small>YOUR MESSAGE</small><p>{ticket.message}</p></blockquote>{ticket.admin_reply ? <blockquote className="support-care-reply"><span className="material-symbols-rounded" aria-hidden="true">support_agent</span><div><small>COZYCRAFT CARE</small><p>{ticket.admin_reply}</p></div></blockquote> : <aside className="support-awaiting-reply"><span className="material-symbols-rounded" aria-hidden="true">schedule</span><div><b>Our care team is reviewing this.</b><small>You’ll see the reply here automatically.</small></div></aside>}<footer><span className="material-symbols-rounded" aria-hidden="true">update</span><time>{new Date(ticket.updated_at || ticket.created_at).toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" })}</time></footer></article>}) : <div className="support-empty"><span className="material-symbols-rounded" aria-hidden="true">mark_unread_chat_alt</span><h3>A quiet care history.</h3><p>When you send a request, the conversation and every realtime reply will appear here.</p></div>}</section>
             </div>
-          ) : active.id === "orders" && orders.length > 0 ? (
+          ) : active.id === "orders" && (orders.length > 0 || selectedOrder) ? (
             <div className="mobile-order-list">
               {orders.map((order) => (
                 <article key={order.id} className="order-summary-card" onClick={() => setSelectedOrder(order)}>
@@ -4544,7 +4564,7 @@ export function Account({
                 <p>Use complete Philippine delivery details so our care team can arrange your arrival without delay.</p>
                 <div className="mobile-address-form-grid">
                   <label><span>Address label</span><input value={addressDraft.label} onChange={(event) => setAddressDraft({ ...addressDraft, label: event.target.value })} required placeholder="Home" /></label>
-                  <label><span>Recipient name</span><input value={addressDraft.recipient_name} onChange={(event) => setAddressDraft({ ...addressDraft, recipient_name: event.target.value })} required /></label>
+                  <RecipientNameFields key={addressDraft.id || "new-recipient"} value={addressDraft.recipient_name} onChange={(recipient_name) => setAddressDraft({ ...addressDraft, recipient_name })} />
                   <label className="wide"><span>Mobile number</span><input inputMode="tel" value={addressDraft.mobile} onChange={(event) => setAddressDraft({ ...addressDraft, mobile: event.target.value })} required placeholder="09XXXXXXXXX" /></label>
                   <label className="wide"><span>House / unit / building / street</span><input value={addressDraft.address_line} onChange={(event) => setAddressDraft({ ...addressDraft, address_line: event.target.value })} required /></label>
                   <PhilippineLocationFields
@@ -5581,7 +5601,7 @@ export function CheckoutPage({
               </div>
               <div className="checkout-address-grid">
                 <label><span>Label</span><input value={addressDraft.label} onChange={(event) => setAddressDraft({ ...addressDraft, label: event.target.value })} placeholder="Home" /></label>
-                <label><span>Recipient</span><input value={addressDraft.recipient_name} onChange={(event) => setAddressDraft({ ...addressDraft, recipient_name: event.target.value })} /></label>
+                <RecipientNameFields key={addressDraft.id || "new-recipient"} value={addressDraft.recipient_name} onChange={(recipient_name) => setAddressDraft({ ...addressDraft, recipient_name })} />
                 <label><span>Mobile number</span><input inputMode="tel" value={addressDraft.mobile} onChange={(event) => setAddressDraft({ ...addressDraft, mobile: event.target.value })} placeholder="09XXXXXXXXX" /></label>
                 <label className="wide"><span>House / unit / building / street</span><input value={addressDraft.address_line} onChange={(event) => setAddressDraft({ ...addressDraft, address_line: event.target.value })} /></label>
                 <PhilippineLocationFields
@@ -5787,14 +5807,16 @@ export function CheckoutPage({
   )
 }
 
-function OrderComplete({
+export function OrderComplete({
   order,
+  viewOrder,
   pushPermission,
   enableNotifications,
   close,
   goHome,
 }: {
   order: CustomerOrder
+  viewOrder: () => void
   pushPermission: "unknown" | "granted" | "denied" | "unsupported"
   enableNotifications: () => void
   close: () => void
@@ -5820,7 +5842,8 @@ function OrderComplete({
           details to your email shortly.
         </p>
         {pushPermission === "unknown" && <aside className="order-notification-optin"><span className="material-symbols-rounded" aria-hidden="true">notifications_active</span><div><b>Know when it moves.</b><small>Enable useful packing, shipping, and delivery updates for this device.</small></div><button type="button" onClick={enableNotifications}>Enable</button></aside>}
-        <button onClick={goHome}>Back to home</button>
+        <button onClick={viewOrder}>View order details</button>
+        <button className="text-button" onClick={goHome}>Back to home</button>
         <button className="text-button" onClick={close}>
           Continue browsing
         </button>
