@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import ReviewPhotoViewer from "./components/ReviewPhotoViewer"
 import CozyLoader from "./components/CozyLoader"
 import MembershipPage from "./components/HomeCirclePage"
+import SearchDiscoveries from "./components/SearchDiscoveries"
 import ProfileHomeCircle from "./components/ProfileHomeCircle"
 import { homeCircleTier } from "./lib/home-circle"
 import CozyLaunchScreen from "./components/CozyLaunchScreen"
@@ -2787,19 +2788,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
               )}
             </div>
             {!hasCatalogSearchQuery && (
-              <section className="search-discovery">
-                <p>POPULAR DISCOVERIES</p>
-                <div>
-                  {["Cloud sofa", "Dining chairs", "Storage", "Lighting"].map(
-                    (term) => (
-                      <button key={term} onClick={() => setQuery(term)}>
-                        {term}
-                        <span className="material-symbols-rounded" aria-hidden="true">north_east</span>
-                      </button>
-                    ),
-                  )}
-                </div>
-              </section>
+              <SearchDiscoveries products={products} select={setQuery}/>
             )}
             {hasCatalogSearchQuery && shown.length > 0 && (
               <p className="search-result-meta" aria-live="polite">{

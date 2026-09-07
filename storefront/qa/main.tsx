@@ -1,4 +1,5 @@
 import React, { useState } from "react"
+import SearchDiscoveries from "../src/components/SearchDiscoveries"
 import { createRoot } from "react-dom/client"
 import { Account, CheckoutPage, ProductDetail, ProfilePage, NotificationsPage } from "../src/Storefront"
 import { readMobileTextSize, saveMobileTextSize } from "../src/lib/mobile-text-size"
@@ -179,9 +180,14 @@ function HomeCircleFixture() {
   return <div className="lux-shell"><div className="lux-phone"><HomeCirclePage points={points} tier="member" lifetimeSpend={12400} orderCount={2} activity={Array.from({ length: 12 }, (_, i) => ({ id: `earned-${i}`, description: `Points earned from delivered order ${i + 1}`, points: 124, created_at: "2026-09-01" }))} redemptions={[{ id: "welcome", points_cost: 0, discount_amount: 500, reward_source: "welcome", minimum_order_amount: 5000, status: "available", code: "QA", created_at: "2026-09-01", expires_at: "2030-10-04", used_at: null }]} close={() => {}} shop={() => {}} redeem={async cost => { setPoints(value => value - cost) }}/></div></div>
 }
 
+function DiscoveryFixture() {
+  const [query, setQuery] = useState("")
+  return <div className="lux-shell"><div className="lux-phone"><div className="search-overlay"><SearchDiscoveries products={[{name:"LYCKSELE LÖVÅS"},{name:"NÄMMARÖ"},{name:"EKOLSUND reclining armchair"},{name:"VIMLE"}]} select={setQuery}/><output aria-label="Selected query">{query}</output></div></div></div>
+}
+
 createRoot(document.getElementById("root")!).render(<React.StrictMode>
   <DialogAccessibility />
-  {params.has("membership") ? <HomeCircleFixture /> : params.has("motion") ? <CozyLaunchScreen animated /> : params.has("account") || params.has("product") || params.has("notifications") ? <DesignFixture /> : params.has("google-onboarding")
+  {params.has("discoveries") ? <DiscoveryFixture /> : params.has("membership") ? <HomeCircleFixture /> : params.has("motion") ? <CozyLaunchScreen animated /> : params.has("account") || params.has("product") || params.has("notifications") ? <DesignFixture /> : params.has("google-onboarding")
     ? <GoogleOnboardingFixture />
     : params.has("checkout")
       ? <CheckoutFixture />

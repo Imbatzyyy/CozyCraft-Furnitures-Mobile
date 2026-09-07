@@ -1,0 +1,7 @@
+.search-overlay .search-discovery.catalog-discoveries > p { font-size:calc(11px * var(--cozy-reading-font-scale,1.15)); line-height:1.5; letter-spacing:.1em; }
+.search-overlay .catalog-discoveries > div { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.search-overlay .catalog-discoveries button { min-width:0; min-height:62px; height:auto; padding:14px; gap:10px; border-radius:13px; border:1px solid #dcd6ca; background:#fffdf8; color:#34362e; box-shadow:none; font-size:calc(13px * var(--cozy-reading-font-scale,1.15)); line-height:1.45; }
+.search-overlay .catalog-discoveries button .discovery-name { flex:1 1 auto; min-width:0; font:inherit; white-space:normal; overflow-wrap:anywhere; }
+.search-overlay .catalog-discoveries button svg { flex:0 0 20px; width:20px; height:20px; color:#6b735e; }
+.search-overlay .catalog-discoveries button:focus-visible { outline:2px solid #788263; outline-offset:3px; }
+@media(max-width:359px) { .search-overlay .catalog-discoveries > div { grid-template-columns:minmax(0,1fr); } }
