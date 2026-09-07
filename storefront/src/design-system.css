@@ -156,7 +156,8 @@ html[data-cozy-text-size="extra-large"] { --ui-reading-scale: 1.4; }
 .product-reviews .review-card-header time { grid-column: 2; text-align: left; }
 .product-reviews .review-filters { display: flex; flex-wrap: wrap; gap: 8px; padding-bottom: 10px; overflow: visible; }
 .product-reviews .review-filters button { min-height: 44px; font-size: var(--ui-support); }
-.product-reviews .review-card-photos button { width: 88px; height: 88px; padding: 0; border: 1px solid var(--ui-border); border-radius: 14px; overflow: hidden; flex: 0 0 auto; }
+.product-reviews .review-card-photos { display:flex; flex-wrap:wrap; justify-content:flex-start; align-items:flex-start; gap:10px; }
+.product-reviews .review-card-photos button { width: 88px; height: 88px; margin:0; padding: 0; border: 1px solid var(--ui-border); border-radius: 14px; overflow: hidden; flex: 0 0 auto; }
 .product-reviews .review-card-photos img { width: 100%; height: 100%; object-fit: cover; }
 .review-photo-viewer { position: fixed; z-index: 30000; inset: 0; display: flex; flex-direction: column; height: 100dvh; background: #171816; color: #fff; padding: max(12px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); }
 .review-photo-viewer header { display: flex; align-items: center; gap: 16px; }

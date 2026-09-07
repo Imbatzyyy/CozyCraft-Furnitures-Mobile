@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2.111.0";
 import { invoiceEmail, type InvoiceOrder } from "../_shared/order-invoice.ts";
+import { invoiceLogoAttachment } from "../_shared/invoice-logo.ts";
 
 const origins = new Set([
   "capacitor://localhost",
@@ -113,9 +114,10 @@ Deno.serve(async (request) => {
       to: [user.email],
       reply_to: "cozycraftfurnitures2026@gmail.com",
       ...message,
+      attachments: [invoiceLogoAttachment],
     };
     // Repeated taps and network retries reuse one provider operation per order/day.
-    const key = `order-invoice/${user.id}/${order.id}/${
+    const key = `order-invoice-v3/${user.id}/${order.id}/${
       new Date().toISOString().slice(0, 10)
     }`;
     const result = await fetch("https://api.resend.com/emails", {

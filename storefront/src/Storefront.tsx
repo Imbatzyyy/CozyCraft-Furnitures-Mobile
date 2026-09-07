@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import ReviewPhotoViewer from "./components/ReviewPhotoViewer"
+import PriceRange from "./components/PriceRange"
 import RequestOrderInvoice from "./components/RequestOrderInvoice"
 import RecipientNameFields from "./components/RecipientNameFields"
 import CozyLoader from "./components/CozyLoader"
@@ -6640,7 +6641,7 @@ export function NotificationsPage({ close, items, userId, refresh }: {
   )
 }
 
-function ShopPage({
+export function ShopPage({
   products,
   roomId,
   subcategory,
@@ -6668,6 +6669,7 @@ function ShopPage({
   const [compact, setCompact] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [maxPrice, setMaxPrice] = useState(500000)
+  const [minPrice, setMinPrice] = useState(0)
   const normalizeTaxonomy = (value: string | undefined) =>
     String(value || "")
       .normalize("NFKC")
@@ -6687,6 +6689,7 @@ function ShopPage({
         product.room === room.id &&
         (!selectedSubcategories.length ||
           selectedSubcategories.includes(normalizeTaxonomy(product.subcategory))) &&
+        Number(product.price.replace(/[₱,]/g, "")) >= minPrice &&
         Number(product.price.replace(/[₱,]/g, "")) <= maxPrice,
     )
     return [...selected].sort((a, b) => {
@@ -6697,7 +6700,7 @@ function ShopPage({
       if (sort === "Top rated") return (b.rating ?? 0) - (a.rating ?? 0)
       return (b.reviews ?? 0) - (a.reviews ?? 0)
     })
-  }, [maxPrice, products, room.id, selectedSubcategories, sort])
+  }, [minPrice, maxPrice, products, room.id, selectedSubcategories, sort])
   return (
     <section className="room-shop">
       <header>
@@ -6767,25 +6770,14 @@ function ShopPage({
             <button
               onClick={() => {
                 setMaxPrice(500000)
+                setMinPrice(0)
                 setSubcategory("")
               }}
             >
               Reset
             </button>
           </header>
-          <label>
-            <span>
-              Maximum price <b>₱{maxPrice.toLocaleString()}</b>
-            </span>
-            <input
-              type="range"
-              min="5000"
-              max="500000"
-              step="5000"
-              value={maxPrice}
-              onChange={(event) => setMaxPrice(Number(event.target.value))}
-            />
-          </label>
+          <PriceRange minimum={minPrice} maximum={maxPrice} change={(minimum, maximum) => { setMinPrice(minimum); setMaxPrice(maximum) }} />
           <div>
             {room.groups.map((group) => (
               <button

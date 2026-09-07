@@ -1,10 +1,11 @@
 import React, { useState } from "react"
 import RequestOrderInvoice from "../src/components/RequestOrderInvoice"
 import { invoiceEmail } from "../../supabase/functions/_shared/order-invoice"
+import { invoiceLogoAttachment } from "../../supabase/functions/_shared/invoice-logo"
 import ScrollBackButton from "../src/components/ScrollBackButton"
 import SearchDiscoveries from "../src/components/SearchDiscoveries"
 import { createRoot } from "react-dom/client"
-import { Account, CheckoutPage, ProductDetail, ProfilePage, NotificationsPage, MobileCareChat } from "../src/Storefront"
+import { Account, CheckoutPage, ProductDetail, ProfilePage, NotificationsPage, MobileCareChat, ShopPage } from "../src/Storefront"
 import { readMobileTextSize, saveMobileTextSize } from "../src/lib/mobile-text-size"
 import CustomerSecurityGate from "../src/features/auth/CustomerSecurityGate"
 import PaymentEmailVerificationDialog from "../src/features/checkout/PaymentEmailVerificationDialog"
@@ -168,6 +169,12 @@ function GoogleOnboardingFixture() {
 }
 
 const fixtureProduct = { id: "EKOLSUND", name: "EKOLSUND reclining armchair", category: "Living room", price: "₱12,999", image: "/furniture/photo-1599696848652-f0ff23bc911f.jpg", alt: "Armchair", stock: 12, description: "A comfortable reclining armchair with a generous seat and a soft, easy-care cover.", materials: [{ type: "Seat and back", description: "High-resilience foam with polyester cushioning" }], dimensions: [{ label: "Width", value: "85", unit: "cm" }] }
+function RangeFixture() {
+  const [room, setRoom] = useState("living")
+  const [subcategory, setSubcategory] = useState("")
+  const products = ["living","bedroom","dining"].flatMap(room => [1000,15000,75000].map(price => ({ ...fixtureProduct, id: `${room}-${price}`, room, name: `${room} piece ${price}`, price: `₱${price.toLocaleString()}` })))
+  return <div className="lux-shell"><div className="lux-phone"><ShopPage products={products} roomId={room} subcategory={subcategory} setRoom={setRoom} setSubcategory={setSubcategory} openProduct={()=>{}} saved={[]} bagQuantities={{}} save={()=>{}} add={()=>{}}/><section className="product-reviews"><article className="review-card"><div className="review-card-photos">{[0,1].map(i=><button key={i}><img src={fixtureProduct.image} alt={`Review photo ${i+1}`}/></button>)}</div></article></section></div></div>
+}
 function DesignFixture() {
   const [size, setSize] = useState(readMobileTextSize())
   const view = params.get("account") as "orders" | "addresses" | "payments" | "support" | null
@@ -196,7 +203,8 @@ function CareFixture() {
 
 const invoiceFixture = invoiceEmail({ id: "fixture", order_number: "CC-01131", status: "delivered", created_at: "2026-09-07T08:00:00Z", subtotal: 20000, delivery_fee: 650, reward_discount: 500, total: 20150, payment_method: "cod", payment_status: "paid", shipping_address: { name: "Ana Maria Rivera", line: "18 Narra Street", city: "Quezon City", province: "Metro Manila" }, order_items: [{ id: 1, product_name: "VIMLE two-seat sofa", quantity: 2, unit_price: 10000 }] })
 if (params.has("invoice-template")) {
-  const email = new DOMParser().parseFromString(invoiceFixture.html, "text/html")
+  const previewHtml = invoiceFixture.html.replace(`cid:${invoiceLogoAttachment.content_id}`, `data:image/png;base64,${invoiceLogoAttachment.content}`)
+  const email = new DOMParser().parseFromString(previewHtml, "text/html")
   document.head.querySelectorAll("style,link[rel=stylesheet]").forEach(element => element.remove())
   document.documentElement.removeAttribute("class")
   document.documentElement.removeAttribute("style")
@@ -206,6 +214,7 @@ if (params.has("invoice-template")) {
 else createRoot(document.getElementById("root")!).render(<React.StrictMode>
   <DialogAccessibility />
   <ScrollBackButton />
+  {params.has("range") && <div style={{position:"fixed",inset:0,zIndex:10000,overflowY:"auto",background:"#f7f5ef"}}><RangeFixture /></div>}
   {params.has("invoice") && <div style={{position:"fixed",inset:0,zIndex:10000,background:"#f7f5ef",padding:24}}><RequestOrderInvoice orderId="11111111-1111-4111-8111-111111111111" /></div>}
   {params.has("care") ? <CareFixture /> : params.has("discoveries") ? <DiscoveryFixture /> : params.has("membership") ? <HomeCircleFixture /> : params.has("motion") ? <CozyLaunchScreen animated /> : params.has("account") || params.has("product") || params.has("notifications") ? <DesignFixture /> : params.has("google-onboarding")
     ? <GoogleOnboardingFixture />
