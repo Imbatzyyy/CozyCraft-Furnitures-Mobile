@@ -81,13 +81,12 @@ const replaceIOSLaunchMark = (targetDocument: Document) => {
   svg.setAttribute('data-cozycraft-ios-launch-mark', 'true');
   clipPath.setAttribute('id', clipId);
 
-  // Preserve the original wordmark while removing only the lower rail and
-  // feet beneath its sofa-shaped O. The upper sofa outline remains intact,
-  // so iOS displays one sofa instead of two stacked silhouettes.
+  // Preserve the lettering, but remove the whole raster sofa. Its lower curved
+  // rail survived the previous rectangular crop and looked like a second sofa.
+  // Draw one crisp outline instead of stacking/cropping parts of that image.
   [
     ['0', '0', '1600', '1563'],
     ['2760', '0', '1928', '1563'],
-    ['1600', '0', '1160', '610'],
     ['1600', '780', '1160', '783'],
   ].forEach(([x, y, width, height]) => {
     const rectangle = targetDocument.createElementNS(svgNamespace, 'rect');
@@ -103,7 +102,15 @@ const replaceIOSLaunchMark = (targetDocument: Document) => {
   image.setAttribute('height', '1563');
   image.setAttribute('clip-path', `url(#${clipId})`);
   definitions.appendChild(clipPath);
-  svg.append(definitions, image);
+  const sofa = targetDocument.createElementNS(svgNamespace, 'path');
+  sofa.setAttribute('data-cozycraft-single-sofa', 'true');
+  sofa.setAttribute('d', 'M1840 285H2480A175 175 0 0 1 2655 460A175 175 0 0 1 2480 635H1840A175 175 0 0 1 1665 460A175 175 0 0 1 1840 285Z M1785 640L1755 700 M2535 640L2565 700');
+  sofa.setAttribute('fill', 'none');
+  sofa.setAttribute('stroke', '#1b1b1b');
+  sofa.setAttribute('stroke-width', '64');
+  sofa.setAttribute('stroke-linecap', 'round');
+  sofa.setAttribute('stroke-linejoin', 'round');
+  svg.append(definitions, image, sofa);
   mark.replaceChildren(svg);
   return true;
 };

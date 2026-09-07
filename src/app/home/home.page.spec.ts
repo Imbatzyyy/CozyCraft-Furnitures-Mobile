@@ -98,7 +98,8 @@ describe('HomePage', () => {
     expect(launchFix?.textContent).toContain('svg[data-cozycraft-ios-launch-mark]');
     expect(correctedMark).not.toBeNull();
     expect(correctedMark?.querySelector('image')?.getAttribute('href')).toContain('cozycraft.png');
-    expect(correctedMark?.querySelectorAll('clipPath rect').length).toBe(4);
+    expect(correctedMark?.querySelectorAll('clipPath rect').length).toBe(3);
+    expect(correctedMark?.querySelectorAll('[data-cozycraft-single-sofa]').length).toBe(1);
     expect(iosDocument.querySelector('.splash .auth-mark img')).toBeNull();
     expect(installIOSLaunchStyle(iosDocument, 'ios')).toBeFalse();
     expect(iosDocument.querySelectorAll('style[data-cozycraft-ios-launch-fix]').length).toBe(1);
