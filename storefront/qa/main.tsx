@@ -1,4 +1,5 @@
 import React, { useState } from "react"
+import ScrollBackButton from "../src/components/ScrollBackButton"
 import SearchDiscoveries from "../src/components/SearchDiscoveries"
 import { createRoot } from "react-dom/client"
 import { Account, CheckoutPage, ProductDetail, ProfilePage, NotificationsPage, MobileCareChat } from "../src/Storefront"
@@ -193,6 +194,7 @@ function CareFixture() {
 
 createRoot(document.getElementById("root")!).render(<React.StrictMode>
   <DialogAccessibility />
+  <ScrollBackButton />
   {params.has("care") ? <CareFixture /> : params.has("discoveries") ? <DiscoveryFixture /> : params.has("membership") ? <HomeCircleFixture /> : params.has("motion") ? <CozyLaunchScreen animated /> : params.has("account") || params.has("product") || params.has("notifications") ? <DesignFixture /> : params.has("google-onboarding")
     ? <GoogleOnboardingFixture />
     : params.has("checkout")
