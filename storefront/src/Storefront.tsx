@@ -4154,7 +4154,8 @@ export function Account({
           </div>
         </section>
       )}
-      {active && (
+      {active && createPortal(
+        <div className="atelier-account account-sheet-portal">
         <section
           className="account-sheet"
           role="dialog"
@@ -4626,6 +4627,7 @@ export function Account({
             </button>
           )}
         </section>
+        </div>, document.body
       )}
     </section>
   )

@@ -176,7 +176,23 @@ html[data-cozy-text-size="extra-large"] { --ui-reading-scale: 1.4; }
 .atelier-account .account-preferences-card small,
 .account-text-size-trigger small { font-size: var(--ui-support); line-height: 1.5; }
 .atelier-account .account-sheet :is(h2, h3) { font-size: clamp(25px, 7vw, 34px); line-height: 1.15; }
-.atelier-account .account-sheet { padding-top: 64px; }
+.atelier-account .account-sheet {
+  padding-top: calc(max(16px, env(safe-area-inset-top)) + 64px);
+  box-sizing: border-box;
+}
+.account-sheet-portal.atelier-account {
+  position: static;
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+  transform: none;
+  filter: none;
+  contain: none;
+}
+.account-sheet-portal .account-sheet > h2 {
+  overflow-wrap: anywhere;
+  line-height: 1.2;
+}
 .atelier-account .account-sheet > .account-sheet-icon { width: 44px; height: 44px; margin: 0 auto 16px; font-size: 24px; }
 .atelier-account .account-sheet > .hello { font-size: var(--ui-support); margin-bottom: 8px; letter-spacing: .1em; }
 .atelier-account .account-sheet > p:not(.hello) { font-size: var(--ui-support); margin: 12px auto 24px; line-height: 1.5; }

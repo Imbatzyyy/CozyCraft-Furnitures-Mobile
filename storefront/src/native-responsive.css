@@ -7552,7 +7552,7 @@ textarea:focus-visible {
 
 /* The assistant remains available on normal pages but no longer covers
    Account sheet forms, order actions, or address controls. */
-.lux-phone:has(.account-sheet) .mobile-ai-launcher {
+body:has(.account-sheet) .mobile-ai-launcher {
   display: none;
 }
 

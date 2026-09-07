@@ -31,6 +31,7 @@ it("opens the requested order details even before the orders list refresh comple
   const handled = vi.fn()
   render(<Account userId="fixture" flash={() => {}} name="Alex" email="" image="" orders={[]} points={0} tier="member" lifetimeSpend={0} completedOrders={0} savedCount={0} bagCount={0} unreadNotificationCount={0} textSize="comfortable" changeTextSize={() => {}} pushPermission="granted" enableNotifications={() => {}} edit={() => {}} shop={() => {}} openMembership={() => {}} reviewPublished={() => {}} initialView="orders" onInitialViewHandled={() => {}} initialOrder={{ id: "CC-01131", databaseId: "order-1131", createdAt: "2026-09-07", total: 1000, status: "Processing", payment: "Cash on delivery", address: "Manila", items: [] }} onInitialOrderHandled={handled} />)
   expect(await screen.findByRole("dialog", { name: "Order CC-01131 details" })).toBeTruthy()
+  expect(document.querySelector(".account-sheet-portal")?.parentElement).toBe(document.body)
   expect(handled).toHaveBeenCalledOnce()
   fireEvent.click(screen.getByRole("button", { name: "Return to all orders" }))
   expect(screen.queryByRole("dialog", { name: "Order CC-01131 details" })).toBeNull()
