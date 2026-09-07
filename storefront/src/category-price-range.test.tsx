@@ -11,6 +11,7 @@ for (const room of ["living", "bedroom", "dining"] as const) it(`filters both pr
   expect(screen.queryByText("Piece 1000")).toBeNull()
   expect(screen.queryByText("Piece 75000")).toBeNull()
   fireEvent.click(screen.getByRole("button",{name:"Reset"}))
+  expect((screen.getByRole("slider",{name:"Maximum price"}) as HTMLInputElement).value).toBe("200000")
   expect(screen.getByText("Piece 1000")).toBeTruthy()
   expect(screen.getByText("Piece 75000")).toBeTruthy()
 })

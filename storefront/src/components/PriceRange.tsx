@@ -1,6 +1,6 @@
 import "./price-range.css"
 
-export const PRICE_LIMIT = 500000
+export const PRICE_LIMIT = 200000
 export const PRICE_STEP = 500
 export function clampPriceRange(value: number, other: number, handle: "min" | "max") {
   const rounded = Math.round(value / PRICE_STEP) * PRICE_STEP

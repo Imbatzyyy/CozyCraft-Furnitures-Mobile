@@ -14,10 +14,10 @@ for (const engine of [chromium,webkit]) {
     await page.mouse.move(rect.x+12,y); await page.mouse.down(); await page.mouse.move(rect.x+rect.width*.25,y,{steps:12}); await page.mouse.up()
     assert(Number(await min.inputValue()) > 0,"Minimum handle must drag")
     await page.mouse.move(rect.x+rect.width-12,y); await page.mouse.down(); await page.mouse.move(rect.x+rect.width*.75,y,{steps:12}); await page.mouse.up()
-    assert(Number(await max.inputValue()) < 500000,"Maximum handle must drag")
+    assert(Number(await max.inputValue()) < 200000,"Maximum handle must drag")
     const before=Number(await min.inputValue());await min.focus();await page.keyboard.press("ArrowRight");assert(Number(await min.inputValue())>before)
     await page.getByRole("button",{name:"Reset",exact:true}).click()
-    assert.equal(await min.inputValue(),"0");assert.equal(await max.inputValue(),"500000")
+    assert.equal(await min.inputValue(),"0");assert.equal(await max.inputValue(),"200000")
     const photos=await page.locator(".review-card-photos button").evaluateAll(es=>es.map(e=>{const r=e.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width}}))
     assert.equal(photos[0].y,photos[1].y);assert(Math.abs(photos[1].x-photos[0].x-photos[0].width-10)<1)
     if(engine===webkit&&width===390&&size==="extra-large") {

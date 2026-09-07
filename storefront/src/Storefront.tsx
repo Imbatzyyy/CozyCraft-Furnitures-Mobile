@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import ReviewPhotoViewer from "./components/ReviewPhotoViewer"
-import PriceRange from "./components/PriceRange"
+import PriceRange, { PRICE_LIMIT } from "./components/PriceRange"
 import RequestOrderInvoice from "./components/RequestOrderInvoice"
 import RecipientNameFields from "./components/RecipientNameFields"
 import CozyLoader from "./components/CozyLoader"
@@ -6668,7 +6668,7 @@ export function ShopPage({
   const [sort, setSort] = useState("Featured")
   const [compact, setCompact] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
-  const [maxPrice, setMaxPrice] = useState(500000)
+  const [maxPrice, setMaxPrice] = useState(PRICE_LIMIT)
   const [minPrice, setMinPrice] = useState(0)
   const normalizeTaxonomy = (value: string | undefined) =>
     String(value || "")
@@ -6769,7 +6769,7 @@ export function ShopPage({
             </div>
             <button
               onClick={() => {
-                setMaxPrice(500000)
+                setMaxPrice(PRICE_LIMIT)
                 setMinPrice(0)
                 setSubcategory("")
               }}
@@ -6811,7 +6811,7 @@ export function ShopPage({
           <span className="material-symbols-rounded">weekend</span>
           <h2>No pieces in this edit yet.</h2>
           <p>{subcategory ? `There are currently no active products assigned to ${subcategory}.` : "Try raising your price range or exploring another room."}</p>
-          <button onClick={() => { setMaxPrice(500000); setSubcategory("") }}>Reset filters</button>
+          <button onClick={() => { setMinPrice(0); setMaxPrice(PRICE_LIMIT); setSubcategory("") }}>Reset filters</button>
         </section>
       )}
       <section className="room-family">

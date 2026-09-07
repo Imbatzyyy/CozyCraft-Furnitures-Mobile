@@ -163,8 +163,17 @@ html[data-cozy-text-size="extra-large"] { --ui-reading-scale: 1.4; }
 .review-photo-viewer header { display: flex; align-items: center; gap: 16px; }
 .review-photo-viewer header p { flex: 1; font-size: var(--ui-body); }
 .review-photo-viewer button { min-width: 48px; min-height: 48px; border-radius: 50%; color: #fff; background: #ffffff20; border: 1px solid #ffffff60; font-size: 24px; }
-.review-photo-stage { flex: 1; min-height: 0; display: grid; place-items: center; padding-block: 16px; }
-.review-photo-stage img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.review-photo-viewer { box-sizing: border-box; height: 100vh; height: 100dvh; overflow: hidden; gap: 8px; }
+.review-photo-viewer header, .review-photo-viewer footer, .review-photo-zoom { flex: 0 0 auto; }
+.review-photo-viewer header p { min-width: 0; margin: 0; max-height: 3.5em; overflow: auto; overflow-wrap: anywhere; }
+.review-photo-viewer button { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 48px; width: 48px; height: 48px; padding: 0; line-height: 1; }
+.review-photo-viewer button:disabled { opacity: .35; }
+.review-photo-viewer button:focus-visible { outline: 2px solid #e1d2ae; outline-offset: 2px; }
+.review-photo-stage { flex: 1 1 0; min-height: 0; min-width: 0; overflow: auto; overscroll-behavior: contain; contain: layout paint; }
+.review-photo-canvas { position: relative; min-width: 100%; min-height: 100%; }
+.review-photo-stage img { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; object-fit: contain; user-select: none; }
+.review-photo-zoom { display: flex; align-items: center; justify-content: center; gap: 16px; }
+.review-photo-zoom > span { min-width: 4.5em; text-align: center; font-size: var(--ui-body); }
 .review-photo-viewer footer { display: flex; justify-content: center; align-items: center; gap: 24px; font-size: var(--ui-body); }
 
 /* Account and customer care: useful information before decoration. */

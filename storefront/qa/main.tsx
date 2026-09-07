@@ -1,4 +1,5 @@
 import React, { useState } from "react"
+import ReviewPhotoViewer from "../src/components/ReviewPhotoViewer"
 import RequestOrderInvoice from "../src/components/RequestOrderInvoice"
 import { invoiceEmail } from "../../supabase/functions/_shared/order-invoice"
 import { invoiceLogoAttachment } from "../../supabase/functions/_shared/invoice-logo"
@@ -211,6 +212,7 @@ if (params.has("invoice-template")) {
   document.body.style.cssText = email.body.style.cssText
   document.body.innerHTML = email.body.innerHTML
 }
+else if (params.has("review-viewer")) createRoot(document.getElementById("root")!).render(<ReviewPhotoViewer photos={[`data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="600" height="3000"><rect width="600" height="3000" fill="#b5aa92"/><path d="M0 0L600 3000M600 0L0 3000" stroke="#454c3e" stroke-width="30"/></svg>')}`, "/fixture.png"]} initialIndex={0} description="Customer review photo" close={() => {}} />)
 else createRoot(document.getElementById("root")!).render(<React.StrictMode>
   <DialogAccessibility />
   <ScrollBackButton />
