@@ -1,4 +1,6 @@
 import React, { useState } from "react"
+import RequestOrderInvoice from "../src/components/RequestOrderInvoice"
+import { invoiceEmail } from "../../supabase/functions/_shared/order-invoice"
 import ScrollBackButton from "../src/components/ScrollBackButton"
 import SearchDiscoveries from "../src/components/SearchDiscoveries"
 import { createRoot } from "react-dom/client"
@@ -192,9 +194,19 @@ function CareFixture() {
   return <div className="lux-shell"><div className="lux-phone"><MobileCareChat open={open} userId="fixture" online={!params.has("offline")} accountDataReady products={[]} profileName="Alex" savedProductIds={[]} bag={[]} orders={[]} notifications={[]} loyalty={null} openProduct={() => {}} openDestination={value => setDestination(String(value))} onOpenChange={setOpen}/><output aria-label="Chat state">{open ? "open" : "closed"} {destination}</output></div></div>
 }
 
-createRoot(document.getElementById("root")!).render(<React.StrictMode>
+const invoiceFixture = invoiceEmail({ id: "fixture", order_number: "CC-01131", status: "delivered", created_at: "2026-09-07T08:00:00Z", subtotal: 20000, delivery_fee: 650, reward_discount: 500, total: 20150, payment_method: "cod", payment_status: "paid", shipping_address: { name: "Ana Maria Rivera", line: "18 Narra Street", city: "Quezon City", province: "Metro Manila" }, order_items: [{ id: 1, product_name: "VIMLE two-seat sofa", quantity: 2, unit_price: 10000 }] })
+if (params.has("invoice-template")) {
+  const email = new DOMParser().parseFromString(invoiceFixture.html, "text/html")
+  document.head.querySelectorAll("style,link[rel=stylesheet]").forEach(element => element.remove())
+  document.documentElement.removeAttribute("class")
+  document.documentElement.removeAttribute("style")
+  document.body.style.cssText = email.body.style.cssText
+  document.body.innerHTML = email.body.innerHTML
+}
+else createRoot(document.getElementById("root")!).render(<React.StrictMode>
   <DialogAccessibility />
   <ScrollBackButton />
+  {params.has("invoice") && <div style={{position:"fixed",inset:0,zIndex:10000,background:"#f7f5ef",padding:24}}><RequestOrderInvoice orderId="11111111-1111-4111-8111-111111111111" /></div>}
   {params.has("care") ? <CareFixture /> : params.has("discoveries") ? <DiscoveryFixture /> : params.has("membership") ? <HomeCircleFixture /> : params.has("motion") ? <CozyLaunchScreen animated /> : params.has("account") || params.has("product") || params.has("notifications") ? <DesignFixture /> : params.has("google-onboarding")
     ? <GoogleOnboardingFixture />
     : params.has("checkout")

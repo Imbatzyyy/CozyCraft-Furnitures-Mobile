@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import ReviewPhotoViewer from "./components/ReviewPhotoViewer"
+import RequestOrderInvoice from "./components/RequestOrderInvoice"
 import RecipientNameFields from "./components/RecipientNameFields"
 import CozyLoader from "./components/CozyLoader"
 import MembershipPage from "./components/HomeCirclePage"
@@ -4365,6 +4366,7 @@ export function Account({
                     <header><div><small>ORDER JOURNEY</small><b>From our studio to your home</b></div></header>
                     <ol className="full-order-timeline">{visibleOrderTimeline(selectedOrder).map((event, index, events) => <li className={index === events.length - 1 ? "current" : "complete"} key={`${event.status}-${event.changedAt}-${index}`}><i><span className="material-symbols-rounded" aria-hidden="true">check</span></i><div><b>{event.status}</b><time>{new Date(event.changedAt).toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" })}</time></div></li>)}</ol>
                   </section>
+                  {selectedOrder.status === "Delivered" && selectedOrder.databaseId && <RequestOrderInvoice key={selectedOrder.databaseId} orderId={selectedOrder.databaseId} />}
                   {selectedOrder.status === "Delivered" && selectedOrder.databaseId && (selectedReturn
                     ? <aside className={`mobile-return-status status-${selectedReturn.status}`}><span className="material-symbols-rounded" aria-hidden="true">assignment_return</span><div><small>RETURN {selectedReturn.return_number}</small><b>{selectedReturn.status.split("_").join(" ")}</b><p>{selectedReturn.admin_note || "Your request is safely recorded. Updates appear here in real time."}</p></div></aside>
                     : <button className="order-return-action" type="button" onClick={() => { setReturnMessage(""); setReturnOrderOpen(true) }}><span className="material-symbols-rounded" aria-hidden="true">assignment_return</span> Request a return</button>)}

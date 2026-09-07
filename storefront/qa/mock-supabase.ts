@@ -70,6 +70,7 @@ export const createClient = () => ({
   channel: () => { const channel = { on: () => channel, subscribe: () => channel }; return channel },
   removeChannel() {},
   functions: { invoke: async (name: string, { body }: { body: Record<string, unknown> }) => {
+    if (name === "request-order-invoice") return { data: { accepted: true, email: "alex.rivera@example.test", orderNumber: "CC-1041" }, error: null }
     if (name === "verify-mobile-payment") {
       if (body.action === "request") {
         return { data: {
