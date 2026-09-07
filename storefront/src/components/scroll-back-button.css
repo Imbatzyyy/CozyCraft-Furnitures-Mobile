@@ -1,5 +1,6 @@
-/* Explicit specificity keeps page button styles from changing this control. */
-body button.cozy-scroll-back {
+/* Outrank account-sheet last-child and nested form button styles without
+   making the shared control inherit a page's primary-action appearance. */
+body button.cozy-scroll-back.cozy-scroll-back.cozy-scroll-back {
   position:fixed; z-index:2147482000; display:inline-flex; align-items:center; justify-content:center;
   width:auto; height:auto; min-height:48px; min-width:48px; max-width:160px;
   gap:8px; padding:12px 16px; margin:0; border:1px solid #747b64; border-radius:999px;

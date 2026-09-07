@@ -179,6 +179,10 @@ html[data-cozy-text-size="extra-large"] { --ui-reading-scale: 1.4; }
 .atelier-account .account-sheet {
   padding-top: calc(max(16px, env(safe-area-inset-top)) + 64px);
   box-sizing: border-box;
+  /* The opaque sheet needs no backdrop blur. A filter here makes fixed
+     descendants scroll with the sheet on iOS instead of the viewport. */
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 .account-sheet-portal.atelier-account {
   position: static;

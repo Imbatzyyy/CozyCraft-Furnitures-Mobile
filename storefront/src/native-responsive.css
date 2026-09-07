@@ -5918,21 +5918,26 @@ textarea:focus-visible {
 }
 
 .notification-trigger > i > span {
-  position: absolute;
-  inset: 0;
+  position: static;
   display: grid;
   place-items: center;
   color: white;
-  font-size: calc(6px * var(--cozy-font-scale, 1.15));
+  font-size: calc(10px * var(--cozy-reading-font-scale, 1.15));
+  line-height: 1;
   font-style: normal;
   font-weight: 800;
 }
 
 .notification-trigger > i:has(span) {
-  top: 4px;
-  right: 3px;
-  width: 15px;
-  height: 15px;
+  top: -2px;
+  right: -2px;
+  display: grid;
+  place-items: center;
+  width: auto;
+  min-width: calc(18px * var(--cozy-reading-font-scale, 1.15));
+  height: calc(18px * var(--cozy-reading-font-scale, 1.15));
+  padding-inline: 3px;
+  border-radius: 999px;
   border-width: 2px;
 }
 
