@@ -4,6 +4,7 @@ import CozyLoader from "./components/CozyLoader"
 import MembershipPage from "./components/HomeCirclePage"
 import SearchDiscoveries from "./components/SearchDiscoveries"
 import "./components/care-minimal.css"
+import careLogo from "./assets/cozycraft-care-logo.png"
 import ProfileHomeCircle from "./components/ProfileHomeCircle"
 import { homeCircleTier } from "./lib/home-circle"
 import CozyLaunchScreen from "./components/CozyLaunchScreen"
@@ -3145,7 +3146,7 @@ export function MobileCareChat({
         <button onClick={resetConversation} aria-label="Start a new conversation"><span className="material-symbols-rounded">edit_square</span></button>
       </header>
       <main>
-        {isNewConversation && <section className="care-intro"><span className="care-monogram" aria-hidden="true">C</span><h2>A little help<br/><em>for your home.</em></h2><p>Ask about a piece, delivery, or your order.</p></section>}
+        {isNewConversation && <section className="care-intro"><span className="care-logo-frame"><img src={careLogo} alt="CozyCraft Care" width="160" height="160"/></span><h2>A little help<br/><em>for your home.</em></h2><p>Ask about a piece, delivery, or your order.</p></section>}
         {isNewConversation && <section className="ai-quick-prompts" aria-label="Start a conversation"><div>{quickPrompts.slice(0, 2).map((prompt, index) => <button type="button" key={prompt.label} disabled={sending} onClick={() => void send(prompt.label)}><b>{userId ? index === 0 ? "My latest order" : "My wishlist" : index === 0 ? "Find a piece" : "Small-room ideas"}</b><span aria-hidden="true">↗</span></button>)}</div></section>}
         <section className={`ai-conversation ${isNewConversation ? "is-new" : ""}`} aria-label="Conversation">
           <div className="ai-message-list" aria-live="polite">{messages.slice(1).map((message) => <article className={message.role} key={message.id}><header>{message.role === "assistant" && <span aria-hidden="true">C</span>}<small>{message.role === "assistant" ? "CozyCraft Care" : "You"}</small><time>{new Date(message.createdAt).toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" })}</time></header>{message.role === "assistant" ? <AssistantReply content={message.content} liveAccountData={message.liveAccountData} navigation={messages.at(-1)?.id === message.id && message.id === latestAssistant?.id ? message.navigation : undefined} navigate={(destination) => { setOpen(false); openDestination(destination) }}/> : <p>{message.content}</p>}</article>)}{sending && <article className="assistant typing"><header><span aria-hidden="true">C</span><small>CozyCraft Care</small></header><p aria-label="CozyCraft Care is replying"><i/><i/><i/></p></article>}</div>
