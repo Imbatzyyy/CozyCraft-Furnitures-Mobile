@@ -6,6 +6,22 @@ import { homeCircleTier, rewardState } from "../lib/home-circle"
 afterEach(cleanup)
 const props = { points: 650, tier: "member", lifetimeSpend: 1000, orderCount: 1, activity: [], redemptions: [], close: vi.fn(), shop: vi.fn(), redeem: vi.fn(async () => {}) }
 describe("Home Circle", () => {
+  it("paginates five activities and clamps the page when records disappear", () => {
+    const activity = Array.from({ length: 12 }, (_, i) => ({ id: String(i), description: `Activity ${i}`, points: 10, created_at: "2026-09-01" }))
+    const { rerender } = render(<HomeCirclePage {...props} activity={activity}/>)
+    expect(screen.getAllByRole("listitem").filter(el => el.parentElement?.className === "hc-ledger")).toHaveLength(5)
+    fireEvent.click(screen.getByRole("button", { name: "Next" }))
+    expect(screen.getByText("Activity 5")).toBeTruthy()
+    expect(screen.queryByText("Activity 0")).toBeNull()
+    fireEvent.click(screen.getByRole("button", { name: "Next" }))
+    expect(screen.getByText("Page 3 of 3")).toBeTruthy()
+    expect((screen.getByRole("button", { name: "Next" }) as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.click(screen.getByRole("button", { name: "Previous" }))
+    expect(screen.getByText("Page 2 of 3")).toBeTruthy()
+    rerender(<HomeCirclePage {...props} activity={activity.slice(0, 2)}/>)
+    expect(screen.getByText("Activity 0")).toBeTruthy()
+    expect(screen.queryByRole("navigation", { name: "Recent activity pages" })).toBeNull()
+  })
   it("normalizes stable database keys and previous labels", () => {
     for (const name of ["member", "Member", "Cozy Member", "Cozy Nest", undefined]) expect(homeCircleTier(name).name).toBe("Cozy Nest")
     expect(homeCircleTier("premium").name).toBe("Cozy Premium")

@@ -1,0 +1,37 @@
+/* Isolated from legacy account-button span styling. */
+.account-page.atelier-account > button.profile-circle-card {
+  --pc-inset: clamp(22px, 5vw, 28px);
+  display: block; width: 100%; height: auto; min-width: 0; margin: 20px 0;
+  padding: var(--pc-inset) var(--pc-inset) 0; border: 1px solid #484d40; border-radius: 22px;
+  /* Static, paint-only circle detailing: no image downloads or animation work. */
+  background:
+    radial-gradient(circle at 105% 38%,
+      transparent 0 73px, #d4c39930 74px 75px,
+      transparent 76px 112px, #d4c39926 113px 114px,
+      transparent 115px 151px, #d4c3991c 152px 153px,
+      transparent 154px 190px, #d4c39912 191px 192px,
+      transparent 193px),
+    radial-gradient(ellipse at 100% 25%, #b1a26c24, transparent 65%),
+    linear-gradient(125deg, #343b30, #262e25);
+  color: #faf7ef; text-align: left;
+  box-shadow: 0 8px 18px #232a2012, inset 0 1px 0 #ffffff12;
+  font: 400 calc(14px * var(--cozy-reading-font-scale,1.15))/1.5 "DM Sans",sans-serif;
+  overflow: hidden; cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.account-page.atelier-account > button.profile-circle-card :is(span,strong) {
+  position: static; inset: auto; width: auto; height: auto; min-width: 0;
+  margin: 0; padding: 0; border: 0; border-radius: 0; background: none;
+  color: inherit; font: inherit; letter-spacing: normal; text-transform: none;
+  white-space: normal; overflow: visible; overflow-wrap: anywhere;
+}
+.account-page.atelier-account > button.profile-circle-card .pc-heading { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; }
+.account-page.atelier-account > button.profile-circle-card .pc-heading > span:first-child { font:400 calc(24px * var(--cozy-layout-font-scale,1.08))/1.2 "DM Serif Display",serif; letter-spacing:-.025em; }
+.account-page.atelier-account > button.profile-circle-card .pc-tier { padding:6px 10px; border:1px solid #8c8b6b; border-radius:7px; font-size:calc(11px * var(--cozy-reading-font-scale,1.15)); color:#efe2bd; }
+.account-page.atelier-account > button.profile-circle-card .pc-balance-label { display:block; margin-top:28px; color:#dedfd4; font-size:calc(13px * var(--cozy-reading-font-scale,1.15)); }
+.account-page.atelier-account > button.profile-circle-card .pc-balance { display:block; margin-top:3px; }
+.account-page.atelier-account > button.profile-circle-card .pc-balance strong { display:block; font:400 calc(54px * var(--cozy-layout-font-scale,1.08))/1.05 "DM Serif Display",serif; letter-spacing:-.025em; font-variant-numeric:tabular-nums; }
+.account-page.atelier-account > button.profile-circle-card .pc-note { display:block; margin-top:14px; max-width:32ch; color:#dedfd4; font-size:calc(13px * var(--cozy-reading-font-scale,1.15)); }
+.account-page.atelier-account > button.profile-circle-card .pc-footer { display:flex; align-items:center; justify-content:space-between; gap:16px; margin:24px calc(-1 * var(--pc-inset)) 0; padding:15px var(--pc-inset); border-top:1px solid #b5ab7d40; background:#242c23; color:#f1e8d2; font-weight:600; }
+.account-page.atelier-account > button.profile-circle-card .pc-arrow { display:grid; place-items:center; flex:0 0 36px; width:36px; height:36px; border:1px solid #a79c7466; border-radius:50%; }
+.account-page.atelier-account > button.profile-circle-card .pc-footer svg { width:22px; height:22px; flex:0 0 22px; }
+.account-page.atelier-account > button.profile-circle-card:focus-visible { outline:3px solid #a58b60; outline-offset:4px; }

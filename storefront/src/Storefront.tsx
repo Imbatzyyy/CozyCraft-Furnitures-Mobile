@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import ReviewPhotoViewer from "./components/ReviewPhotoViewer"
 import CozyLoader from "./components/CozyLoader"
 import MembershipPage from "./components/HomeCirclePage"
-import { HOME_CIRCLE_TIERS, homeCircleTier } from "./lib/home-circle"
+import ProfileHomeCircle from "./components/ProfileHomeCircle"
+import { homeCircleTier } from "./lib/home-circle"
 import CozyLaunchScreen from "./components/CozyLaunchScreen"
 import { clearLaunchHandoff } from "./components/launch-handoff"
 import { PULL_TO_REFRESH_EVENT, PullToRefreshIndicator, usePullToRefresh } from "./components/PullToRefresh"
@@ -3962,13 +3963,6 @@ export function Account({
   const selectedReturn = selectedOrder?.databaseId
     ? returnRequests.find((request) => request.order_id === selectedOrder.databaseId)
     : undefined
-  const tierSteps = HOME_CIRCLE_TIERS
-  const tierIndex = Math.max(0, tierSteps.findIndex((step) => step.name === tier))
-  const nextTier = tierSteps[tierIndex + 1] || null
-  const currentFloor = tierSteps[tierIndex].target
-  const tierProgress = nextTier
-    ? Math.min(100, ((lifetimeSpend - currentFloor) / (nextTier.target - currentFloor)) * 100)
-    : 100
 
   const textSizePreference = (
     <TextSizePreference
@@ -4051,38 +4045,7 @@ export function Account({
         </div>
         <button onClick={edit}>Edit</button>
       </header>
-      <button className="rewards-card rewards-card-premium" type="button" onClick={openMembership} aria-label="Open Home Circle points and rewards">
-        <span className="rewards-orbit" aria-hidden="true" />
-        <span className="rewards-card-head">
-          <span className="rewards-eyebrow">COZYCRAFT HOME CIRCLE</span>
-          <span className="rewards-tier-badge">{tier.toUpperCase()}</span>
-        </span>
-        <span className="rewards-card-body">
-          <span className="rewards-card-copy">
-            <span className="rewards-title">Good taste has <em>its rewards.</em></span>
-            <span className="rewards-subtitle">Exclusive rewards for the home you’re creating.</span>
-          </span>
-          <span className="rewards-points-block">
-            <strong>{points.toLocaleString()}</strong>
-            <small>AVAILABLE POINTS</small>
-          </span>
-        </span>
-        <span className="rewards-progress-row">
-          <span>{completedOrders} delivered order{completedOrders === 1 ? "" : "s"}</span>
-          <span>{Math.round(tierProgress)}%</span>
-        </span>
-        <span className="tier-progress" aria-label={`${Math.round(tierProgress)} percent progress to ${nextTier?.name || "top tier"}`}>
-          <i style={{ width: `${tierProgress}%` }} />
-        </span>
-        <span className="rewards-card-foot">
-          <small className="tier-note">
-            {nextTier
-              ? `₱${Math.max(0, nextTier.target - lifetimeSpend).toLocaleString()} eligible spend to ${nextTier.name}`
-              : "Highest membership tier unlocked"}
-          </small>
-          <span className="rewards-open">View rewards <b>→</b></span>
-        </span>
-      </button>
+      <ProfileHomeCircle points={points} tier={tier} lifetimeSpend={lifetimeSpend} open={openMembership}/>
       <section className="account-stat-row">
         <article>
           <b>{String(savedCount).padStart(2, "0")}</b>

@@ -19,6 +19,11 @@ export default function HomeCirclePage({ points, tier, lifetimeSpend, orderCount
   const [notice, setNotice] = useState("")
   const [error, setError] = useState("")
   const [history, setHistory] = useState(false)
+  const [activityPage, setActivityPage] = useState(0)
+  const activityPages = Math.max(1, Math.ceil(activity.length / 5))
+  const currentActivityPage = Math.min(activityPage, activityPages - 1)
+  const visibleActivity = activity.slice(currentActivityPage * 5, currentActivityPage * 5 + 5)
+  useEffect(() => { setActivityPage(0) }, [activity[0]?.id])
   useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 30_000); return () => clearInterval(timer) }, [])
   const current = homeCircleTier(tier)
   const index = HOME_CIRCLE_TIERS.indexOf(current)
@@ -75,7 +80,12 @@ export default function HomeCirclePage({ points, tier, lifetimeSpend, orderCount
         <ol className="hc-levels">{HOME_CIRCLE_TIERS.map((level, i) => <li key={level.key} className={i === index ? "is-current" : ""}><span className="hc-level-index" aria-hidden="true">{String(i + 1).padStart(2, "0")}</span><div><div className="hc-level-title"><h3>{level.name}</h3>{i === index && <span className="hc-status">Your level</span>}</div><p className="hc-level-spend">{level.target ? `From ${amount(level.target)} in eligible deliveries` : "From your first day"}</p><p>{level.rate}</p><p>{level.description}</p></div></li>)}</ol>
       </section>
       <section className="hc-section" aria-labelledby="hc-activity"><div className="hc-section-title"><div><span className="hc-eyebrow">Every little addition</span><h2 id="hc-activity">Recent activity</h2></div></div>
-        {activity.length ? <ul className="hc-ledger">{activity.map(entry => <li key={entry.id}><div><p>{entry.description}</p><time dateTime={entry.created_at}>{date(entry.created_at)}</time></div><strong className={Number(entry.points) > 0 ? "is-earned" : ""}>{Number(entry.points) > 0 ? "+" : ""}{Number(entry.points).toLocaleString()}<span>points</span></strong></li>)}</ul> : <p className="hc-empty">Your points history will appear here after an eligible delivery, review, or reward exchange.</p>}
+        {activity.length ? <ul className="hc-ledger">{visibleActivity.map(entry => <li key={entry.id}><div><p>{entry.description}</p><time dateTime={entry.created_at}>{date(entry.created_at)}</time></div><strong className={Number(entry.points) > 0 ? "is-earned" : ""}>{Number(entry.points) > 0 ? "+" : ""}{Number(entry.points).toLocaleString()}<span>points</span></strong></li>)}</ul> : <p className="hc-empty">Your points history will appear here after an eligible delivery, review, or reward exchange.</p>}
+        {activityPages > 1 && <nav className="hc-pagination" aria-label="Recent activity pages">
+          <button disabled={currentActivityPage === 0} onClick={() => setActivityPage(currentActivityPage - 1)}>Previous</button>
+          <span role="status" aria-live="polite">Page {currentActivityPage + 1} of {activityPages}</span>
+          <button disabled={currentActivityPage === activityPages - 1} onClick={() => setActivityPage(currentActivityPage + 1)}>Next</button>
+        </nav>}
       </section>
       <aside className="hc-details"><h2>Good to know</h2><p>Eligible delivered orders earn points. Premium and Elite multipliers apply based on your eligible spend before the order is delivered. Cancelled or refunded orders can reverse earned points.</p><p>Points and rewards follow your account across devices. Your reward’s expiry date and order minimum are shown in your wallet.</p></aside>
       <button className="hc-shop" onClick={shop}>Find your next piece <span aria-hidden="true">→</span></button>

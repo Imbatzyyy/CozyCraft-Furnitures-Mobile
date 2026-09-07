@@ -89,6 +89,10 @@
 .hc-ledger strong { font-size: calc(16px * var(--hc-reading)); text-align: right; }
 .hc-ledger strong span { display: block; font-size: calc(10px * var(--hc-reading)); font-weight: 400; color: var(--hc-muted); }
 .hc-ledger .is-earned { color: #4a653c; }
+.hc-pagination { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-top:16px; }
+.hc-pagination button { min-height:44px; padding:9px 13px; border:1px solid #c8beac; border-radius:8px; background:#fffdf8; color:#302d27; }
+.hc-pagination button:disabled { color:#777269; background:#eeeae2; }
+.hc-pagination > span { font-size:calc(12px * var(--hc-reading)); }
 .hc-details { margin-top: 28px; padding: 22px; background: #efece3; border-radius: 12px; }
 .hc-details p { margin-top: 12px; color: var(--hc-muted); font-size: calc(12px * var(--hc-reading)); }
 .hc-shop { display: flex; justify-content: space-between; align-items: center; gap: 15px; width: 100%; margin-top: 24px; padding: 17px 20px; min-height: 54px; border: 0; border-radius: 10px; background: #302d27; color: #faf6ed; text-align: left; }
