@@ -1,7 +1,7 @@
 import React, { useState } from "react"
 import SearchDiscoveries from "../src/components/SearchDiscoveries"
 import { createRoot } from "react-dom/client"
-import { Account, CheckoutPage, ProductDetail, ProfilePage, NotificationsPage } from "../src/Storefront"
+import { Account, CheckoutPage, ProductDetail, ProfilePage, NotificationsPage, MobileCareChat } from "../src/Storefront"
 import { readMobileTextSize, saveMobileTextSize } from "../src/lib/mobile-text-size"
 import CustomerSecurityGate from "../src/features/auth/CustomerSecurityGate"
 import PaymentEmailVerificationDialog from "../src/features/checkout/PaymentEmailVerificationDialog"
@@ -185,9 +185,15 @@ function DiscoveryFixture() {
   return <div className="lux-shell"><div className="lux-phone"><div className="search-overlay"><SearchDiscoveries products={[{name:"LYCKSELE LÖVÅS"},{name:"NÄMMARÖ"},{name:"EKOLSUND reclining armchair"},{name:"VIMLE"}]} select={setQuery}/><output aria-label="Selected query">{query}</output></div></div></div>
 }
 
+function CareFixture() {
+  const [open,setOpen] = useState(true)
+  const [destination,setDestination] = useState("")
+  return <div className="lux-shell"><div className="lux-phone"><MobileCareChat open={open} userId="fixture" online={!params.has("offline")} accountDataReady products={[]} profileName="Alex" savedProductIds={[]} bag={[]} orders={[]} notifications={[]} loyalty={null} openProduct={() => {}} openDestination={value => setDestination(String(value))} onOpenChange={setOpen}/><output aria-label="Chat state">{open ? "open" : "closed"} {destination}</output></div></div>
+}
+
 createRoot(document.getElementById("root")!).render(<React.StrictMode>
   <DialogAccessibility />
-  {params.has("discoveries") ? <DiscoveryFixture /> : params.has("membership") ? <HomeCircleFixture /> : params.has("motion") ? <CozyLaunchScreen animated /> : params.has("account") || params.has("product") || params.has("notifications") ? <DesignFixture /> : params.has("google-onboarding")
+  {params.has("care") ? <CareFixture /> : params.has("discoveries") ? <DiscoveryFixture /> : params.has("membership") ? <HomeCircleFixture /> : params.has("motion") ? <CozyLaunchScreen animated /> : params.has("account") || params.has("product") || params.has("notifications") ? <DesignFixture /> : params.has("google-onboarding")
     ? <GoogleOnboardingFixture />
     : params.has("checkout")
       ? <CheckoutFixture />

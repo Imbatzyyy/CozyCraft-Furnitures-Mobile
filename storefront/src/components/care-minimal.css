@@ -1,0 +1,38 @@
+.mobile-ai-chat.care-minimal { grid-template-rows:auto minmax(0,1fr) auto; background:#f8f6f1; }
+.mobile-ai-chat.care-minimal > header { background:#f8f6f1; box-shadow:none; backdrop-filter:none; -webkit-backdrop-filter:none; gap:12px; }
+.mobile-ai-chat.care-minimal > header > button { background:transparent; box-shadow:none; border-color:#dcd7cc; }
+.mobile-ai-chat.care-minimal > header > button svg { width:23px; height:23px; }
+.mobile-ai-chat.care-minimal .ai-care-brand b { font:400 calc(20px * var(--cozy-layout-font-scale,1.08))/1.25 "DM Serif Display",serif; white-space:normal; }
+.mobile-ai-chat.care-minimal .ai-care-brand small { margin-top:3px; font-size:calc(11px * var(--cozy-reading-font-scale,1.15)); line-height:1.4; white-space:normal; }
+.mobile-ai-chat.care-minimal > main { padding:24px clamp(16px,4vw,28px); }
+.care-minimal .care-intro { padding:clamp(16px,5vh,48px) 0 24px; text-align:center; }
+.care-minimal .care-monogram { display:grid; place-items:center; width:52px; height:52px; margin:0 auto 22px; border:1px solid #b7aa8f; border-radius:18px; color:#68604d; font:30px/1 "DM Serif Display",serif; background:#eeeadf; }
+.care-minimal .care-intro h2 { margin:0; font:400 calc(34px * var(--cozy-layout-font-scale,1.08))/1.12 "DM Serif Display",serif; letter-spacing:-.035em; color:#302e27; }
+.care-minimal .care-intro h2 em { color:#797159; }
+.care-minimal .care-intro p { margin:16px auto 0; max-width:28ch; color:#6e695f; font-size:calc(14px * var(--cozy-reading-font-scale,1.15)); line-height:1.6; }
+.mobile-ai-chat.care-minimal .ai-quick-prompts { margin:0 auto 24px; max-width:520px; }
+.mobile-ai-chat.care-minimal .ai-quick-prompts > div { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.mobile-ai-chat.care-minimal .ai-quick-prompts button { display:flex; justify-content:space-between; align-items:center; min-height:52px; padding:12px 14px; gap:10px; background:#fffdf9; border:1px solid #d9d3c6; border-radius:12px; box-shadow:none; }
+.mobile-ai-chat.care-minimal .ai-quick-prompts button b { min-width:0; font-size:calc(13px * var(--cozy-reading-font-scale,1.15)); font-weight:500; line-height:1.45; overflow-wrap:anywhere; }
+.mobile-ai-chat.care-minimal .ai-quick-prompts button > span { background:none; width:auto; height:auto; color:#77725f; flex:0 0 auto; }
+.mobile-ai-chat.care-minimal .ai-conversation.is-new { display:none; }
+.mobile-ai-chat.care-minimal .ai-message-list { gap:20px; }
+.mobile-ai-chat.care-minimal .ai-message-list > article { box-shadow:none; padding:16px; border-radius:16px; }
+.mobile-ai-chat.care-minimal .ai-message-list > article.assistant { background:#fffdf9; border:1px solid #e3ddd1; }
+.mobile-ai-chat.care-minimal .ai-message-list > article.user { background:#333a2f; }
+.mobile-ai-chat.care-minimal .ai-message-list > article > header > span { display:none; }
+.mobile-ai-chat.care-minimal .ai-message-list :is(p,li), .mobile-ai-chat.care-minimal .ai-navigation-action { font-size:calc(14px * var(--cozy-reading-font-scale,1.15)); line-height:1.65; overflow-wrap:anywhere; }
+.mobile-ai-chat.care-minimal .ai-message-list header :is(small,time) { font-size:calc(10px * var(--cozy-reading-font-scale,1.15)); }
+.mobile-ai-chat.care-minimal > form { padding-bottom:max(12px,env(safe-area-inset-bottom)); background:#f8f6f1; box-shadow:none; backdrop-filter:none; -webkit-backdrop-filter:none; }
+.mobile-ai-chat.care-minimal .ai-composer { border-radius:18px; box-shadow:none; }
+.mobile-ai-chat.care-minimal > form textarea { font:400 calc(16px * var(--cozy-reading-font-scale,1.15))/1.5 "DM Sans",sans-serif; }
+.mobile-ai-chat.care-minimal > form > p { font-size:calc(10px * var(--cozy-reading-font-scale,1.15)); color:#797469; }
+.mobile-ai-chat.care-minimal .ai-feedback { padding:12px; box-shadow:none; background:transparent; border:0; }
+.mobile-ai-chat.care-minimal .ai-feedback :is(b,button) { font-size:calc(12px * var(--cozy-reading-font-scale,1.15)); line-height:1.5; }
+@media(max-width:359px) {
+  .mobile-ai-chat.care-minimal .ai-quick-prompts > div { grid-template-columns:minmax(0,1fr); }
+  .care-minimal .care-monogram { display:none; }
+  .care-minimal .care-intro { padding:12px 0 18px; }
+  .care-minimal .care-intro h2 { font-size:calc(30px * var(--cozy-layout-font-scale,1.08)); }
+}
+@media(max-height:550px) { .care-minimal .care-intro { padding:8px 0 16px; } .care-minimal .care-monogram { display:none; } }

@@ -3,6 +3,7 @@ import ReviewPhotoViewer from "./components/ReviewPhotoViewer"
 import CozyLoader from "./components/CozyLoader"
 import MembershipPage from "./components/HomeCirclePage"
 import SearchDiscoveries from "./components/SearchDiscoveries"
+import "./components/care-minimal.css"
 import ProfileHomeCircle from "./components/ProfileHomeCircle"
 import { homeCircleTier } from "./lib/home-circle"
 import CozyLaunchScreen from "./components/CozyLaunchScreen"
@@ -2894,7 +2895,7 @@ function AssistantReply({ content, navigation, liveAccountData, navigate }: {
   </div>
 }
 
-function MobileCareChat({
+export function MobileCareChat({
   open,
   userId,
   online,
@@ -2974,7 +2975,7 @@ function MobileCareChat({
     }
   }, [])
   useEffect(() => {
-    if (!open) return
+    if (!open || messages.length <= 1) return
     const frame = window.requestAnimationFrame(() => endRef.current?.scrollIntoView({
       behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
       block: "end",
@@ -3137,35 +3138,28 @@ function MobileCareChat({
     return () => window.clearTimeout(timer)
   }, [feedback])
   return <>
-    {open && <section className="mobile-ai-chat" role="dialog" aria-modal="true" aria-label="CozyCraft customer care chat">
+    {open && <section className="mobile-ai-chat care-minimal" role="dialog" aria-modal="true" aria-label="CozyCraft customer care chat">
       <header>
-        <button onClick={() => setOpen(false)} aria-label="Minimize CozyCraft Care"><span className="material-symbols-rounded">keyboard_arrow_down</span></button>
-        <div className="ai-care-brand"><span aria-hidden="true">C</span><p><b>CozyCraft Care</b><small><i/>Online · Shopping and order support</small></p></div>
+        <button onClick={() => setOpen(false)} aria-label="Back from CozyCraft Care"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="m11 5-7 7 7 7M4 12h16"/></svg></button>
+        <div className="ai-care-brand"><p><b>CozyCraft Care</b><small>{!online ? "Offline" : userId && !accountDataReady ? "Connecting your account…" : "Your shopping assistant"}</small></p></div>
         <button onClick={resetConversation} aria-label="Start a new conversation"><span className="material-symbols-rounded">edit_square</span></button>
       </header>
       <main>
-        {isNewConversation && <section className="ai-welcome"><p className="hello">PERSONAL SHOPPING & CARE</p><h2>Thoughtful help,<br/><em>right when you need it.</em></h2><span>{userId ? "Explore the live collection or ask Care to check one part of your account when you need it." : "Explore the live collection, compare pieces, and get clear shopping or delivery guidance."}</span></section>}
-        {isNewConversation && userId && <section className="ai-account-context-note" aria-label="Signed-in account data protection">
-          <span className="material-symbols-rounded" aria-hidden="true">shield_lock</span>
-          <p><b>Connected to your CozyCraft account</b><small>Care checks only the account section you ask about.</small></p>
-          <i className={accountDataReady && online ? "ready" : "syncing"}>{!online ? "OFFLINE" : accountDataReady ? "LIVE" : "SYNCING"}</i>
-        </section>}
-        {isNewConversation && <section className="ai-quick-prompts" aria-label="Popular ways CozyCraft Care can help"><p className="hello">HOW CAN WE HELP?</p><div>{quickPrompts.map((prompt) => <button type="button" key={prompt.label} disabled={sending} onClick={() => void send(prompt.label)}><span className="material-symbols-rounded" aria-hidden="true">{prompt.icon}</span><b>{prompt.label}</b><i className="material-symbols-rounded" aria-hidden="true">arrow_forward</i></button>)}</div></section>}
+        {isNewConversation && <section className="care-intro"><span className="care-monogram" aria-hidden="true">C</span><h2>A little help<br/><em>for your home.</em></h2><p>Ask about a piece, delivery, or your order.</p></section>}
+        {isNewConversation && <section className="ai-quick-prompts" aria-label="Start a conversation"><div>{quickPrompts.slice(0, 2).map((prompt, index) => <button type="button" key={prompt.label} disabled={sending} onClick={() => void send(prompt.label)}><b>{userId ? index === 0 ? "My latest order" : "My wishlist" : index === 0 ? "Find a piece" : "Small-room ideas"}</b><span aria-hidden="true">↗</span></button>)}</div></section>}
         <section className={`ai-conversation ${isNewConversation ? "is-new" : ""}`} aria-label="Conversation">
-          {!isNewConversation && <p className="hello ai-conversation-label">YOUR CONVERSATION</p>}
-          <div className="ai-message-list" aria-live="polite">{messages.map((message) => <article className={message.role} key={message.id}><header>{message.role === "assistant" && <span aria-hidden="true">C</span>}<small>{message.role === "assistant" ? "CozyCraft Care" : "You"}</small><time>{new Date(message.createdAt).toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" })}</time></header>{message.role === "assistant" ? <AssistantReply content={message.content} liveAccountData={message.liveAccountData} navigation={messages.at(-1)?.id === message.id && message.id === latestAssistant?.id ? message.navigation : undefined} navigate={(destination) => { setOpen(false); openDestination(destination) }}/> : <p>{message.content}</p>}</article>)}{sending && <article className="assistant typing"><header><span aria-hidden="true">C</span><small>CozyCraft Care</small></header><p aria-label="CozyCraft Care is replying"><i/><i/><i/></p></article>}</div>
+          <div className="ai-message-list" aria-live="polite">{messages.slice(1).map((message) => <article className={message.role} key={message.id}><header>{message.role === "assistant" && <span aria-hidden="true">C</span>}<small>{message.role === "assistant" ? "CozyCraft Care" : "You"}</small><time>{new Date(message.createdAt).toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" })}</time></header>{message.role === "assistant" ? <AssistantReply content={message.content} liveAccountData={message.liveAccountData} navigation={messages.at(-1)?.id === message.id && message.id === latestAssistant?.id ? message.navigation : undefined} navigate={(destination) => { setOpen(false); openDestination(destination) }}/> : <p>{message.content}</p>}</article>)}{sending && <article className="assistant typing"><header><span aria-hidden="true">C</span><small>CozyCraft Care</small></header><p aria-label="CozyCraft Care is replying"><i/><i/><i/></p></article>}</div>
         </section>
         {recommended.length > 0 && <section className="ai-product-rail"><p className="hello">PIECES MENTIONED</p><div>{recommended.map((product) => <button key={product.id} onClick={() => { setOpen(false); openProduct(product) }}><img src={product.image} alt=""/><span><b>{product.name}</b><small>{product.price}</small></span><i>→</i></button>)}</div></section>}
         {feedbackEligible && <section className={`ai-feedback ${feedback}`} aria-live="polite">
-          {feedback === "pending" && <><div><small>ONE QUICK CHECK</small><b>Was this answer helpful?</b></div><nav aria-label="Rate this CozyCraft Care answer"><button type="button" onClick={() => rateAssistant(true)}><span className="material-symbols-rounded" aria-hidden="true">thumb_up</span>Yes</button><button type="button" onClick={() => rateAssistant(false)}><span className="material-symbols-rounded" aria-hidden="true">thumb_down</span>Not really</button></nav></>}
+          {feedback === "pending" && <><div><b>Was this answer helpful?</b></div><nav aria-label="Rate this CozyCraft Care answer"><button type="button" onClick={() => rateAssistant(true)}><span className="material-symbols-rounded" aria-hidden="true">thumb_up</span>Yes</button><button type="button" onClick={() => rateAssistant(false)}><span className="material-symbols-rounded" aria-hidden="true">thumb_down</span>Not really</button></nav></>}
           {feedback === "helpful" && <p><span className="material-symbols-rounded" aria-hidden="true">check_circle</span><b>Thank you for letting us know.</b></p>}
           {feedback === "not-helpful" && <><div><small>LET’S MAKE IT CLEARER</small><b>What would help next?</b></div><nav><button type="button" onClick={() => { setFeedback("closed"); void send("Please explain your last answer more simply and give me clear steps.") }}><span className="material-symbols-rounded" aria-hidden="true">format_list_numbered</span>Clear steps</button><button type="button" onClick={resetConversation}><span className="material-symbols-rounded" aria-hidden="true">refresh</span>Start fresh</button></nav></>}
         </section>}
         {error && <p className="ai-error" role="alert">{error}<button onClick={() => void send(messages.filter((message) => message.role === "user").at(-1)?.content || "")}>Retry</button></p>}
         <div ref={endRef}/>
       </main>
-      <form onSubmit={(event) => { event.preventDefault(); void send() }}><div className="ai-composer"><textarea ref={draftRef} rows={1} value={draft} disabled={sending} aria-label="Message CozyCraft Care" onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void send() } }} onFocus={(event) => { const field = event.currentTarget; window.setTimeout(() => field.scrollIntoView({ block: "nearest" }), 180) }} placeholder="Message CozyCraft Care" maxLength={2000}/><button disabled={!draft.trim() || sending} aria-label={sending ? "Sending message" : "Send message"}><span className="material-symbols-rounded">arrow_upward</span></button></div><p>Automated replies may be imperfect. Confirm important payment and order details.</p></form>
-      <footer>Secure CozyCraft customer care</footer>
+      <form onSubmit={(event) => { event.preventDefault(); void send() }}><div className="ai-composer"><textarea ref={draftRef} rows={1} value={draft} disabled={sending} aria-label="Message CozyCraft Care" onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void send() } }} onFocus={(event) => { const field = event.currentTarget; window.setTimeout(() => field.scrollIntoView({ block: "nearest" }), 180) }} placeholder="Message CozyCraft Care" maxLength={2000}/><button disabled={!draft.trim() || sending} aria-label={sending ? "Sending message" : "Send message"}><span className="material-symbols-rounded">arrow_upward</span></button></div><p>AI assistant · Check important details.</p></form>
     </section>}
   </>
 }

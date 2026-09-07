@@ -1,0 +1,35 @@
+import assert from 'node:assert/strict'
+const {chromium,webkit}=await import(process.env.PLAYWRIGHT_MODULE||'playwright')
+let checks=0
+for(const [engine,platform] of [[chromium,'android'],[webkit,'ios']]) {
+ const browser=await engine.launch({headless:true,...(platform==='android'?{channel:'chrome'}:{})})
+ for(const [width,height] of [[320,640],[390,844],[768,1024],[844,390]]) for(const text of ['standard','comfortable','large','extra-large']) {
+  const page=await browser.newPage({viewport:{width,height}})
+  await page.goto(`http://127.0.0.1:5187/?care&platform=${platform}&text=${text}`)
+  const chat=page.locator('.care-minimal');await chat.waitFor()
+  assert.ok(await chat.evaluate(el=>el.scrollWidth<=el.clientWidth+1))
+  assert.equal(await page.locator('.ai-quick-prompts button').count(),2)
+  assert.equal(await page.locator('.ai-message-list article:visible').count(),0)
+  assert.ok(await page.locator('.ai-composer').evaluate(el=>{const r=el.getBoundingClientRect();return r.bottom<=innerHeight+1&&r.top>=0}))
+  if(platform==='ios'&&width===390&&text==='comfortable') await page.screenshot({path:'/tmp/cozy-care-welcome.png'})
+  if(platform==='ios'&&width===320&&text==='extra-large') await page.screenshot({path:'/tmp/cozy-care-large.png'})
+  await page.getByRole('button',{name:'My latest order'}).click()
+  await page.locator('.ai-message-list article.assistant:not(.typing)').waitFor()
+  assert.equal(await page.locator('.ai-quick-prompts').count(),0)
+  assert.ok((await page.locator('.ai-message-list article.assistant').textContent()).length>20)
+  await page.getByRole('button',{name:'Start a new conversation'}).click()
+  await page.getByRole('textbox',{name:'Message CozyCraft Care'}).fill('Where can I see support?')
+  await page.getByRole('button',{name:'Send message',exact:true}).click()
+  await page.locator('.ai-navigation-action').waitFor()
+  if(platform==='ios'&&width===390&&text==='comfortable') await page.screenshot({path:'/tmp/cozy-care-conversation.png'})
+  await page.locator('.ai-navigation-action').click()
+  assert.ok((await page.locator('output').textContent()).startsWith('closed'))
+  await page.goto(`http://127.0.0.1:5187/?care&offline&platform=${platform}&text=${text}`)
+  await page.getByText('Offline',{exact:true}).waitFor()
+  await page.getByRole('button',{name:'Back from CozyCraft Care'}).click()
+  assert.ok((await page.locator('output').textContent()).startsWith('closed'))
+  checks++; await page.close()
+ }
+ await browser.close()
+}
+console.log(`PASS ${checks} chat layouts: welcome, order answer, reset, guidance navigation, offline status and back.`)

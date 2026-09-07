@@ -35,6 +35,11 @@ const signedInContext: MobileAssistantAccountContext = {
 }
 
 describe("mobile assistant reply formatting", () => {
+  it("recognizes natural requests to see support", () => {
+    for (const question of ["Where can I see support?", "How do I access support?", "Where do I find support?"]) {
+      expect(mobileAssistantGuidanceFor(question, true)?.navigation?.destination).toBe("support")
+    }
+  })
   it("separates numbered directions from the surrounding answer", () => {
     expect(formatMobileAssistantReply(
       "You can check it in the app. 1. Open Account. 2. Tap My Orders. Your latest status appears there.",
