@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import ReviewPhotoViewer from "./components/ReviewPhotoViewer"
 import PriceRange, { PRICE_LIMIT } from "./components/PriceRange"
+import useVisibleInterval from "./components/useVisibleInterval"
+import { readImageAnalysis, saveImageAnalysis } from "./lib/image-analysis-cache"
 import RequestOrderInvoice from "./components/RequestOrderInvoice"
 import RecipientNameFields from "./components/RecipientNameFields"
 import CozyLoader from "./components/CozyLoader"
@@ -769,10 +771,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
     window.parent.postMessage({ type: "cozycraft-request-push-permission" }, "*")
   }
 
-  useEffect(() => {
-    const timer = window.setInterval(() => setCurrentDate(new Date()), 60_000)
-    return () => window.clearInterval(timer)
-  }, [])
+  useVisibleInterval(() => setCurrentDate(new Date()), 60_000, true)
   useEffect(() => {
     let active = true
     const refreshBanners = () => void loadMobileHomepageBanners(true)
@@ -787,7 +786,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
     const channel = supabase.channel("mobile-home-content")
       .on("postgres_changes", { event: "*", schema: "public", table: "homepage_banners" }, refreshBanners)
       .subscribe()
-    const timer = window.setInterval(refreshBanners, 15 * 60 * 1000)
+    const timer = window.setInterval(() => { if (!document.hidden && navigator.onLine) refreshBanners() }, 15 * 60 * 1000)
     return () => {
       active = false
       window.clearInterval(timer)
@@ -886,14 +885,9 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
     })()
     return () => { active = false }
   }, [online, resourceRevision])
-  useEffect(() => {
-    if (tab !== "home") return
-    const timer = window.setInterval(
-      () => setHeroIndex((current) => (current + 1) % heroShowcases.length),
-      5_800,
-    )
-    return () => window.clearInterval(timer)
-  }, [heroShowcases.length, tab])
+  useVisibleInterval(() => {
+    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) setHeroIndex((current) => (current + 1) % heroShowcases.length)
+  }, tab === "home" && heroShowcases.length > 1 ? 5_800 : null)
   useEffect(() => {
     if (heroIndex >= heroShowcases.length) setHeroIndex(0)
   }, [heroIndex, heroShowcases.length])
@@ -2275,7 +2269,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
                     key={category.id}
                     onClick={() => setCategoryOpen(category)}
                   >
-                    <img src={category.image} alt="" />
+                    <img src={category.image} alt="" loading="lazy" decoding="async" />
                     <span>
                       {category.title}
                       <small>{category.note}</small>
@@ -3203,7 +3197,8 @@ function Card({
   addLabel?: string
   addBusy?: boolean
 }) {
-  const [isolatedImage, setIsolatedImage] = useState(false)
+  const [isolatedImage, setIsolatedImage] = useState(() => readImageAnalysis(p.image) ?? false)
+  useEffect(() => { setIsolatedImage(readImageAnalysis(p.image) ?? false) }, [p.image])
   return (
     <article className="lux-card">
       <div className="card-image">
@@ -3221,6 +3216,9 @@ function Card({
             className={isolatedImage ? "is-isolated-product" : ""}
             onLoad={(event) => {
               const image = event.currentTarget
+              const source = image.getAttribute("src") || image.src
+              const cached = readImageAnalysis(source)
+              if (cached !== undefined) { setIsolatedImage(cached); return }
               try {
                 const sample = document.createElement("canvas")
                 sample.width = 24
@@ -3249,9 +3247,13 @@ function Card({
                   )
                   if (distance < 34) backgroundLike += 1
                 }
-                setIsolatedImage(backgroundLike / 576 > .42)
+                const isolated = backgroundLike / 576 > .42
+                saveImageAnalysis(source, isolated)
+                setIsolatedImage(isolated)
               } catch {
                 // Cross-origin product images keep the standard, distortion-free crop.
+                saveImageAnalysis(source, false)
+                setIsolatedImage(false)
               }
             }}
           />
@@ -4335,7 +4337,7 @@ export function Account({
                     <div className="order-detail-products">
                     {selectedOrder.items.map((line) => (
                       <article className={selectedOrder.status === "Delivered" ? "reviewable" : ""} key={`${line.orderItemId || line.product.id}`}>
-                        <img src={line.product.image} alt=""/>
+                        <img src={line.product.image} alt="" loading="lazy" decoding="async"/>
                         <div>
                           <b>{line.product.name}</b>
                           <small>Quantity {line.quantity}</small>
@@ -5046,7 +5048,7 @@ export function ProductDetail({
                 </div>
                 <p>{review.body}</p>
                 {Array.isArray(review.image_urls) && review.image_urls.length > 0 && <div className="review-card-photos" aria-label="Customer review photos">{review.image_urls.map((imageUrl, index) => (
-                  <button type="button" onClick={() => setReviewPhoto({ photos: review.image_urls, index, description: `${p.name} in ${review.reviewer_display_name || "a customer"}'s home` })} key={`${review.id}-${index}`} aria-label={`Open review photo ${index + 1}`}><img src={imageUrl} alt={`${p.name} in ${review.reviewer_display_name || "a customer"}'s home, photo ${index + 1}`} loading="lazy"/></button>
+                  <button type="button" onClick={() => setReviewPhoto({ photos: review.image_urls, index, description: `${p.name} in ${review.reviewer_display_name || "a customer"}'s home` })} key={`${review.id}-${index}`} aria-label={`Open review photo ${index + 1}`}><img src={imageUrl} alt={`${p.name} in ${review.reviewer_display_name || "a customer"}'s home, photo ${index + 1}`} loading="lazy" decoding="async"/></button>
                 ))}</div>}
               </article>
             ))}
@@ -5708,7 +5710,7 @@ export function CheckoutPage({
             <div className="checkout-items">
               {lines.map((line) => (
                 <article key={line.product.id}>
-                  <img src={line.product.image} alt="" />
+                  <img src={line.product.image} alt="" loading="lazy" decoding="async" />
                   <div>
                     <b>{line.product.name}</b>
                     <small>

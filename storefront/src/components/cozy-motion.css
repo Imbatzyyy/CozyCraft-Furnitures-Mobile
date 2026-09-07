@@ -72,6 +72,13 @@ html[data-cozy-motion="economy"] { --cozy-motion-duration: 100ms; }
 /* Keep the defining outline/backrest motion even on economy devices. */
 html[data-cozy-motion="economy"] :is(.cozy-loader__body,.cozy-loader__shadow) { animation: none; }
 html[data-cozy-motion="economy"] .cozy-launch-screen::after { display: none; }
+/* Keep the same layout and contrast, but avoid live blur on scrolling surfaces. */
+html[data-cozy-motion="economy"] :is(.lux-nav,.lux-topbar,.mobile-ai-chat > form,.cozy-scroll-back,.care-launcher) {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+html[data-cozy-motion="economy"] .lux-nav { background: #f5f2ed; }
+html[data-cozy-motion="economy"] .mobile-ai-chat > form { background: #f8f5f0; }
 html[data-cozy-motion="paused"] *, html[data-cozy-motion="paused"] *::before, html[data-cozy-motion="paused"] *::after { animation-play-state: paused !important; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }

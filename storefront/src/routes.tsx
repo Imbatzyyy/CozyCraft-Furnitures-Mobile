@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from "react"
+import useVisibleInterval from "./components/useVisibleInterval"
 import DocumentSections from "./components/DocumentSections"
 import CozyLaunchScreen from "./components/CozyLaunchScreen"
 import SofaLaunchSequence from "./components/SofaLaunchSequence"
@@ -443,11 +444,10 @@ function Welcome() {
       const image = new Image()
       image.src = source
     })
-    const timer = window.setInterval(() => {
-      setWelcomeSlide((current) => (current + 1) % welcomeShowcases.length)
-    }, 5000)
-    return () => window.clearInterval(timer)
   }, [])
+  useVisibleInterval(() => {
+    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) setWelcomeSlide((current) => (current + 1) % welcomeShowcases.length)
+  }, 5000)
   const moveWelcome = (direction: number) => {
     setWelcomeSlide((current) => (current + direction + welcomeShowcases.length) % welcomeShowcases.length)
   }

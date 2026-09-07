@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+import useVisibleInterval from "./useVisibleInterval"
 import { HOME_CIRCLE_REWARDS, HOME_CIRCLE_TIERS, homeCircleTier, rewardState } from "../lib/home-circle"
 import type { MobileRedemption } from "../lib/mobile-data"
 import "./home-circle.css"
@@ -24,7 +25,7 @@ export default function HomeCirclePage({ points, tier, lifetimeSpend, orderCount
   const currentActivityPage = Math.min(activityPage, activityPages - 1)
   const visibleActivity = activity.slice(currentActivityPage * 5, currentActivityPage * 5 + 5)
   useEffect(() => { setActivityPage(0) }, [activity[0]?.id])
-  useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 30_000); return () => clearInterval(timer) }, [])
+  useVisibleInterval(() => setNow(Date.now()), 30_000, true)
   const current = homeCircleTier(tier)
   const index = HOME_CIRCLE_TIERS.indexOf(current)
   const next = HOME_CIRCLE_TIERS[index + 1]
