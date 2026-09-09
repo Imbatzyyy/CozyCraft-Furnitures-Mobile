@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
+import CozyCompanion from "../../components/CozyCompanion"
 import type { MobileGoogleOnboardingStatus } from "./google-customer-onboarding"
 
 export function customerInitials(value: string) {
@@ -194,7 +195,7 @@ export default function GoogleCustomerOnboarding({
         </form>
       ) : voucher ? (
         <div className="google-onboarding-card voucher-step">
-          <div className="welcome-voucher-mark" aria-hidden="true">✦</div>
+          <CozyCompanion pose="welcome" compact />
           <p className="google-onboarding-eyebrow">A WELCOME FOR YOUR HOME</p>
           <h1 id="google-onboarding-title">Your first reward <em>has arrived.</em></h1>
           <p className="google-onboarding-lead">

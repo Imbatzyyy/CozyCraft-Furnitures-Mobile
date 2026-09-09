@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import ReviewPhotoViewer from "./components/ReviewPhotoViewer"
 import PriceRange, { PRICE_LIMIT } from "./components/PriceRange"
 import useVisibleInterval from "./components/useVisibleInterval"
+import CozyCompanion from "./components/CozyCompanion"
 import { readImageAnalysis, saveImageAnalysis } from "./lib/image-analysis-cache"
 import RequestOrderInvoice from "./components/RequestOrderInvoice"
 import RecipientNameFields from "./components/RecipientNameFields"
@@ -9,7 +10,6 @@ import CozyLoader from "./components/CozyLoader"
 import MembershipPage from "./components/HomeCirclePage"
 import SearchDiscoveries from "./components/SearchDiscoveries"
 import "./components/care-minimal.css"
-import careLogo from "./assets/cozycraft-care-logo.png"
 import ProfileHomeCircle from "./components/ProfileHomeCircle"
 import { homeCircleTier } from "./lib/home-circle"
 import CozyLaunchScreen from "./components/CozyLaunchScreen"
@@ -3152,7 +3152,7 @@ export function MobileCareChat({
         <button onClick={resetConversation} aria-label="Start a new conversation"><span className="material-symbols-rounded">edit_square</span></button>
       </header>
       <main>
-        {isNewConversation && <section className="care-intro"><span className="care-logo-frame"><img src={careLogo} alt="CozyCraft Care" width="160" height="160"/></span><h2>A little help<br/><em>for your home.</em></h2><p>Ask about a piece, delivery, or your order.</p></section>}
+        {isNewConversation && <section className="care-intro"><CozyCompanion pose="wave" compact /><h2>A little help<br/><em>for your home.</em></h2><p>Ask about a piece, delivery, or your order.</p></section>}
         {isNewConversation && <section className="ai-quick-prompts" aria-label="Start a conversation"><div>{quickPrompts.slice(0, 2).map((prompt, index) => <button type="button" key={prompt.label} disabled={sending} onClick={() => void send(prompt.label)}><b>{userId ? index === 0 ? "My latest order" : "My wishlist" : index === 0 ? "Find a piece" : "Small-room ideas"}</b><span aria-hidden="true">↗</span></button>)}</div></section>}
         <section className={`ai-conversation ${isNewConversation ? "is-new" : ""}`} aria-label="Conversation">
           <div className="ai-message-list" aria-live="polite">{messages.slice(1).map((message) => <article className={message.role} key={message.id}><header>{message.role === "assistant" && <span aria-hidden="true">C</span>}<small>{message.role === "assistant" ? "CozyCraft Care" : "You"}</small><time>{new Date(message.createdAt).toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" })}</time></header>{message.role === "assistant" ? <AssistantReply content={message.content} liveAccountData={message.liveAccountData} navigation={messages.at(-1)?.id === message.id && message.id === latestAssistant?.id ? message.navigation : undefined} navigate={(destination) => { setOpen(false); openDestination(destination) }}/> : <p>{message.content}</p>}</article>)}{sending && <article className="assistant typing"><header><span aria-hidden="true">C</span><small>CozyCraft Care</small></header><p aria-label="CozyCraft Care is replying"><i/><i/><i/></p></article>}</div>
@@ -3382,7 +3382,7 @@ function Collection({
         </>
       ) : (
         <div className="saved-empty">
-          <span>{icon}</span>
+          <CozyCompanion pose="heart" />
           <h2>
             Your edit is
             <br />
@@ -3634,6 +3634,7 @@ function Bag({
         </>
       ) : (
         <div className="bag-empty premium-empty">
+          <CozyCompanion pose="pillow" />
           <p>
             Your bag is ready
             <br />
@@ -4505,7 +4506,7 @@ export function Account({
                       </form>
                     </section>
                   )}
-                  {reviewSuccess && <section className="order-review-success" role="dialog" aria-modal="true" aria-label="Review published successfully"><div><span className="review-success-icon material-symbols-rounded" aria-hidden="true">verified</span><p className="hello">REVIEW PUBLISHED</p><h3>Thank you for sharing.</h3><p>Your {reviewSuccess.rating}-star review of <b>{reviewSuccess.productName}</b> is now visible on the product page.</p><aside><span className="material-symbols-rounded" aria-hidden="true">check_circle</span><div><b>Published instantly</b><small>This delivered product now shows your verified review.</small></div></aside><button type="button" onClick={() => setReviewSuccess(null)}>Return to order <span className="material-symbols-rounded" aria-hidden="true">arrow_forward</span></button></div></section>}
+                  {reviewSuccess && <section className="order-review-success" role="dialog" aria-modal="true" aria-label="Review published successfully"><div><CozyCompanion pose="thumbs-up" compact /><p className="hello">REVIEW PUBLISHED</p><h3>Thank you for sharing.</h3><p>Your {reviewSuccess.rating}-star review of <b>{reviewSuccess.productName}</b> is now visible on the product page.</p><aside><span className="material-symbols-rounded" aria-hidden="true">check_circle</span><div><b>Published instantly</b><small>This delivered product now shows your verified review.</small></div></aside><button type="button" onClick={() => setReviewSuccess(null)}>Return to order <span className="material-symbols-rounded" aria-hidden="true">arrow_forward</span></button></div></section>}
                   {returnOrderOpen && <section className="order-return-dialog" role="dialog" aria-modal="true" aria-label="Request a return"><form onSubmit={(event) => { event.preventDefault(); void submitReturn() }}><header><span className="material-symbols-rounded" aria-hidden="true">assignment_return</span><div><p className="hello">RETURN REQUEST</p><h3>Let’s make this right.</h3><small>For delivered order #{selectedOrder.id}</small></div><button type="button" aria-label="Close return request" onClick={() => setReturnOrderOpen(false)}>×</button></header><label><span>Reason</span><select value={returnReason} disabled={returnSubmitting} onChange={(event) => setReturnReason(event.target.value)}><option>Changed my mind</option><option>Damaged on arrival</option><option>Wrong item delivered</option><option>Missing parts</option><option>Quality concern</option><option>Other</option></select></label><label><span>Tell us what happened <small>Minimum 10 characters</small></span><textarea rows={5} minLength={10} maxLength={1000} value={returnDetails} disabled={returnSubmitting} onChange={(event) => setReturnDetails(event.target.value)} placeholder="Describe the condition and how CozyCraft Care can help."/><small>{returnDetails.trim().length} / 1000</small></label><label className="return-photo-picker"><span className="material-symbols-rounded" aria-hidden="true">add_photo_alternate</span><span><b>Add evidence photos</b><small>Optional · up to 2 JPG, PNG, or WebP images</small></span><em>{returnEvidence.length}/2</em><input type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={returnSubmitting || returnEvidence.length >= 2} onChange={(event) => { const input = event.currentTarget; const files = Array.from(input.files || []).slice(0, Math.max(0, 2 - returnEvidence.length)); const staging = files.map((file) => stageReviewImage(file)); void Promise.all(staging).then((ready) => { setReturnEvidence((current) => [...current, ...ready].slice(0, 2)); setReturnMessage("") }).catch((error) => setReturnMessage(error instanceof Error ? error.message : "A photo could not be read.")).finally(() => { input.value = "" }) }}/></label>{returnEvidence.length > 0 && <div className="return-photo-list">{returnEvidence.map((file, index) => <button type="button" key={`${file.name}-${index}`} onClick={() => setReturnEvidence((current) => current.filter((_, itemIndex) => itemIndex !== index))}><span className="material-symbols-rounded" aria-hidden="true">image</span>{file.name}<b>×</b></button>)}</div>}{returnMessage && <p className="return-message" role="status">{returnMessage}</p>}<footer><button type="button" disabled={returnSubmitting} onClick={() => setReturnOrderOpen(false)}>Not now</button><button type="submit" disabled={returnSubmitting || returnDetails.trim().length < 10}>{returnSubmitting ? "Sending request…" : "Submit return request"}</button></footer></form></section>}
                   {returnSuccess && <section className="order-return-success" role="dialog" aria-modal="true" aria-label="Return request submitted"><div><span className="material-symbols-rounded" aria-hidden="true">task_alt</span><p className="hello">REQUEST RECEIVED</p><h3>We’re on it.</h3><p>Return <b>{returnSuccess.return_number}</b> is pending review. Every status and care-team note will update here automatically.</p><button type="button" onClick={() => setReturnSuccess(null)}>Return to order <span aria-hidden="true">→</span></button></div></section>}
                   {cancelOrderOpen && <section className="order-cancel-dialog" role="dialog" aria-modal="true" aria-label="Request order cancellation"><div><span className="cancel-dialog-icon material-symbols-rounded" aria-hidden="true">pending_actions</span><p className="hello">CANCELLATION REQUEST</p><h3>Tell us why you’re cancelling.</h3><p>Your order stays active while our care team reviews the request. If approved, paid Card or GCash orders continue through the secure refund workflow.</p><label><span>Reason for cancellation</span><textarea rows={4} value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} placeholder="Share a clear reason (minimum 5 characters)" minLength={5} maxLength={500}/><small>{cancelReason.trim().length} / 500</small></label><button disabled={cancelReason.trim().length < 5 || cancellingOrder} onClick={() => void cancelSelectedOrder()}>{cancellingOrder ? <><i/>Sending request…</> : <>Submit request <span className="material-symbols-rounded" aria-hidden="true">arrow_forward</span></>}</button><button className="text-button" disabled={cancellingOrder} onClick={() => setCancelOrderOpen(false)}>Keep my order</button></div></section>}
@@ -6627,9 +6628,7 @@ export function NotificationsPage({ close, items, userId, refresh }: {
         ))}
         {!visibleItems.length && (
           <section className="notification-empty">
-            <span className="material-symbols-rounded">
-              notifications_active
-            </span>
+            {!notice && <CozyCompanion pose="sleep" />}
             <h2>You’re all caught up.</h2>
             <p>New delivery updates and saved-piece alerts will appear here.</p>
           </section>

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import useVisibleInterval from "./useVisibleInterval"
+import CozyCompanion from "./CozyCompanion"
 import { HOME_CIRCLE_REWARDS, HOME_CIRCLE_TIERS, homeCircleTier, rewardState } from "../lib/home-circle"
 import type { MobileRedemption } from "../lib/mobile-data"
 import "./home-circle.css"
@@ -18,6 +19,14 @@ export default function HomeCirclePage({ points, tier, lifetimeSpend, orderCount
   const [busy, setBusy] = useState(false)
   const pending = useRef(false)
   const [notice, setNotice] = useState("")
+  const [milestone, setMilestone] = useState("")
+  const previousTier = useRef<number | null>(null)
+  useEffect(() => {
+    if (!ready || loadError) return
+    const rank = HOME_CIRCLE_TIERS.indexOf(homeCircleTier(tier))
+    if (previousTier.current !== null && rank > previousTier.current) setMilestone(`Welcome to ${homeCircleTier(tier).name}.`)
+    previousTier.current = rank
+  }, [tier, ready, loadError])
   const [error, setError] = useState("")
   const [history, setHistory] = useState(false)
   const [activityPage, setActivityPage] = useState(0)
@@ -74,7 +83,8 @@ export default function HomeCirclePage({ points, tier, lifetimeSpend, orderCount
           <span><strong>{amount(reward.value)}</strong><span>shopping reward</span></span><span className="hc-exchange-action"><b>{reward.cost} points</b><span>{!ready ? "Updating…" : points < reward.cost ? `${reward.cost - points} more to go` : "Choose reward →"}</span></span>
         </button>)}</div>
         {chosen && <div className="hc-confirm" aria-label="Confirm reward exchange"><h3>{amount(chosen.value)} for your home</h3><p>Exchange {chosen.cost} points for a reward valid for 30 days. Your remaining balance will be {Math.max(0, points - chosen.cost).toLocaleString()} points.</p><div><button disabled={busy || points < chosen.cost || !ready} onClick={() => void confirm()}>{busy ? "Creating reward…" : `Confirm · ${chosen.cost} points`}</button><button disabled={busy} onClick={() => setSelected(null)}>Cancel</button></div></div>}
-        {error && <p className="hc-feedback" role="alert">{error}</p>}{notice && <p className="hc-success" role="status">{notice}</p>}
+        {error && <p className="hc-feedback" role="alert">{error}</p>}
+        {(notice || milestone) && <div className="hc-companion-moment"><CozyCompanion pose="celebrate" compact /><p className="hc-success" role="status">{notice || milestone}</p><button className="hc-text-button" onClick={() => { setNotice(""); setMilestone("") }}>Dismiss celebration</button></div>}
         <p className="hc-note">Points rewards last 30 days. The discount you can apply is shown before you place your order.</p>
       </section>
       <section className="hc-section" aria-labelledby="hc-journey"><div className="hc-section-title"><div><span className="hc-eyebrow">Room to grow</span><h2 id="hc-journey">Your Home Circle journey</h2></div></div>

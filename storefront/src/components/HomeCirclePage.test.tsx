@@ -6,6 +6,17 @@ import { homeCircleTier, rewardState } from "../lib/home-circle"
 afterEach(cleanup)
 const props = { points: 650, tier: "member", lifetimeSpend: 1000, orderCount: 1, activity: [], redemptions: [], close: vi.fn(), shop: vi.fn(), redeem: vi.fn(async () => {}) }
 describe("Home Circle", () => {
+  it("celebrates only a confirmed upward tier change, not initial loading or reopening", () => {
+    const { rerender } = render(<HomeCirclePage {...props} tier="plus" />)
+    expect(screen.queryByRole("img", { name: /companion/ })).toBeNull()
+    rerender(<HomeCirclePage {...props} tier="premium" ready={false} />)
+    expect(screen.queryByRole("img", { name: /companion/ })).toBeNull()
+    rerender(<HomeCirclePage {...props} tier="premium" ready />)
+    expect(screen.getByRole("img", { name: /celebrating/ })).toBeTruthy()
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss celebration" }))
+    rerender(<HomeCirclePage {...props} tier="premium" />)
+    expect(screen.queryByRole("img", { name: /companion/ })).toBeNull()
+  })
   it("paginates five activities and clamps the page when records disappear", () => {
     const activity = Array.from({ length: 12 }, (_, i) => ({ id: String(i), description: `Activity ${i}`, points: 10, created_at: "2026-09-01" }))
     const { rerender } = render(<HomeCirclePage {...props} activity={activity}/>)
