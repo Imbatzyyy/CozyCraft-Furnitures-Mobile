@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
-import { describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+import { clearGoogleOnboardingDraft } from "./google-onboarding-draft"
 import GoogleCustomerOnboarding, { customerInitials } from "./GoogleCustomerOnboarding"
 import type { MobileGoogleOnboardingStatus } from "./google-customer-onboarding"
 
@@ -27,6 +28,28 @@ const voucherStatus: MobileGoogleOnboardingStatus = {
 }
 
 describe("first-time Google customer onboarding", () => {
+  beforeEach(() => clearGoogleOnboardingDraft())
+  it("preserves edited names and Step 2 across an ancestor remount", async () => {
+    const complete = vi.fn().mockResolvedValue(undefined)
+    const props = { status: usernameStatus, displayName: "Prince Balane", complete, dismissVoucher: vi.fn(), startShopping: vi.fn() }
+    let view = render(<GoogleCustomerOnboarding {...props} />)
+    fireEvent.change(screen.getByLabelText("First name"), { target: { value: "Prince Alex" } })
+    view.unmount()
+    view = render(<GoogleCustomerOnboarding {...props} />)
+    expect((screen.getByLabelText("First name") as HTMLInputElement).value).toBe("Prince Alex")
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }))
+    fireEvent.change(screen.getByLabelText("Username"), { target: { value: "prince.home" } })
+    view.unmount()
+    view = render(<GoogleCustomerOnboarding {...props} />)
+    expect(screen.getByText("STEP 2 OF 2")).toBeTruthy()
+    expect((screen.getByLabelText("Username") as HTMLInputElement).value).toBe("prince.home")
+    fireEvent.click(screen.getByRole("button", { name: /Continue to CozyCraft/ }))
+    await waitFor(() => expect(complete).toHaveBeenCalledWith("prince.home", { firstName: "Prince Alex", lastName: "Balane" }))
+    view.unmount()
+    render(<GoogleCustomerOnboarding {...props} status={{ ...usernameStatus, userId: "another-customer" }} displayName="Another Customer" />)
+    expect((screen.getByLabelText("First name") as HTMLInputElement).value).toBe("Another")
+    expect(screen.getByText("STEP 1 OF 2")).toBeTruthy()
+  })
   it("recovers voucher actions after failure and reopening", async () => {
     const dismissVoucher = vi.fn().mockRejectedValueOnce(new Error("Please retry")) .mockResolvedValue(undefined)
     const props = { displayName: "Joy Rivera", complete: vi.fn(), dismissVoucher, startShopping: vi.fn() }

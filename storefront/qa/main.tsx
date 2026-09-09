@@ -1,4 +1,4 @@
-import React, { useState } from "react"
+import React, { useEffect, useState } from "react"
 import WelcomeTour from "../src/components/WelcomeTour"
 import CustomerWelcomeFlow from "../src/features/auth/CustomerWelcomeFlow"
 import { MemoryRouter } from "react-router"
@@ -134,6 +134,12 @@ function CheckoutFixture() {
 }
 
 function GoogleOnboardingFixture() {
+  const [mountKey, setMountKey] = useState(0)
+  useEffect(() => {
+    const remount = () => setMountKey((value) => value + 1)
+    window.addEventListener("qa-onboarding-remount", remount)
+    return () => window.removeEventListener("qa-onboarding-remount", remount)
+  }, [])
   const Welcome = params.has("welcome-flow") ? CustomerWelcomeFlow : GoogleCustomerOnboarding
   const voucherStep = params.get("google-onboarding") === "voucher"
   const [status, setStatus] = useState<MobileGoogleOnboardingStatus>({
@@ -153,6 +159,7 @@ function GoogleOnboardingFixture() {
   return <div className="lux-shell"><div className="lux-phone payment-qa-background">
     <main><small>COZYCRAFT HOME</small><h1>A considered home,<br/><em>made personal.</em></h1></main>
     <Welcome
+      key={mountKey}
       userId={status.userId}
       blocked={false}
       status={status}

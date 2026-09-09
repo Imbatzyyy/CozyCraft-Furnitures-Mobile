@@ -15,11 +15,17 @@ export default function CustomerWelcomeFlow({ userId, status, blocked, displayNa
   startShopping: () => Promise<void>
 }) {
   const [tourPending, setTourPending] = useState<boolean | null>(null)
-  const needsSetup = Boolean(status?.needsUsername)
+  // A same-account refresh may temporarily have no snapshot. Keep the mounted
+  // form (including its focus and in-flight submit lock) until a real status
+  // arrives. A different identity never inherits the previous surface.
+  const [snapshot, setSnapshot] = useState(status)
+  if (status?.userId === userId && status !== snapshot) setSnapshot(status)
+  const currentStatus = status?.userId === userId ? status : snapshot?.userId === userId ? snapshot : null
+  const needsSetup = Boolean(currentStatus?.needsUsername)
   const awaitingTour = tourPending !== false
-  const visibleStatus = status ? { ...status, showVoucher: status.showVoucher && !needsSetup && !awaitingTour && !blocked } : null
+  const visibleStatus = currentStatus ? { ...currentStatus, showVoucher: currentStatus.showVoucher && !needsSetup && !awaitingTour && !blocked } : null
   return <>
-    <WelcomeTour userId={userId} newGoogleAccount={Boolean(status?.needsUsername || status?.showVoucher)} blocked={blocked || needsSetup} onResolved={setTourPending} />
-    {visibleStatus && <GoogleCustomerOnboarding status={visibleStatus} displayName={displayName} complete={complete} dismissVoucher={dismissVoucher} startShopping={startShopping} />}
+    <WelcomeTour userId={userId} newGoogleAccount={Boolean(currentStatus?.needsUsername || currentStatus?.showVoucher)} blocked={blocked || needsSetup} onResolved={setTourPending} />
+    {visibleStatus && <GoogleCustomerOnboarding key={userId} status={visibleStatus} displayName={displayName} complete={complete} dismissVoucher={dismissVoucher} startShopping={startShopping} />}
   </>
 }

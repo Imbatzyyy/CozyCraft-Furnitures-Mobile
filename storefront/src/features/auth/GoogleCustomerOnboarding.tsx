@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import CozyCompanion from "../../components/CozyCompanion"
 import type { MobileGoogleOnboardingStatus } from "./google-customer-onboarding"
+import { clearGoogleOnboardingDraft, readGoogleOnboardingDraft, saveGoogleOnboardingDraft } from "./google-onboarding-draft"
 
 export function customerInitials(value: string) {
   const initials = value
@@ -14,25 +15,32 @@ export function customerInitials(value: string) {
   return initials || "C"
 }
 
-export default function GoogleCustomerOnboarding({
-  status,
-  displayName,
-  complete,
-  dismissVoucher,
-  startShopping,
-}: {
+type OnboardingProps = {
   status: MobileGoogleOnboardingStatus
   displayName: string
   complete: (username: string, name?: { firstName: string; lastName: string }) => Promise<void>
   dismissVoucher: () => Promise<void>
   startShopping: () => Promise<void>
-}) {
-  const [username, setUsername] = useState("")
+}
+
+export default function GoogleCustomerOnboarding(props: OnboardingProps) {
+  return <GoogleOnboardingForm key={props.status.userId} {...props} />
+}
+
+function GoogleOnboardingForm({
+  status,
+  displayName,
+  complete,
+  dismissVoucher,
+  startShopping,
+}: OnboardingProps) {
+  const [initial] = useState(() => readGoogleOnboardingDraft(status.userId, displayName, status.username))
+  const [username, setUsername] = useState(initial.username)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
-  const [nameConfirmed, setNameConfirmed] = useState(false)
-  const [firstName, setFirstName] = useState(displayName.trim().split(/\s+/)[0] || "")
-  const [lastName, setLastName] = useState(displayName.trim().split(/\s+/).slice(1).join(" "))
+  const [nameConfirmed, setNameConfirmed] = useState(initial.nameConfirmed)
+  const [firstName, setFirstName] = useState(initial.firstName)
+  const [lastName, setLastName] = useState(initial.lastName)
   const input = useRef<HTMLInputElement>(null)
   const submitting = useRef(false)
   const dialog = useRef<HTMLElement>(null)
@@ -42,12 +50,9 @@ export default function GoogleCustomerOnboarding({
   const modalOpen = status.needsUsername || Boolean(voucher)
 
   useEffect(() => {
-    setUsername(status.username)
-    setBusy(false)
-    setError("")
-    setNameConfirmed(false)
-    submitting.current = false
-  }, [status.userId])
+    if (status.needsUsername) saveGoogleOnboardingDraft({ userId: status.userId, username, firstName, lastName, nameConfirmed })
+    else clearGoogleOnboardingDraft(status.userId)
+  }, [status.userId, status.needsUsername, username, firstName, lastName, nameConfirmed])
 
   useEffect(() => {
     // A successfully dismissed voucher can be reopened after a retry/replay.
@@ -152,6 +157,7 @@ export default function GoogleCustomerOnboarding({
     setError("")
     try {
       await complete(normalized, { firstName: firstName.trim(), lastName: lastName.trim() })
+      clearGoogleOnboardingDraft(status.userId)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Your username could not be saved. Please try again.")
     } finally {

@@ -119,6 +119,7 @@ import { usePhoneVerification } from "./features/profile/usePhoneVerification"
 import { normalizePhilippineMobile, type VerifiedPhone } from "./features/profile/phone-verification"
 import PaymentEmailVerificationDialog from "./features/checkout/PaymentEmailVerificationDialog"
 import CustomerWelcomeFlow from "./features/auth/CustomerWelcomeFlow"
+import { retainGoogleOnboardingDraftFor } from "./features/auth/google-onboarding-draft"
 import {
   acknowledgeMobileWelcomeVoucher,
   completeMobileGoogleOnboarding,
@@ -1258,7 +1259,8 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
     let activeAuthUserId = mobileCustomerCacheOwner()
     let hydration: { userId: string; promise: Promise<void> } | null = null
 
-    const clearAccountState = (email = "") => {
+    const clearAccountState = (email = "", nextIdentity = "") => {
+      retainGoogleOnboardingDraftFor(nextIdentity)
       setAccountSnapshotUserId("")
       setSaved([])
       setBag([])
@@ -1436,7 +1438,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
         activeAuthUserId = nextUserId
         clearMobileCustomerCache()
         rememberMobileCustomerCacheOwner(nextUserId)
-        clearAccountState(session.user.email || "")
+        clearAccountState(session.user.email || "", nextUserId)
       } else {
         rememberMobileCustomerCacheOwner(nextUserId)
       }

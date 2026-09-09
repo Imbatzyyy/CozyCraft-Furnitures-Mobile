@@ -15,6 +15,27 @@ function fixture(fail = false) {
   return { id, status, dismissVoucher, complete: vi.fn(), startShopping: vi.fn() }
 }
 describe("Google signup welcome sequence", () => {
+  it("does not unmount or reset setup during temporary missing account snapshots", async () => {
+    const f = fixture()
+    const props = { ...f, userId: f.id, blocked: false, displayName: "Prince Balane" }
+    const status = { ...f.status, needsUsername: true, username: "", showVoucher: false }
+    const view = render(<CustomerWelcomeFlow {...props} status={status} />)
+    fireEvent.change(screen.getByLabelText("First name"), { target: { value: "Prince Alex" } })
+    const first = screen.getByLabelText("First name")
+    view.rerender(<CustomerWelcomeFlow {...props} status={null} blocked />)
+    expect(screen.getByLabelText("First name")).toBe(first)
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }))
+    const username = screen.getByLabelText("Username")
+    fireEvent.change(username, { target: { value: "prince.home" } })
+    for (let i = 0; i < 5; i++) {
+      view.rerender(<CustomerWelcomeFlow {...props} status={{ ...status }} />)
+      view.rerender(<CustomerWelcomeFlow {...props} status={null} blocked />)
+      expect(screen.getByLabelText("Username")).toBe(username)
+      expect(screen.getByText("STEP 2 OF 2")).toBeTruthy()
+    }
+    fireEvent.click(screen.getByRole("button", { name: /Continue to CozyCraft/ }))
+    await waitFor(() => expect(f.complete).toHaveBeenCalledWith("prince.home", { firstName: "Prince Alex", lastName: "Balane" }))
+  })
   it("keeps a replay exclusive when a voucher is waiting and preferences refresh", async () => {
     const f = fixture()
     render(<CustomerWelcomeFlow userId={f.id} {...f} blocked={false} displayName="Alex Rivera" />)
