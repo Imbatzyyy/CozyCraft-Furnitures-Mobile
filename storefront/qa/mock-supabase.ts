@@ -23,6 +23,7 @@ const fixtureAddress = {
 
 export const createClient = () => ({
   auth: {
+    updateUser: async () => ({ error: null }),
     signUp: async () => ({ data: { user: { ...user, identities: [{ id: "fixture" }] }, session: null }, error: null }),
     resend: async () => ({ error: null }),
     getSession: async () => ({ data: { session: { user, access_token: "local-fixture" } }, error: null }),

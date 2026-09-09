@@ -1,8 +1,12 @@
 import { useState } from "react"
 import "./cozy-companion.css"
 
-export type CompanionPose = "wave" | "heart" | "pillow" | "welcome" | "thumbs-up" | "celebrate" | "sleep" | "signup-name" | "signup-username" | "signup-email" | "signup-security" | "signup-verify"
+export type CompanionPose = "wave" | "heart" | "pillow" | "welcome" | "thumbs-up" | "celebrate" | "sleep" | "signup-name" | "signup-username" | "signup-email" | "signup-security" | "signup-verify" | "tour-guide" | "tour-bag" | "tour-account" | "tour-voucher"
 const descriptions: Record<CompanionPose, string> = {
+  "tour-guide": "CozyCraft companion showing you around",
+  "tour-bag": "CozyCraft companion holding your shopping bag",
+  "tour-account": "CozyCraft companion holding an account card",
+  "tour-voucher": "CozyCraft companion presenting your welcome voucher",
   wave: "CozyCraft companion waving", heart: "CozyCraft companion holding a heart",
   pillow: "CozyCraft companion hugging a pillow", welcome: "CozyCraft companion welcoming you",
   "thumbs-up": "CozyCraft companion giving a thumbs-up", celebrate: "CozyCraft companion celebrating",

@@ -119,6 +119,7 @@ import { usePhoneVerification } from "./features/profile/usePhoneVerification"
 import { normalizePhilippineMobile, type VerifiedPhone } from "./features/profile/phone-verification"
 import PaymentEmailVerificationDialog from "./features/checkout/PaymentEmailVerificationDialog"
 import GoogleCustomerOnboarding from "./features/auth/GoogleCustomerOnboarding"
+import WelcomeTour from "./components/WelcomeTour"
 import {
   acknowledgeMobileWelcomeVoucher,
   completeMobileGoogleOnboarding,
@@ -2053,6 +2054,8 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
     && tab !== "account"
 
   const completeGoogleUsername = async (username: string, name?: { firstName: string; lastName: string }) => {
+    const { error: tourError } = await supabase.auth.updateUser({ data: { cozy_tour_pending_v1: true } })
+    if (tourError) throw new Error("We couldn’t prepare your welcome. Please try again.")
     if (name) {
       const { error } = await supabase.from("profiles").update({ full_name: `${name.firstName.trim()} ${name.lastName.trim()}`.trim() }).eq("id", userId).select("id").single()
       if (error) throw new Error("Your name could not be saved. Please try again.")
@@ -2087,6 +2090,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
 
   return (
     <main className={`lux-shell${launchHandoff ? " lux-shell--handoff" : ""}`}>
+      <WelcomeTour key={userId} userId={userId} newGoogleAccount={Boolean(visibleGoogleOnboarding?.needsUsername || visibleGoogleOnboarding?.showVoucher)} blocked={catalogLoading || Boolean(visibleGoogleOnboarding?.needsUsername || visibleGoogleOnboarding?.showVoucher) || checkoutOpen || paymentReturning || Boolean(placedOrder) || search || chatOpen || Boolean(detail) || compareOpen || categoryOpen !== null || profileOpen || notificationsOpen || membershipOpen} />
       <section className="lux-phone" ref={pullRefresh.ref}>
         <PullToRefreshIndicator
           pullDistance={pullRefresh.pullDistance}
@@ -4112,6 +4116,7 @@ export function Account({
       </section>
       {textSizePreference}
       <nav className="account-resource-links" aria-label="CozyCraft information">
+        <button type="button" onClick={() => window.dispatchEvent(new Event("cozycraft-replay-tour"))}>Take the app tour</button>
         <button type="button" onClick={() => openContentDocument("about")}>About</button>
         <button type="button" onClick={() => openContentDocument("contact")}>Contact</button>
         <button type="button" onClick={() => openContentDocument("terms")}>Terms</button>

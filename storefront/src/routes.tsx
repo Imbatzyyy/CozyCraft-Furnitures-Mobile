@@ -916,6 +916,7 @@ export function CreateAccount() {
         data: {
           full_name: `${first.trim()} ${last.trim()}`.trim(),
           first_name: first.trim(),
+          cozy_tour_pending_v1: true,
           last_name: last.trim(),
           username: username.trim(),
         },

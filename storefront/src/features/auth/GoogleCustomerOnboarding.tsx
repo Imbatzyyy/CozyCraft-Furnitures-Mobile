@@ -209,7 +209,7 @@ export default function GoogleCustomerOnboarding({
         </form>
       ) : voucher ? (
         <div className="google-onboarding-card voucher-step">
-          <CozyCompanion pose="welcome" compact />
+          <CozyCompanion pose="tour-voucher" compact />
           <p className="google-onboarding-eyebrow">A WELCOME FOR YOUR HOME</p>
           <h1 id="google-onboarding-title">Your first reward <em>has arrived.</em></h1>
           <p className="google-onboarding-lead">
