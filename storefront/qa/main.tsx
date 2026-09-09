@@ -1,5 +1,6 @@
 import React, { useState } from "react"
 import WelcomeTour from "../src/components/WelcomeTour"
+import CustomerWelcomeFlow from "../src/features/auth/CustomerWelcomeFlow"
 import { MemoryRouter } from "react-router"
 import { CreateAccount } from "../src/routes"
 import ReviewPhotoViewer from "../src/components/ReviewPhotoViewer"
@@ -133,6 +134,7 @@ function CheckoutFixture() {
 }
 
 function GoogleOnboardingFixture() {
+  const Welcome = params.has("welcome-flow") ? CustomerWelcomeFlow : GoogleCustomerOnboarding
   const voucherStep = params.get("google-onboarding") === "voucher"
   const [status, setStatus] = useState<MobileGoogleOnboardingStatus>({
     userId: "8150a7d9-8f0c-49fd-8816-35b18a399a6a",
@@ -150,7 +152,9 @@ function GoogleOnboardingFixture() {
   })
   return <div className="lux-shell"><div className="lux-phone payment-qa-background">
     <main><small>COZYCRAFT HOME</small><h1>A considered home,<br/><em>made personal.</em></h1></main>
-    <GoogleCustomerOnboarding
+    <Welcome
+      userId={status.userId}
+      blocked={false}
       status={status}
       displayName="Alex Rivera"
       complete={async (username) => setStatus((current) => ({

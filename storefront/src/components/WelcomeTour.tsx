@@ -14,7 +14,7 @@ const memoryDone = new Set<string>()
 function doneHere(id: string) {
   try { return memoryDone.has(id) || localStorage.getItem(`cozy-tour-v1:${id}`) === "done" } catch { return memoryDone.has(id) }
 }
-export default function WelcomeTour({ userId, blocked, newGoogleAccount = false }: { userId: string; blocked: boolean; newGoogleAccount?: boolean }) {
+export default function WelcomeTour({ userId, blocked, newGoogleAccount = false, onResolved }: { userId: string; blocked: boolean; newGoogleAccount?: boolean; onResolved?: (pending: boolean) => void }) {
   const [eligible, setEligible] = useState(false)
   const [step, setStep] = useState(-1)
   const [replay, setReplay] = useState(false)
@@ -22,20 +22,34 @@ export default function WelcomeTour({ userId, blocked, newGoogleAccount = false 
   const [retry, setRetry] = useState(0)
   const dialog = useRef<HTMLElement>(null)
   const finishRef = useRef<() => void>(() => {})
+  const resolvedRef = useRef(onResolved)
+  resolvedRef.current = onResolved
   const open = Boolean(userId) && (eligible || replay) && !blocked
   useEffect(() => {
     let active = true
-    setEligible(false); setReplay(false); setStep(-1)
+    // A refresh must not reset an in-progress tour or consume its handoff.
     if (!userId) return
-    void supabase.auth.getUser().then(({ data }) => {
-      if (!active || data.user?.id !== userId) return
+    void supabase.auth.getUser().then(({ data, error }) => {
+      if (!active) return
+      if (error || !data.user) throw new Error("Welcome preferences unavailable")
+      if (data.user.id !== userId) { resolvedRef.current?.(false); return }
       const metadata = data.user.user_metadata || {}
       if (doneHere(userId)) {
+        resolvedRef.current?.(false)
         if (metadata.cozy_tour_completed_v1 !== true) void supabase.auth.updateUser({ data: { cozy_tour_completed_v1: true, cozy_tour_pending_v1: false } }).catch(() => {})
         return
       }
-      setEligible(metadata.cozy_tour_completed_v1 !== true && (metadata.cozy_tour_pending_v1 === true || newGoogleAccount))
-    }).catch(() => { /* A failed eligibility check must not block shopping. */ })
+      const pending = metadata.cozy_tour_completed_v1 !== true && (metadata.cozy_tour_pending_v1 === true || newGoogleAccount)
+      setEligible(pending)
+      resolvedRef.current?.(pending)
+    }).catch(() => {
+      if (!active) return
+      // Verified onboarding status is sufficient to offer the tour even if
+      // the additional metadata request is temporarily unavailable.
+      const pending = newGoogleAccount && !doneHere(userId)
+      setEligible(pending)
+      resolvedRef.current?.(pending)
+    })
     return () => { active = false }
   }, [userId, newGoogleAccount, retry])
   useEffect(() => {
@@ -52,6 +66,7 @@ export default function WelcomeTour({ userId, blocked, newGoogleAccount = false 
     memoryDone.add(userId)
     try { localStorage.setItem(`cozy-tour-v1:${userId}`, "done") } catch { /* Session memory still prevents repeats. */ }
     setEligible(false); setReplay(false)
+    resolvedRef.current?.(false)
     // This is a UI preference, never an authorization or reward claim.
     void supabase.auth.getUser().then(async ({ data }) => {
       if (data.user?.id === userId) await supabase.auth.updateUser({ data: { cozy_tour_completed_v1: true, cozy_tour_pending_v1: false } })

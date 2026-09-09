@@ -74,7 +74,7 @@ export default function GoogleCustomerOnboarding({
         event.preventDefault()
         event.stopImmediatePropagation()
         if (!latest.current.status.needsUsername && !latest.current.busy) {
-          void latest.current.dismissVoucher()
+          void latest.current.dismissVoucher().catch(() => setError("Couldn’t save this yet. Please try again."))
         } else {
           focusDialog()
         }
@@ -100,7 +100,7 @@ export default function GoogleCustomerOnboarding({
       if (event.data?.type !== "cozycraft-native-back" || event.source !== window.parent) return
       event.stopImmediatePropagation()
       if (!latest.current.status.needsUsername && !latest.current.busy) {
-        void latest.current.dismissVoucher()
+        void latest.current.dismissVoucher().catch(() => setError("Couldn’t save this yet. Please try again."))
       } else {
         focusDialog()
       }

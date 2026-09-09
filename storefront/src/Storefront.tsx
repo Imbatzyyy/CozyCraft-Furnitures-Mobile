@@ -118,8 +118,7 @@ import PhoneVerificationField from "./features/profile/PhoneVerificationField"
 import { usePhoneVerification } from "./features/profile/usePhoneVerification"
 import { normalizePhilippineMobile, type VerifiedPhone } from "./features/profile/phone-verification"
 import PaymentEmailVerificationDialog from "./features/checkout/PaymentEmailVerificationDialog"
-import GoogleCustomerOnboarding from "./features/auth/GoogleCustomerOnboarding"
-import WelcomeTour from "./components/WelcomeTour"
+import CustomerWelcomeFlow from "./features/auth/CustomerWelcomeFlow"
 import {
   acknowledgeMobileWelcomeVoucher,
   completeMobileGoogleOnboarding,
@@ -2070,17 +2069,8 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
   }
 
   const dismissWelcomeVoucher = async () => {
-    setGoogleOnboarding((current) => current?.userId === userId
-      ? { ...current, showVoucher: false }
-      : current)
-    try {
       const next = await acknowledgeMobileWelcomeVoucher()
       if (next.userId === userId) setGoogleOnboarding(next)
-    } catch (error) {
-      // The reward itself is already stored. A failed acknowledgement only
-      // means the welcome card may be shown again after the next launch.
-      console.warn("Unable to acknowledge the welcome voucher", error)
-    }
   }
 
   // Keep the initial catalog request on the same launch surface as auth and
@@ -2090,7 +2080,6 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
 
   return (
     <main className={`lux-shell${launchHandoff ? " lux-shell--handoff" : ""}`}>
-      <WelcomeTour key={userId} userId={userId} newGoogleAccount={Boolean(visibleGoogleOnboarding?.needsUsername || visibleGoogleOnboarding?.showVoucher)} blocked={catalogLoading || Boolean(visibleGoogleOnboarding?.needsUsername || visibleGoogleOnboarding?.showVoucher) || checkoutOpen || paymentReturning || Boolean(placedOrder) || search || chatOpen || Boolean(detail) || compareOpen || categoryOpen !== null || profileOpen || notificationsOpen || membershipOpen} />
       <section className="lux-phone" ref={pullRefresh.ref}>
         <PullToRefreshIndicator
           pullDistance={pullRefresh.pullDistance}
@@ -2106,8 +2095,11 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
             </div>
           </aside>
         )}
-        {visibleGoogleOnboarding && (
-          <GoogleCustomerOnboarding
+        {userId && (
+          <CustomerWelcomeFlow
+            key={userId}
+            userId={userId}
+            blocked={catalogLoading || accountSnapshotUserId !== userId || checkoutOpen || paymentReturning || Boolean(placedOrder) || search || chatOpen || Boolean(detail) || compareOpen || categoryOpen !== null || profileOpen || notificationsOpen || membershipOpen}
             status={visibleGoogleOnboarding}
             displayName={`${profile.firstName} ${profile.lastName}`.trim() || profile.name}
             complete={completeGoogleUsername}
