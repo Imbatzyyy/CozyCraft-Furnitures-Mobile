@@ -1,9 +1,12 @@
 import type { User } from "@supabase/supabase-js"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
+const rpc = vi.hoisted(() => vi.fn())
+vi.mock("../../lib/supabase", () => ({ supabase: { rpc } }))
 import {
   emptyGoogleOnboardingStatus,
   isGoogleCustomer,
   parseGoogleOnboardingStatus,
+  loadMobileGoogleOnboarding,
 } from "./google-customer-onboarding"
 
 const user = (app_metadata: Record<string, unknown>) => ({
@@ -15,6 +18,19 @@ const user = (app_metadata: Record<string, unknown>) => ({
 } as User)
 
 describe("Google customer onboarding data", () => {
+  it("requests database welcome eligibility for email customers instead of returning empty status", async () => {
+    const customer = user({ provider: "email", providers: ["email"] })
+    rpc.mockResolvedValueOnce({ data: { userId: customer.id, isGoogle: false, showVoucher: true, voucher: { id: "issued", code: "WELCOME-TEST", discountAmount: 500, minimumOrderAmount: 5000, expiresAt: "2027-01-01" } }, error: null })
+    const result = await loadMobileGoogleOnboarding(customer)
+    expect(rpc).toHaveBeenCalledWith("get_mobile_customer_onboarding")
+    expect(result.showVoucher).toBe(true)
+    expect(result.needsUsername).toBe(false)
+    expect(result.isGoogle).toBe(false)
+  })
+  it("does not fabricate a reward or swallow a failed email welcome lookup", async () => {
+    rpc.mockResolvedValueOnce({ data: null, error: { message: "offline" } })
+    await expect(loadMobileGoogleOnboarding(user({ provider: "email" }))).rejects.toThrow("welcome reward")
+  })
   it("recognizes primary and linked Google identities", () => {
     expect(isGoogleCustomer(user({ provider: "google" }))).toBe(true)
     expect(isGoogleCustomer(user({ provider: "email", providers: ["email", "google"] }))).toBe(true)

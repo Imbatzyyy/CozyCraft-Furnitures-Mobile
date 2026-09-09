@@ -29,3 +29,31 @@ html.cozy-tour-open .lux-nav::after { backdrop-filter: none !important; -webkit-
 html.cozy-tour-open .lux-nav { background: #f5f1e8 !important; }
 html.cozy-tour-open .lux-nav button { transform: none !important; transition: none !important; text-shadow: none !important; }
 .tour-actions button:disabled { cursor: default; }
+.welcome-reward-retry {
+  position: fixed;
+  z-index: 1200;
+  left: 50%;
+  bottom: calc(110px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  width: min(420px, calc(100% - 32px));
+  box-sizing: border-box;
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid #dfdbd1;
+  border-radius: 20px;
+  background: #fbf9f4;
+  color: #292722;
+  font-size: calc(14px * var(--cozy-font-scale, 1));
+  line-height: 1.5;
+  box-shadow: 0 8px 28px #0002;
+}
+.welcome-reward-retry button {
+  min-height: 44px;
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 16px;
+  font: inherit;
+  background: #292722;
+  color: #fff;
+}

@@ -7,11 +7,14 @@ const id = "11111111-1111-4111-8111-111111111111"
 const jwt = [ { alg: "HS256", typ: "JWT" }, { sub: id, exp: Math.floor(Date.now()/1000)+3600, iat: Math.floor(Date.now()/1000), role: "authenticated", aal: "aal1", amr: [{ method: "oauth", timestamp: Math.floor(Date.now()/1000) }], session_id: "22222222-2222-4222-8222-222222222222" } ].map(v => Buffer.from(JSON.stringify(v)).toString("base64url")).join(".")+".test-signature"
 for (const engine of [chromium, webkit]) {
  for (const provider of ["google", "email"]) {
+  for (const journey of provider === "email" ? ["finish", "skip", "returning", "retry"] : ["finish", "skip"]) {
   const browser = await engine.launch(engine === chromium ? { channel: "chrome" } : {})
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, reducedMotion: "no-preference" })
   const user = { id, email: "qa@example.test", role: "authenticated", aud: "authenticated", created_at: new Date().toISOString(), app_metadata: { provider, providers: [provider] }, user_metadata: { full_name: "Prince Balane", cozy_tour_pending_v1: provider === "email" }, factors: [] }
+  if (journey === "returning") user.user_metadata.cozy_tour_completed_v1 = true
   const profile = { id, role: "customer", full_name: "Prince Balane", email: user.email, username: provider === "email" ? "prince.home" : "", avatar_url: "" }
-  const status = { userId: id, isGoogle: true, needsUsername: true, username: "", showVoucher: false, voucher: null }
+const welcomeVoucher = { id: "fixture-voucher", code: "WELCOME-QA", discountAmount: 500, minimumOrderAmount: 5000, expiresAt: "2027-01-01" }
+  const status = { userId: id, isGoogle: provider === "google", needsUsername: provider === "google", username: profile.username, showVoucher: provider === "email", voucher: provider === "email" ? welcomeVoucher : null }
   const counts = {}
   const errors = []
   await context.routeWebSocket(/supabase\.(co|in)/, ws => ws.close())
@@ -30,7 +33,12 @@ for (const engine of [chromium, webkit]) {
     else if (path === "/rest/v1/store_settings") {
       const settings = { id: true, account_settings: { username_required: true, google_auth_enabled: true, password_minimum_length: 10 }, checkout_settings: {}, fulfillment_settings: {} }
       data = req.headers().accept?.includes("object") ? settings : [settings]
-    } else if (path.endsWith("/get_mobile_google_onboarding")) data = status
+    } else if (path.endsWith("/get_mobile_google_onboarding") || path.endsWith("/get_mobile_customer_onboarding")) {
+      if (journey === "retry" && counts[path] <= 2) return route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({message:"Temporary welcome lookup failure"}) })
+      data = structuredClone(status)
+      // A stale status response arriving after dismissal cannot reopen it.
+      if (counts[path] > 1) await new Promise(r => setTimeout(r, 800))
+    }
     else if (path.endsWith("/complete_mobile_google_onboarding")) {
       await new Promise(r => setTimeout(r, 600))
       profile.username = req.postDataJSON().p_username
@@ -74,6 +82,7 @@ for (const engine of [chromium, webkit]) {
   assert.equal(await page.getByLabel("Username", { exact: true }).inputValue(), "prince.home")
   await page.getByRole("button", { name: /Continue to CozyCraft/ }).click()
   }
+  if (journey !== "returning") {
   await page.getByText("Welcome home.", { exact: true }).waitFor()
   await page.getByText("Show me around", { exact: false }).click()
   await page.getByText("Discover your cozy.", { exact: true }).waitFor()
@@ -84,24 +93,36 @@ for (const engine of [chromium, webkit]) {
   })
   assert.equal(await page.getByText("Discover your cozy.", { exact: true }).count(), 1)
   assert.equal(counts["/rest/v1/products"], productsBefore, "Auth metadata writes reloaded the catalog")
-  await page.getByText("Skip tour", { exact: true }).click()
-  if (provider === "google") {
+  if (journey === "finish") {
+    for (let n = 0; n < 3; n++) await page.getByRole("button", { name: /^Next/ }).click()
+    await page.getByRole("button", { name: /^Finish/ }).click()
+  } else await page.getByText("Skip tour", { exact: true }).click()
+  }
+  if (journey === "retry") await page.getByRole("button", { name: "Retry welcome reward" }).click()
   await page.getByText("WELCOME-QA", { exact: true }).waitFor()
   await page.waitForFunction(() => { const img = document.querySelector('.voucher-step img'); return img?.complete && img.naturalWidth > 0 })
-  await page.screenshot({ path: `/tmp/cozy-full-onboarding-${engine.name()}.png` })
+  await page.screenshot({ path: `/tmp/cozy-full-onboarding-${provider}-${journey}-${engine.name()}.png` })
   await page.getByText("Keep it for later", { exact: true }).click()
   await page.getByRole("dialog").waitFor({ state: "detached" })
   assert.equal(await page.locator("#root").evaluate(el => el.inert), false)
+  await page.waitForTimeout(1000)
+  assert.equal(await page.getByRole("dialog").count(), 0, "Late status reopened voucher")
+  assert.equal(counts["/rest/v1/rpc/acknowledge_mobile_welcome_voucher"], 1)
+  if (provider === "google") {
   assert.equal(profile.full_name, "Prince Alex Balane")
   assert.equal(profile.username, "prince.home")
   assert.equal(counts["/rest/v1/rpc/complete_mobile_google_onboarding"], 1)
   } else {
-    await page.getByRole("dialog").waitFor({ state: "detached" })
-    assert.equal(await page.locator("#root").evaluate(el => el.inert), false)
     assert.equal(counts["/rest/v1/rpc/complete_mobile_google_onboarding"], undefined)
   }
   assert.deepEqual(errors, [])
-  console.log(`${engine.name()}: FULL APP ${provider === "google" ? "Google setup → tutorial → voucher; one save" : "verified email signup → tutorial → interactive storefront"}; session refreshes preserved UI; no repeated catalog fetch PASS`)
+  await page.reload()
+  await page.locator(".lux-header").waitFor()
+  await page.waitForTimeout(1000)
+  assert.equal(await page.getByRole("dialog").count(), 0, "Completed onboarding repeated after reload")
+  assert.equal(await page.locator("#root").evaluate(el => el.inert), false)
+  console.log(`${engine.name()}: FULL APP ${provider} ${journey} → voucher → dismissal → reload; no duplicate save, stale reopening, or repeated onboarding PASS`)
   await browser.close()
+  }
  }
 }

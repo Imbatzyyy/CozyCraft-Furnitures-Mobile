@@ -2,6 +2,10 @@
 
 Scope: mobile app only (`storefront/` React application plus the Ionic/Capacitor shell). Covers manual signup, Google callback and profile setup, welcome tutorial, and existing voucher handoff. Included in the v1.0.72 release; see `docs/releases/1.0.72.md` for distribution and verification boundaries.
 
+## Follow-up: manual welcome reward in v1.0.73
+
+Physical-device feedback exposed a coverage gap in this audit: the manual/email path asserted tutorial completion but did not require a welcome voucher afterward. v1.0.72 still excluded manual customers at the status-loading, UI visibility and database issuance layers. v1.0.73 fixes those exclusions and adds full-app Finish/Skip, already-toured recovery, failed-lookup retry, dismissal and reload assertions for email accounts, plus transactional database eligibility/idempotency tests. See `docs/releases/1.0.73.md` and `supabase/tests/mobile-manual-welcome-voucher.sql`.
+
 ## Confirmed central cause: sibling component key collision
 
 `Storefront.tsx` gave `CustomerWelcomeFlow` and `MobileCareChat` the same key: the signed-in user ID. They are siblings under the same parent. React explicitly warned that the duplicate key could cause children to be duplicated or omitted. In the actual app tree, the Google name form was duplicated, creating two independently stateful onboarding portals.

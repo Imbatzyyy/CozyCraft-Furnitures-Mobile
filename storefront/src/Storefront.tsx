@@ -678,6 +678,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
   const [profile, setProfile] = useStoredState<MobileCustomerProfile>("cozycraft-profile", emptyMobileCustomerProfile())
   const [googleIdentityUserId, setGoogleIdentityUserId] = useState("")
   const [googleOnboarding, setGoogleOnboarding] = useState<MobileGoogleOnboardingStatus | null>(null)
+  const welcomeRequestRevision = useRef(0)
   const [search, setSearch] = useState(false)
   const [query, setQuery] = useState("")
   const [toast, setToast] = useState("")
@@ -2029,10 +2030,10 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
     scroller.scrollTo({ top: 0, behavior: "smooth" })
   }, [returnState, tab])
 
-  const visibleGoogleOnboarding = userId && googleIdentityUserId === userId
+  const visibleGoogleOnboarding = userId
     ? googleOnboarding?.userId === userId
       ? googleOnboarding
-      : accountSnapshotUserId === userId && !profile.username.trim()
+      : googleIdentityUserId === userId && accountSnapshotUserId === userId && !profile.username.trim()
         ? {
             ...emptyGoogleOnboardingStatus(userId),
             isGoogle: true,
@@ -2082,8 +2083,19 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
   }
 
   const dismissWelcomeVoucher = async () => {
+      ++welcomeRequestRevision.current
       const next = await acknowledgeMobileWelcomeVoucher()
-      if (next.userId === userId) setGoogleOnboarding(next)
+      if (next.userId === userId && identityRef.current === userId) setGoogleOnboarding(next)
+  }
+
+  const refreshWelcomeStatus = async () => {
+    const revision = ++welcomeRequestRevision.current
+    const { data, error } = await supabase.auth.getSession()
+    if (error || !data.session || data.session.user.id !== userId) throw new Error("Please sign in again to check your welcome reward.")
+    const next = await loadMobileGoogleOnboarding(data.session.user)
+    if (welcomeRequestRevision.current !== revision || identityRef.current !== userId || next.userId !== userId) return
+    setGoogleOnboarding((current) => mergeGoogleOnboarding(current, next))
+    void loadMobileRedemptions(userId).then((value) => { if (identityRef.current === userId) setLoyaltyRedemptions(value) }).catch(() => {})
   }
 
   // Keep the initial catalog request on the same launch surface as auth and
@@ -2117,6 +2129,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
             displayName={`${profile.firstName} ${profile.lastName}`.trim() || profile.name}
             complete={completeGoogleUsername}
             dismissVoucher={dismissWelcomeVoucher}
+            refreshStatus={refreshWelcomeStatus}
             startShopping={async () => {
               await dismissWelcomeVoucher()
               setProfileOpen(false)

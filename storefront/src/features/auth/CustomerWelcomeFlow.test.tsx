@@ -15,6 +15,43 @@ function fixture(fail = false) {
   return { id, status, dismissVoucher, complete: vi.fn(), startShopping: vi.fn() }
 }
 describe("Google signup welcome sequence", () => {
+  it.each(["Finish", "Skip"])("hands a manual email account from %s to one voucher with the sticker", async (action) => {
+    const f = fixture()
+    f.status.isGoogle = false
+    const refreshStatus = vi.fn().mockResolvedValue(undefined)
+    render(<CustomerWelcomeFlow userId={f.id} {...f} refreshStatus={refreshStatus} blocked={false} displayName="Mary Santos" />)
+    await screen.findByText("Welcome home.")
+    expect(screen.queryByText("A warm welcome.")).toBeNull()
+    expect(screen.queryByText("WELCOME-FIXTURE")).toBeNull()
+    if (action === "Skip") fireEvent.click(screen.getByText("Skip tour"))
+    else {
+      fireEvent.click(screen.getByText("Show me around"))
+      for (let i = 0; i < 3; i++) {
+        await waitFor(() => expect((screen.getByText("Next") as HTMLButtonElement).disabled).toBe(false))
+        fireEvent.click(screen.getByText("Next"))
+      }
+      await waitFor(() => expect((screen.getByText("Finish") as HTMLButtonElement).disabled).toBe(false))
+      fireEvent.click(screen.getByText("Finish"))
+    }
+    await screen.findByText("WELCOME-FIXTURE")
+    expect(screen.getAllByRole("dialog")).toHaveLength(1)
+    expect(screen.getByAltText("CozyCraft companion presenting your welcome voucher")).toBeTruthy()
+    expect(f.complete).not.toHaveBeenCalled()
+    expect(f.dismissVoucher).not.toHaveBeenCalled()
+    await waitFor(() => expect(refreshStatus).toHaveBeenCalledTimes(1))
+  })
+  it("retries a failed manual reward lookup after an already completed tutorial", async () => {
+    const f = fixture()
+    auth.getUser.mockResolvedValue({ data: { user: { id: f.id, user_metadata: { cozy_tour_completed_v1: true } } } })
+    const status = { ...f.status, isGoogle: false, showVoucher: false, voucher: null }
+    const refreshStatus = vi.fn().mockRejectedValueOnce(new Error("offline")).mockResolvedValue(undefined)
+    const view = render(<CustomerWelcomeFlow userId={f.id} {...f} status={status} refreshStatus={refreshStatus} blocked={false} displayName="Mary Santos" />)
+    fireEvent.click(await screen.findByText("Retry welcome reward"))
+    await waitFor(() => expect(refreshStatus).toHaveBeenCalledTimes(2))
+    view.rerender(<CustomerWelcomeFlow userId={f.id} {...f} status={{ ...f.status, isGoogle: false }} refreshStatus={refreshStatus} blocked={false} displayName="Mary Santos" />)
+    await screen.findByText("WELCOME-FIXTURE")
+    expect(screen.queryByText("Welcome home.")).toBeNull()
+  })
   it("does not unmount or reset setup during temporary missing account snapshots", async () => {
     const f = fixture()
     const props = { ...f, userId: f.id, blocked: false, displayName: "Prince Balane" }

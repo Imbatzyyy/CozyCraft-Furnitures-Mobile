@@ -88,9 +88,10 @@ function onboardingError(error: unknown, fallback: string) {
 }
 
 export async function loadMobileGoogleOnboarding(user: User) {
-  if (!isGoogleCustomer(user)) return emptyGoogleOnboardingStatus(user.id)
-  const { data, error } = await supabase.rpc("get_mobile_google_onboarding")
-  if (error) throw onboardingError(error, "We couldn’t prepare your Google account. Check your connection and try again.")
+  // The provider changes username setup, not eligibility to see a welcome
+  // reward. Issuance and one-time presentation remain database-controlled.
+  const { data, error } = await supabase.rpc("get_mobile_customer_onboarding")
+  if (error) throw onboardingError(error, "We couldn’t check your welcome reward. Check your connection and try again.")
   return parseGoogleOnboardingStatus(data, user.id)
 }
 
