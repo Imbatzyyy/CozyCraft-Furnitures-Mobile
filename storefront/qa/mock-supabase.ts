@@ -73,6 +73,13 @@ export const createClient = () => ({
   },
   channel: () => { const channel = { on: () => channel, subscribe: () => channel }; return channel },
   removeChannel() {},
+  rpc: async (name: string, args: { p_address?: Partial<typeof fixtureAddress>; p_primary_only?: boolean }) => {
+    if (name === "save_mobile_delivery_address") {
+      Object.assign(fixtureAddress, args.p_address, args.p_primary_only ? { is_primary: true } : {})
+      return { data: { ...fixtureAddress }, error: null }
+    }
+    return { data: null, error: null }
+  },
   functions: { invoke: async (name: string, { body }: { body: Record<string, unknown> }) => {
     if (name === "request-order-invoice") return { data: { accepted: true, email: "alex.rivera@example.test", orderNumber: "CC-1041" }, error: null }
     if (name === "verify-mobile-payment") {

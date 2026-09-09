@@ -1,3 +1,4 @@
+import { localStore, sessionStore } from "./browser-storage"
 import type { User } from "@supabase/supabase-js"
 import { readAllPages } from "./paged-query"
 import { supabase, supabaseUrl } from "./supabase"
@@ -217,7 +218,7 @@ type ProfileAvatarUrlCache = {
 
 function readProfileAvatarUrlCache(path: string): string {
   try {
-    const value = window.sessionStorage.getItem(PROFILE_AVATAR_URL_CACHE_KEY)
+    const value = sessionStore.getItem(PROFILE_AVATAR_URL_CACHE_KEY)
     if (!value) return ""
     const cached = JSON.parse(value) as Partial<ProfileAvatarUrlCache>
     if (
@@ -235,7 +236,7 @@ function readProfileAvatarUrlCache(path: string): string {
 
 function cacheProfileAvatarUrl(path: string, url: string) {
   try {
-    window.sessionStorage.setItem(PROFILE_AVATAR_URL_CACHE_KEY, JSON.stringify({
+    sessionStore.setItem(PROFILE_AVATAR_URL_CACHE_KEY, JSON.stringify({
       path,
       url,
       expiresAt: Date.now() + PROFILE_AVATAR_URL_LIFETIME_SECONDS * 1000,
@@ -639,16 +640,20 @@ export async function loadAddresses(userId: string): Promise<MobileAddress[]> {
 }
 
 export async function saveAddress(userId: string, address: MobileAddress) {
-  if (address.is_primary) {
-    const { error } = await supabase.from("addresses").update({ is_primary: false }).eq("user_id", userId)
-    if (error) throw error
-  }
-  const payload = { ...address, user_id: userId, updated_at: new Date().toISOString() }
-  const query = address.id
-    ? supabase.from("addresses").update(payload).eq("id", address.id).eq("user_id", userId)
-    : supabase.from("addresses").insert(payload)
-  const { error } = await query
+  if (!userId) throw new Error("Sign in to save a delivery address.")
+  const { data, error } = await supabase.rpc("save_mobile_delivery_address", {
+    p_address: address,
+    p_primary_only: false,
+    p_expected_user_id: userId,
+  })
   if (error) throw error
+  // PostgREST can wrap a table-typed RPC result in a one-row array. Always
+  // pass the actual saved row to checkout, never the response envelope.
+  const saved = Array.isArray(data) ? data[0] : data
+  if (!saved || typeof saved.id !== "string" || !saved.id) {
+    throw new Error("The saved address could not be confirmed. Reopen your delivery addresses before trying again.")
+  }
+  return saved as MobileAddress
 }
 
 export async function deleteAddress(userId: string, id: string) {
@@ -657,9 +662,12 @@ export async function deleteAddress(userId: string, id: string) {
 }
 
 export async function setPrimaryAddress(userId: string, id: string) {
-  const { error: clearError } = await supabase.from("addresses").update({ is_primary: false }).eq("user_id", userId)
-  if (clearError) throw clearError
-  const { error } = await supabase.from("addresses").update({ is_primary: true, updated_at: new Date().toISOString() }).eq("id", id).eq("user_id", userId)
+  if (!userId) throw new Error("Sign in to update your delivery address.")
+  const { error } = await supabase.rpc("save_mobile_delivery_address", {
+    p_address: { id },
+    p_primary_only: true,
+    p_expected_user_id: userId,
+  })
   if (error) throw error
 }
 
@@ -1110,7 +1118,7 @@ const parseFaqBody = (body: string): MobileFaqItem[] => {
 
 const readFaqCache = (): (MobileFaqPage & { cachedAt: number }) | null => {
   try {
-    const cached = JSON.parse(window.localStorage.getItem(MOBILE_FAQ_CACHE_KEY) || "null")
+    const cached = JSON.parse(localStore.getItem(MOBILE_FAQ_CACHE_KEY) || "null")
     return cached && Array.isArray(cached.items) ? cached : null
   } catch {
     return null
@@ -1180,7 +1188,7 @@ export async function loadMobileFaq(): Promise<MobileFaqPage> {
       source: "live",
       cachedAt: Date.now(),
     }
-    try { window.localStorage.setItem(MOBILE_FAQ_CACHE_KEY, JSON.stringify(page)) } catch { /* private browsing can deny storage */ }
+    try { localStore.setItem(MOBILE_FAQ_CACHE_KEY, JSON.stringify(page)) } catch { /* private browsing can deny storage */ }
     return page
   } catch {
     if (cached) return { ...cached, source: "cache" }

@@ -7,7 +7,7 @@ const id = "11111111-1111-4111-8111-111111111111"
 const jwt = [ { alg: "HS256", typ: "JWT" }, { sub: id, exp: Math.floor(Date.now()/1000)+3600, iat: Math.floor(Date.now()/1000), role: "authenticated", aal: "aal1", amr: [{ method: "oauth", timestamp: Math.floor(Date.now()/1000) }], session_id: "22222222-2222-4222-8222-222222222222" } ].map(v => Buffer.from(JSON.stringify(v)).toString("base64url")).join(".")+".test-signature"
 for (const engine of [chromium, webkit]) {
  for (const provider of ["google", "email"]) {
-  for (const journey of provider === "email" ? ["finish", "skip", "returning", "retry"] : ["finish", "skip"]) {
+  for (const journey of provider === "email" ? ["finish", "skip", "returning", "retry", "reconnect"] : ["finish", "skip"]) {
   const browser = await engine.launch(engine === chromium ? { channel: "chrome" } : {})
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, reducedMotion: "no-preference" })
   const user = { id, email: "qa@example.test", role: "authenticated", aud: "authenticated", created_at: new Date().toISOString(), app_metadata: { provider, providers: [provider] }, user_metadata: { full_name: "Prince Balane", cozy_tour_pending_v1: provider === "email" }, factors: [] }
@@ -16,6 +16,7 @@ for (const engine of [chromium, webkit]) {
 const welcomeVoucher = { id: "fixture-voucher", code: "WELCOME-QA", discountAmount: 500, minimumOrderAmount: 5000, expiresAt: "2027-01-01" }
   const status = { userId: id, isGoogle: provider === "google", needsUsername: provider === "google", username: profile.username, showVoucher: provider === "email", voucher: provider === "email" ? welcomeVoucher : null }
   const counts = {}
+  let reconnectGate = null, reconnectObserved = null
   const errors = []
   await context.routeWebSocket(/supabase\.(co|in)/, ws => ws.close())
   await context.route(/https:\/\/[^/]*supabase\.(co|in)\//, async route => {
@@ -36,6 +37,7 @@ const welcomeVoucher = { id: "fixture-voucher", code: "WELCOME-QA", discountAmou
     } else if (path.endsWith("/get_mobile_google_onboarding") || path.endsWith("/get_mobile_customer_onboarding")) {
       if (journey === "retry" && counts[path] <= 2) return route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({message:"Temporary welcome lookup failure"}) })
       data = structuredClone(status)
+      if (reconnectGate) { reconnectObserved?.(); await reconnectGate }
       // A stale status response arriving after dismissal cannot reopen it.
       if (counts[path] > 1) await new Promise(r => setTimeout(r, 800))
     }
@@ -102,9 +104,17 @@ const welcomeVoucher = { id: "fixture-voucher", code: "WELCOME-QA", discountAmou
   await page.getByText("WELCOME-QA", { exact: true }).waitFor()
   await page.waitForFunction(() => { const img = document.querySelector('.voucher-step img'); return img?.complete && img.naturalWidth > 0 })
   await page.screenshot({ path: `/tmp/cozy-full-onboarding-${provider}-${journey}-${engine.name()}.png` })
+  let releaseReconnect = null
+  if (journey === "reconnect") {
+    reconnectGate = new Promise(resolve => { releaseReconnect = resolve })
+    const observed = new Promise(resolve => { reconnectObserved = resolve })
+    await page.evaluate(() => { window.dispatchEvent(new Event("offline")); window.dispatchEvent(new Event("online")) })
+    await Promise.race([observed, new Promise((_, reject) => setTimeout(() => reject(new Error("Reconnect lookup did not start")), 5000))])
+  }
   await page.getByText("Keep it for later", { exact: true }).click()
   await page.getByRole("dialog").waitFor({ state: "detached" })
   assert.equal(await page.locator("#root").evaluate(el => el.inert), false)
+  releaseReconnect?.()
   await page.waitForTimeout(1000)
   assert.equal(await page.getByRole("dialog").count(), 0, "Late status reopened voucher")
   assert.equal(counts["/rest/v1/rpc/acknowledge_mobile_welcome_voucher"], 1)

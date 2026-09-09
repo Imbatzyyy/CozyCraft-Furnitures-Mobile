@@ -35,7 +35,7 @@ if (typeof navigator !== 'undefined') {
   else if (isIOS) applyNativePlatform('ios', iosMajor)
 
   window.addEventListener('message', (event) => {
-    if (event.data?.type !== 'cozycraft-native-platform') return
+    if (event.source !== window.parent || event.data?.type !== 'cozycraft-native-platform') return
     applyNativePlatform(String(event.data.platform || ''), Number(event.data.iosMajor || 0))
   })
 }

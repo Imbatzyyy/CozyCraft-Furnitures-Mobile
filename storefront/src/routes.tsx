@@ -1,3 +1,4 @@
+import { localStore } from "./lib/browser-storage"
 import { lazy, Suspense, useEffect, useRef, useState } from "react"
 import CozyCompanion, { type CompanionPose } from "./components/CozyCompanion"
 import useStepTransition from "./components/useStepTransition"
@@ -22,9 +23,9 @@ const MOBILE_POLICY_VERSION = "2026-08-16"
 const MOBILE_POLICY_PENDING_KEY = "cozycraft-mobile-policy-consent-pending"
 
 async function finishPendingPolicyAcceptance() {
-  if (window.localStorage.getItem(MOBILE_POLICY_PENDING_KEY) !== MOBILE_POLICY_VERSION) return
+  if (localStore.getItem(MOBILE_POLICY_PENDING_KEY) !== MOBILE_POLICY_VERSION) return
   await acceptCurrentMobilePolicies("mobile_signup")
-  window.localStorage.removeItem(MOBILE_POLICY_PENDING_KEY)
+  localStore.removeItem(MOBILE_POLICY_PENDING_KEY)
 }
 
 function Mark() {
@@ -606,13 +607,13 @@ function SignIn() {
       return
     }
     setBusy(true)
-    window.localStorage.setItem("cozycraft-auth-intent", "recovery")
+    localStore.setItem("cozycraft-auth-intent", "recovery")
     const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
       redirectTo: mobileRedirectUrl(),
     })
     setBusy(false)
     if (error) {
-      window.localStorage.removeItem("cozycraft-auth-intent")
+      localStore.removeItem("cozycraft-auth-intent")
       setNotice(error.message.toLowerCase().includes("rate limit")
         ? "Too many reset requests. Please wait a few minutes and try again."
         : "We could not send the reset email. Please try again shortly.")
@@ -933,7 +934,7 @@ export function CreateAccount() {
     setBusy(true)
     submitting.current = true
     try {
-    try { window.localStorage.setItem(MOBILE_POLICY_PENDING_KEY, MOBILE_POLICY_VERSION) } catch { /* Storage can be unavailable in private browsers. */ }
+    try { localStore.setItem(MOBILE_POLICY_PENDING_KEY, MOBILE_POLICY_VERSION) } catch { /* Storage can be unavailable in private browsers. */ }
     const result = await supabase.auth.signUp({
       email: email.trim().toLowerCase(),
       password,
@@ -956,7 +957,7 @@ export function CreateAccount() {
       message.includes("already exists") ||
       (Array.isArray(result.data.user?.identities) && result.data.user.identities.length === 0)
     if (result.error || duplicate) {
-      try { window.localStorage.removeItem(MOBILE_POLICY_PENDING_KEY) } catch { /* Optional persistence. */ }
+      try { localStore.removeItem(MOBILE_POLICY_PENDING_KEY) } catch { /* Optional persistence. */ }
       setNotice(duplicate
         ? "An account with this email already exists. Sign in instead."
         : result.error?.message || "Account creation failed.")
@@ -1054,7 +1055,7 @@ export function CreateAccount() {
                 clearMobileCustomerCache()
                 leaveGuestMode()
                 setNotice("")
-                try { window.localStorage.setItem(MOBILE_POLICY_PENDING_KEY, MOBILE_POLICY_VERSION) } catch { /* Optional persistence. */ }
+                try { localStore.setItem(MOBILE_POLICY_PENDING_KEY, MOBILE_POLICY_VERSION) } catch { /* Optional persistence. */ }
                 const { data, error } = await supabase.auth.signInWithOAuth({
                   provider: "google",
                   options: googleOAuthOptions(mobileRedirectUrl()),

@@ -48,6 +48,8 @@ try {
   await page.keyboard.press("Tab")
   assert(await dialog.getByRole("button", { name: "Close text size settings" }).evaluate((e) => e === document.activeElement))
   await last.click()
+  // Dialog reconciliation is deliberately batched into one animation frame.
+  await page.waitForFunction(() => document.activeElement?.matches("button.account-text-size-trigger"), undefined, { timeout: 2000 })
   assert(await page.getByRole("button", { name: /Text size/ }).evaluate((e) => e === document.activeElement))
   await page.goto(`${origin}/?payment`)
   await page.getByRole("textbox").fill("012345")

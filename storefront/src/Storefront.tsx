@@ -1,3 +1,5 @@
+import { localStore, storageKeys } from "./lib/browser-storage"
+import { readCachedValue } from "./lib/cached-value"
 import { useEffect, useMemo, useRef, useState } from "react"
 import ReviewPhotoViewer from "./components/ReviewPhotoViewer"
 import PriceRange, { PRICE_LIMIT } from "./components/PriceRange"
@@ -227,11 +229,7 @@ function visibleOrderTimeline(order: CustomerOrder) {
 }
 
 function readPendingPayment(): PendingPayment {
-  try {
-    return JSON.parse(window.localStorage.getItem("cozycraft-pending-payment") || "{}") as PendingPayment
-  } catch {
-    return {}
-  }
+  return readCachedValue<PendingPayment>("cozycraft-pending-payment", {})
 }
 
 function pendingPaymentOrder(pending: PendingPayment, orderId: string): CustomerOrder {
@@ -253,17 +251,10 @@ function pendingPaymentOrder(pending: PendingPayment, orderId: string): Customer
 }
 
 function useStoredState<T>(key: string, initial: T) {
-  const [value, setValue] = useState<T>(() => {
-    try {
-      const saved = window.localStorage.getItem(key)
-      return saved ? JSON.parse(saved) as T : initial
-    } catch {
-      return initial
-    }
-  })
+  const [value, setValue] = useState<T>(() => readCachedValue(key, initial))
 
   useEffect(() => {
-    window.localStorage.setItem(key, JSON.stringify(value))
+    localStore.setItem(key, JSON.stringify(value))
   }, [key, value])
 
   return [value, setValue] as const
@@ -308,17 +299,12 @@ function retryVisibleRemoteImages(revision: number) {
 }
 
 function readOfflineCache<T>(key: string, fallback: T): T {
-  try {
-    const value = window.localStorage.getItem(key)
-    return value ? JSON.parse(value) as T : fallback
-  } catch {
-    return fallback
-  }
+  return readCachedValue(key, fallback)
 }
 
 function cacheOfflineValue(key: string, value: unknown) {
   try {
-    window.localStorage.setItem(key, JSON.stringify(value))
+    localStore.setItem(key, JSON.stringify(value))
   } catch {
     // A full or privacy-restricted cache must never interrupt shopping.
   }
@@ -653,11 +639,19 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
   const identityRef = useRef(userId)
   identityRef.current = userId
   const cartWrites = useRef(new MutationQueue())
+  // Wishlist, bag and move-to-bag share one write order. A move touches both
+  // tables and must not race a later save, removal or checkout.
+  const shoppingRevision = useRef(0)
+  const commerceGeneration = useRef(0)
+  const wishlistMutations = useRef(new Map<string, { revision: number; confirmed: boolean }>())
+  const movingSavedRef = useRef(new Set<string>())
   const cartMutations = useRef(new Map<string, { revision: number; confirmed: CartLine | undefined }>())
   const catalogRef = useRef(products)
   catalogRef.current = products
   const [accountSnapshotUserId, setAccountSnapshotUserId] = useState("")
   const [saved, setSaved] = useStoredState<string[]>("cozycraft-saved", [])
+  const savedRef = useRef(saved)
+  savedRef.current = saved
   const [movingSaved, setMovingSaved] = useState<string[]>([])
   const [bag, setBag] = useStoredState<CartLine[]>("cozycraft-bag", [])
   const bagRef = useRef(bag)
@@ -682,6 +676,8 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
   const [search, setSearch] = useState(false)
   const [query, setQuery] = useState("")
   const [toast, setToast] = useState("")
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current) }, [])
   const [detail, setDetail] = useState<Product | null>(null)
   useEffect(() => {
     if (!detail) return
@@ -806,9 +802,9 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
         setRecentlyViewed((current) => [...new Set([...ids, ...current])].slice(0, 8))
       })
       .catch((error) => console.warn("Unable to restore recent products", error))
-    if (window.localStorage.getItem("cozycraft-mobile-policy-consent-pending")) {
+    if (localStore.getItem("cozycraft-mobile-policy-consent-pending")) {
       void acceptCurrentMobilePolicies("mobile_signup")
-        .then(() => window.localStorage.removeItem("cozycraft-mobile-policy-consent-pending"))
+        .then(() => localStore.removeItem("cozycraft-mobile-policy-consent-pending"))
         .catch((error) => console.warn("Policy acceptance will retry", error))
     }
     return () => { active = false }
@@ -855,6 +851,8 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
 
         if (session?.user && !isGuestMode()) {
           const reconnectUserId = session.user.id
+          const mutationRevision = shoppingRevision.current
+          const onboardingRevision = welcomeRequestRevision.current
           const [nextProfile, nextSaved, nextCart, nextOrders, nextNotifications, loadedOnboarding] = await Promise.all([
             loadProfile(session.user),
             loadWishlist(reconnectUserId),
@@ -874,12 +872,14 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
             needsUsername: isGoogleCustomer(session.user) && !nextProfile.username.trim(),
           }
           setProfile(nextProfile)
-          setSaved(nextSaved)
-          setBag(preserveBagOrder(nextCart as CartLine[]))
+          if (mutationRevision === shoppingRevision.current && !cartWrites.current.pending) {
+            setSaved(nextSaved)
+            setBag(preserveBagOrder(nextCart as CartLine[]))
+          }
           setOrders(nextOrders as CustomerOrder[])
           applyNotifications(nextNotifications)
           setGoogleIdentityUserId(isGoogleCustomer(session.user) ? reconnectUserId : "")
-          setGoogleOnboarding((current) => mergeGoogleOnboarding(current, nextOnboarding))
+          if (onboardingRevision === welcomeRequestRevision.current) setGoogleOnboarding((current) => mergeGoogleOnboarding(current, nextOnboarding))
           setAccountSnapshotUserId(reconnectUserId)
         }
         retryVisibleRemoteImages(resourceRevision)
@@ -897,13 +897,14 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
   }, [heroIndex, heroShowcases.length])
   useEffect(() => {
     const openNativeNotification = (event: MessageEvent) => {
+      if (event.source !== window.parent) return
       if (event.data?.type === "cozycraft-open-notifications") setNotificationsOpen(true)
       if (event.data?.type === "cozycraft-push-token") {
         const token = String(event.data.token || "")
         const platform = String(event.data.platform || "unknown")
         if (!token) return
-        window.localStorage.setItem("cozycraft-native-push-token", token)
-        window.localStorage.setItem("cozycraft-native-push-platform", platform)
+        localStore.setItem("cozycraft-native-push-token", token)
+        localStore.setItem("cozycraft-native-push-platform", platform)
         if (userId) void registerPushToken(token, platform).catch(console.error)
       }
       if (event.data?.type === "cozycraft-push-permission") {
@@ -931,19 +932,20 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
   }, [userId])
   useEffect(() => {
     if (!userId) return
-    const token = window.localStorage.getItem("cozycraft-native-push-token") || ""
-    const platform = window.localStorage.getItem("cozycraft-native-push-platform") || "unknown"
+    const token = localStore.getItem("cozycraft-native-push-token") || ""
+    const platform = localStore.getItem("cozycraft-native-push-platform") || "unknown"
     if (token) void registerPushToken(token, platform).catch(console.error)
   }, [userId])
   useEffect(() => {
     const handlePaymentReturn = (event: MessageEvent) => {
+      if (event.source !== window.parent) return
       if (event.data?.type === "cozycraft-paymongo-error") {
         const message = String(
           event.data?.message || "The secure PayMongo page could not be opened. Please try again.",
         )
         const pendingPayment = readPendingPayment()
 
-        window.localStorage.removeItem("cozycraft-pending-payment")
+        localStore.removeItem("cozycraft-pending-payment")
         paymentReturnInFlight.current = ""
         setPaymentReturning(false)
         if (pendingPayment.orderId) {
@@ -960,7 +962,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
       if (event.data?.type !== "cozycraft-payment-callback") return
       const callbackUrl = String(event.data.url || "")
       if (!callbackUrl || paymentReturnInFlight.current === callbackUrl) return
-      if (window.localStorage.getItem("cozycraft-last-payment-callback") === callbackUrl) {
+      if (localStore.getItem("cozycraft-last-payment-callback") === callbackUrl) {
         window.parent.postMessage({ type: "cozycraft-app-url-consumed", url: callbackUrl }, "*")
         return
       }
@@ -986,10 +988,10 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
             setPlacedOrder(cachedOrder || pendingPaymentOrder(storedPayment, orderId))
             // Presentation is a one-time UI event. Later webhook/realtime
             // updates may replace this order's data, but must never reopen it.
-            window.localStorage.setItem(LAST_PRESENTED_PAYMENT_ORDER_KEY, orderId)
+            localStore.setItem(LAST_PRESENTED_PAYMENT_ORDER_KEY, orderId)
             setPaymentReturning(false)
-            window.localStorage.removeItem("cozycraft-pending-payment")
-            window.localStorage.setItem("cozycraft-last-payment-callback", callbackUrl)
+            localStore.removeItem("cozycraft-pending-payment")
+            localStore.setItem("cozycraft-last-payment-callback", callbackUrl)
             window.parent.postMessage({ type: "cozycraft-app-url-consumed", url: callbackUrl }, "*")
           }
 
@@ -1048,14 +1050,15 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
           }
           flash(returnedOrder?.paymentStatus === "paid" ? "Payment confirmed" : "Payment received and being verified")
         } else {
-          window.localStorage.removeItem("cozycraft-pending-payment")
+          localStore.removeItem("cozycraft-pending-payment")
           flash("Checkout cancelled. No payment was completed.")
         }
+        const cartReadRevision = shoppingRevision.current
         void loadCart(activeUserId, catalog)
-          .then((nextBag) => { if (identityRef.current === activeUserId) setBag(preserveBagOrder(nextBag as CartLine[])) })
+          .then((nextBag) => { if (identityRef.current === activeUserId && cartReadRevision === shoppingRevision.current && !cartWrites.current.pending) setBag(preserveBagOrder(nextBag as CartLine[])) })
           .catch((error) => console.error("Unable to refresh the bag after payment", error))
         if (payment !== "success") {
-          window.localStorage.setItem("cozycraft-last-payment-callback", callbackUrl)
+          localStore.setItem("cozycraft-last-payment-callback", callbackUrl)
           window.parent.postMessage({ type: "cozycraft-app-url-consumed", url: callbackUrl }, "*")
         }
       } catch (error) {
@@ -1084,7 +1087,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
   }, [userId, products, orders])
   useEffect(() => {
     const handleNativeBack = (event: MessageEvent) => {
-      if (event.data?.type !== "cozycraft-native-back") return
+      if (event.source !== window.parent || event.data?.type !== "cozycraft-native-back") return
       if (paymentReturning) {
         flash("Your payment is still being confirmed")
       } else if (placedOrder) setPlacedOrder(null)
@@ -1127,7 +1130,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
               supabase.functions.invoke("cancel-paymongo-checkout", { body: { orderId: pending.orderId } }),
               new Promise((resolve) => window.setTimeout(resolve, 8000)),
             ])
-            window.localStorage.removeItem("cozycraft-pending-payment")
+            localStore.removeItem("cozycraft-pending-payment")
             flash("The unfinished checkout expired safely. You can try again.")
             return
           }
@@ -1161,7 +1164,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
 
           if (disposed) return
           if (returnedOrder?.status === "Cancelled" || ["failed", "cancelled", "canceled"].includes(String(returnedOrder?.paymentStatus))) {
-            window.localStorage.removeItem("cozycraft-pending-payment")
+            localStore.removeItem("cozycraft-pending-payment")
             flash("The payment was not completed. Your bag is unchanged.")
             return
           }
@@ -1171,18 +1174,19 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
           // order is allowed to open Order Confirmed without a deep-link return.
           if (!returnedOrder || returnedOrder.paymentStatus !== "paid") return
           if (readPendingPayment().orderId !== pending.orderId) return
-          if (window.localStorage.getItem(LAST_PRESENTED_PAYMENT_ORDER_KEY) === pending.orderId) {
-            window.localStorage.removeItem("cozycraft-pending-payment")
+          if (localStore.getItem(LAST_PRESENTED_PAYMENT_ORDER_KEY) === pending.orderId) {
+            localStore.removeItem("cozycraft-pending-payment")
             return
           }
 
           setOrders(nextOrders)
           setCheckoutOpen(false)
           setPlacedOrder(returnedOrder)
-          window.localStorage.setItem(LAST_PRESENTED_PAYMENT_ORDER_KEY, pending.orderId!)
-          window.localStorage.removeItem("cozycraft-pending-payment")
+          localStore.setItem(LAST_PRESENTED_PAYMENT_ORDER_KEY, pending.orderId!)
+          localStore.removeItem("cozycraft-pending-payment")
+          const cartReadRevision = shoppingRevision.current
           void loadCart(userId, catalog)
-          .then((nextBag) => { if (!disposed) setBag(preserveBagOrder(nextBag as CartLine[])) })
+          .then((nextBag) => { if (!disposed && cartReadRevision === shoppingRevision.current && !cartWrites.current.pending) setBag(preserveBagOrder(nextBag as CartLine[])) })
             .catch((error) => console.warn("Cart refresh after payment failed", error))
           flash(returnedOrder.paymentStatus === "paid" ? "Payment confirmed" : "Payment received and being verified")
         } catch (error) {
@@ -1263,6 +1267,22 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
     let hydratedIdentity = ""
 
     const clearAccountState = (email = "", nextIdentity = "") => {
+      welcomeRequestRevision.current += 1
+      commerceGeneration.current += 1
+      shoppingRevision.current += 1
+      cartWrites.current = new MutationQueue()
+      cartMutations.current.clear()
+      wishlistMutations.current.clear()
+      movingSavedRef.current.clear()
+      savedRef.current = []
+      bagRef.current = []
+      setMovingSaved([])
+      setCheckoutOpen(false)
+      setPlacedOrder(null)
+      setOrderToView(null)
+      setProfileOpen(false)
+      setNotificationsOpen(false)
+      setMembershipOpen(false)
       hydratedIdentity = ""
       retainGoogleOnboardingDraftFor(nextIdentity)
       setAccountSnapshotUserId("")
@@ -1357,7 +1377,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
     const refreshDeliveryAreas = async () => {
       try {
         const areas = await loadMobileDeliveryServiceAreas()
-        if (live && areas.length) {
+        if (live) {
           setDeliveryAreas(areas)
           cacheOfflineValue(OFFLINE_DELIVERY_AREAS_KEY, areas)
         }
@@ -1386,6 +1406,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
             return
           }
 
+          const savedReadRevision = shoppingRevision.current
           const [nextProfile, nextSaved, nextNotifications, catalog] = await Promise.all([
             loadProfile(session.user),
             loadWishlist(userIdToHydrate),
@@ -1393,6 +1414,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
             loadProducts(),
           ])
           let nextOnboarding: MobileGoogleOnboardingStatus
+          const onboardingRevision = welcomeRequestRevision.current
           try {
             nextOnboarding = await loadMobileGoogleOnboarding(session.user)
           } catch (error) {
@@ -1403,16 +1425,17 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
           }
           if (!live || activeAuthUserId !== userIdToHydrate) return
           setProfile(nextProfile)
-          setSaved(nextSaved)
+          if (!cartWrites.current.pending && savedReadRevision === shoppingRevision.current) setSaved(nextSaved)
           applyNotifications(nextNotifications)
-          setGoogleOnboarding((current) => mergeGoogleOnboarding(current, nextOnboarding))
+          if (onboardingRevision === welcomeRequestRevision.current) setGoogleOnboarding((current) => mergeGoogleOnboarding(current, nextOnboarding))
 
+          const cartReadRevision = shoppingRevision.current
           const [nextCart, nextOrders] = await Promise.all([
             loadCart(userIdToHydrate, catalog),
             loadOrders(userIdToHydrate, catalog),
           ])
           if (!live || activeAuthUserId !== userIdToHydrate) return
-          setBag(preserveBagOrder(nextCart as CartLine[]))
+          if (!cartWrites.current.pending && cartReadRevision === shoppingRevision.current) setBag(preserveBagOrder(nextCart as CartLine[]))
           setOrders(nextOrders as CustomerOrder[])
           setAccountSnapshotUserId(userIdToHydrate)
           hydratedIdentity = userIdToHydrate
@@ -1510,17 +1533,20 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
     }
     const refreshCart = async () => {
       const revision = ++revisions.cart
+      const mutationRevision = shoppingRevision.current
       try {
         if (cartWrites.current.pending) return
         const next = await loadCart(userId, catalogRef.current) as CartLine[]
-        if (current() && revision === revisions.cart && !cartWrites.current.pending) setBag(preserveBagOrder(next))
+        if (current() && revision === revisions.cart && mutationRevision === shoppingRevision.current && !cartWrites.current.pending) setBag(preserveBagOrder(next))
       } catch (error) { console.error(error) }
     }
     const refreshWishlist = async () => {
       const revision = ++revisions.wishlist
+      const mutationRevision = shoppingRevision.current
       try {
+        if (cartWrites.current.pending) return
         const next = await loadWishlist(userId)
-        if (current() && revision === revisions.wishlist) setSaved(next)
+        if (current() && revision === revisions.wishlist && mutationRevision === shoppingRevision.current && !cartWrites.current.pending) setSaved(next)
       } catch (error) { console.error(error) }
     }
     const refreshOrders = async () => {
@@ -1595,8 +1621,9 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
     }
   }, [userId])
   const flash = (x: string) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current)
     setToast(x)
-    window.setTimeout(() => setToast(""), 2300)
+    toastTimer.current = setTimeout(() => setToast(""), 2300)
   }
   const refreshVisibleData = async () => {
     if (!online) {
@@ -1605,6 +1632,8 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
     }
 
     const owner = identityRef.current
+    const mutationRevision = shoppingRevision.current
+    const canRefreshShopping = () => identityRef.current === owner && mutationRevision === shoppingRevision.current && !cartWrites.current.pending
     const refreshCatalog = tab !== "account" || Boolean(detail)
     const refreshAccount = tab === "account" || Boolean(profileOpen || notificationsOpen || membershipOpen)
     const refreshCollections = Boolean(owner && !refreshAccount && ["home", "shop", "saved", "bag"].includes(tab))
@@ -1647,7 +1676,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
         setStoreSettings(nextSettings)
         cacheOfflineValue(OFFLINE_SETTINGS_KEY, nextSettings)
       }
-      if (nextDeliveryAreas?.length) {
+      if (nextDeliveryAreas) {
         setDeliveryAreas(nextDeliveryAreas)
         cacheOfflineValue(OFFLINE_DELIVERY_AREAS_KEY, nextDeliveryAreas)
       }
@@ -1660,8 +1689,8 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
           load("bag", loadCart(owner, catalogRef.current)),
         ])
         if (identityRef.current !== owner) return
-        if (nextSaved) setSaved(nextSaved)
-        if (nextCart) setBag(preserveBagOrder(nextCart as CartLine[]))
+        if (nextSaved && canRefreshShopping()) setSaved(nextSaved)
+        if (nextCart && canRefreshShopping()) setBag(preserveBagOrder(nextCart as CartLine[]))
       }
 
       if (owner && refreshAccount) {
@@ -1680,8 +1709,8 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
           ])
           if (identityRef.current !== owner) return
           if (nextProfile) setProfile(nextProfile)
-          if (nextSaved) setSaved(nextSaved)
-          if (nextCart) setBag(preserveBagOrder(nextCart as CartLine[]))
+          if (nextSaved && canRefreshShopping()) setSaved(nextSaved)
+          if (nextCart && canRefreshShopping()) setBag(preserveBagOrder(nextCart as CartLine[]))
           if (nextOrders) setOrders(nextOrders as CustomerOrder[])
           if (nextNotifications) applyNotifications(nextNotifications)
           if (nextLoyalty) setLoyalty(nextLoyalty)
@@ -1713,12 +1742,31 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
   const save = (id: string) => {
     if (!requireAccount()) return
     if (!requireConnection()) return
-    const active = saved.includes(id)
-    setSaved((v) => (active ? v.filter((x) => x !== id) : [...v, id]))
-    void toggleWishlist(userId, id, active).catch((error) => {
+    if (movingSavedRef.current.has(id)) { flash("This piece is still moving to your bag."); return }
+    const owner = userId, generation = commerceGeneration.current
+    const current = () => identityRef.current === owner && commerceGeneration.current === generation
+    const key = `${owner}:${generation}:${id}`
+    const active = savedRef.current.includes(id)
+    const mutation = wishlistMutations.current.get(key) || { revision: 0, confirmed: active }
+    const revision = ++mutation.revision
+    wishlistMutations.current.set(key, mutation)
+    shoppingRevision.current += 1
+    const apply = (included: boolean) => {
+      savedRef.current = included ? [...new Set([...savedRef.current, id])] : savedRef.current.filter(item => item !== id)
+      setSaved(savedRef.current)
+    }
+    apply(!active)
+    void cartWrites.current.run(async () => {
+      if (!current()) return
+      await toggleWishlist(owner, id, active)
+      mutation.confirmed = !active
+    }).catch((error) => {
       console.error(error)
-      setSaved((v) => (active ? [...v, id] : v.filter((x) => x !== id)))
+      if (!current()) return
+      if (revision === mutation.revision) apply(mutation.confirmed)
       flash("That change could not be saved.")
+    }).finally(() => {
+      if (revision === mutation.revision) wishlistMutations.current.delete(key)
     })
     flash(
       active ? "Removed from your saved pieces" : "Saved to your collection",
@@ -1744,8 +1792,11 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
     })
   }
   const persistCartLine = (id: string, next: CartLine | undefined, successMessage?: string) => {
-    const owner = userId
-    const key = `${owner}:${id}`
+    const owner = userId, generation = commerceGeneration.current
+    const current = () => identityRef.current === owner && commerceGeneration.current === generation
+    if (movingSavedRef.current.has(id)) { flash("This piece is still moving to your bag."); return }
+    const key = `${owner}:${generation}:${id}`
+    shoppingRevision.current += 1
     const mutation = cartMutations.current.get(key) || { revision: 0, confirmed: bagRef.current.find((line) => line.product.id === id) }
     const revision = ++mutation.revision
     cartMutations.current.set(key, mutation)
@@ -1756,13 +1807,13 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
     }
     applyLine(next)
     void cartWrites.current.run(async () => {
-      if (identityRef.current !== owner) return
+      if (!current()) return
       if (next) await upsertCart(owner, id, next.quantity, next.selected)
       else await removeCart(owner, id)
       mutation.confirmed = next
-      if (identityRef.current === owner && successMessage && revision === mutation.revision) flash(successMessage)
+      if (current() && successMessage && revision === mutation.revision) flash(successMessage)
     }).catch(() => {
-      if (identityRef.current !== owner) return
+      if (!current()) return
       if (revision === mutation.revision) applyLine(mutation.confirmed)
       flash("That bag change could not be saved. Please reconnect and try again.")
     }).finally(() => {
@@ -1785,40 +1836,63 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
     persistCartLine(p.id, { product: p, quantity: Math.min((existing?.quantity || 0) + 1, p.stock ?? 99), selected: true }, "Added to your bag")
   }
   const moveSavedToBag = async (p: Product) => {
-    if (!requireAccount() || !requireConnection() || movingSaved.includes(p.id)) return
+    if (!requireAccount() || !requireConnection() || movingSavedRef.current.has(p.id)) return
+    const owner = userId, generation = commerceGeneration.current
+    const current = () => identityRef.current === owner && commerceGeneration.current === generation
+    const key = `${owner}:${generation}:${p.id}`
+    if (cartMutations.current.has(key) || wishlistMutations.current.has(key)) {
+      flash("This piece is still being saved. Please try again in a moment.")
+      return
+    }
     if (Number(p.stock ?? 0) <= 0) {
       flash("This piece is currently unavailable")
       return
     }
-    const previousSaved = saved
-    const previousBag = bag
-    const existing = bag.find((line) => line.product.id === p.id)
+    const wasSaved = savedRef.current.includes(p.id)
+    const existing = bagRef.current.find((line) => line.product.id === p.id)
     const stock = mobileCartStockStatus(p.stock, existing?.quantity || 0)
     if (!stock.canIncrease && stock.availableStock !== null) {
       flash(`${p.name} is at the maximum available stock (${stock.availableStock}).`)
       return
     }
     const optimisticQuantity = Math.min((existing?.quantity || 0) + 1, p.stock ?? 99)
+    movingSavedRef.current.add(p.id)
+    shoppingRevision.current += 1
+    const applyLine = (line: CartLine | undefined) => {
+      const exists = bagRef.current.some(item => item.product.id === p.id)
+      bagRef.current = line
+        ? exists ? bagRef.current.map(item => item.product.id === p.id ? line : item) : [...bagRef.current, line]
+        : bagRef.current.filter(item => item.product.id !== p.id)
+      setBag(bagRef.current)
+    }
     setMovingSaved((current) => [...current, p.id])
-    setSaved((current) => current.filter((id) => id !== p.id))
-    setBag((current) => existing
-      ? current.map((line) => line.product.id === p.id
-        ? { ...line, quantity: optimisticQuantity, selected: true }
-        : line)
-      : [...current, { product: p, quantity: 1, selected: true }])
+    savedRef.current = savedRef.current.filter(id => id !== p.id)
+    setSaved(savedRef.current)
+    applyLine({ product: p, quantity: optimisticQuantity, selected: true })
     try {
-      const result = await moveWishlistItemToCart(p.id)
-      setBag((current) => current.map((line) => line.product.id === p.id
-        ? { ...line, quantity: Math.min(result.quantity, p.stock ?? result.quantity), selected: true }
-        : line))
+      const result = await cartWrites.current.run(async () => {
+        if (!current()) return null
+        return moveWishlistItemToCart(p.id)
+      })
+      if (!current() || !result) return
+      applyLine({ product: p, quantity: result.quantity, selected: true })
       flash(`${p.name} moved to your bag`)
     } catch (error) {
       console.error(error)
-      setSaved(previousSaved)
-      setBag(previousBag)
+      if (!current()) return
+      // Roll back only this piece, never another product changed while the
+      // request was in flight. Failed moves also cannot repopulate a new user.
+      if (wasSaved) {
+        savedRef.current = [...new Set([...savedRef.current, p.id])]
+        setSaved(savedRef.current)
+      }
+      applyLine(existing)
       flash("That piece could not be moved. Your wishlist was restored.")
     } finally {
-      setMovingSaved((current) => current.filter((id) => id !== p.id))
+      if (current()) {
+        movingSavedRef.current.delete(p.id)
+        setMovingSaved((current) => current.filter((id) => id !== p.id))
+      }
     }
   }
   const updateLine = (id: string, patch: Partial<CartLine>) => {
@@ -2504,6 +2578,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
           )}
           {tab === "account" && (
             <Account
+              key={`account:${userId || "guest"}`}
               userId={userId}
               flash={flash}
               name={profile.name}
@@ -2999,9 +3074,9 @@ export function MobileCareChat({
     // Conversations are intentionally session-only. Remove chat history written
     // by earlier app versions so a relaunch never restores stale customer text.
     try {
-      Object.keys(window.localStorage)
+      storageKeys(localStore)
         .filter((key) => key.startsWith("cozycraft-mobile-chat-"))
-        .forEach((key) => window.localStorage.removeItem(key))
+        .forEach((key) => localStore.removeItem(key))
     } catch {
       // Storage may be unavailable in private browsing; the in-memory chat still
       // starts fresh and remains fully usable for the current app session.
@@ -3735,6 +3810,7 @@ export function Account({
   const [addresses, setAddresses] = useState<MobileAddress[]>([])
   const [addressDraft, setAddressDraft] = useState<MobileAddress | null>(null)
   const [addressSaving, setAddressSaving] = useState(false)
+  const addressSavingRef = useRef(false)
   const [paymentPreference, setPaymentPreference] = useState("cod")
   const [paymentPreferenceSaving, setPaymentPreferenceSaving] = useState<string | null>(null)
   const [selectedOrder, setSelectedOrder] = useState<CustomerOrder | null>(null)
@@ -4169,7 +4245,7 @@ export function Account({
             </p>
             <button
               onClick={async () => {
-                const pushToken = window.localStorage.getItem("cozycraft-native-push-token") || ""
+                const pushToken = localStore.getItem("cozycraft-native-push-token") || ""
                 if (pushToken) await unregisterPushToken(pushToken).catch(console.error)
                 await supabase.auth.signOut({ scope: "local" })
                 clearMobileCustomerCache()
@@ -4580,7 +4656,8 @@ export function Account({
 
               {addressDraft && <form className="mobile-address-form" onSubmit={(event) => {
                 event.preventDefault()
-                if (addressSaving) return
+                if (addressSavingRef.current) return
+                addressSavingRef.current = true
                 setAddressSaving(true)
                 void saveAddress(userId, addressDraft)
                   .then(() => {
@@ -4589,7 +4666,7 @@ export function Account({
                     flash("Delivery address saved")
                   })
                   .catch((error) => flash(error.message))
-                  .finally(() => setAddressSaving(false))
+                  .finally(() => { addressSavingRef.current = false; setAddressSaving(false) })
               }}>
                 <header>
                   <div><small>{addressDraft.id ? "EDIT DELIVERY ADDRESS" : "NEW DELIVERY ADDRESS"}</small><b>{addressDraft.id ? "Refine your details." : "Where should we deliver?"}</b></div>
@@ -5325,6 +5402,10 @@ export function CheckoutPage({
   const [selectedAddressId, setSelectedAddressId] = useState("")
   const [editingAddress, setEditingAddress] = useState(false)
   const [savingAddress, setSavingAddress] = useState(false)
+  const addressSavePending = useRef(false)
+  const [addressLoadAttempt, setAddressLoadAttempt] = useState(0)
+  const [addressLoading, setAddressLoading] = useState(true)
+  const [addressLoadError, setAddressLoadError] = useState("")
   const [addressDraft, setAddressDraft] = useState<MobileAddress>({
     label: "Home",
     recipient_name: profile.name,
@@ -5339,6 +5420,7 @@ export function CheckoutPage({
     is_primary: false,
   })
   const [payment, setPayment] = useState("Cash on delivery")
+  const paymentChosen = useRef(false)
   const [placing, setPlacing] = useState(false)
   const submitting = useRef(false)
   const mounted = useRef(true)
@@ -5358,7 +5440,11 @@ export function CheckoutPage({
   const [paymentChallenge, setPaymentChallenge] = useState<PaymentEmailChallenge | null>(null)
   useEffect(() => {
     if (!userId) return
-    void Promise.all([loadAddresses(userId), loadPaymentPreference(userId)]).then(([savedAddresses, preferred]) => {
+    let active = true
+    setAddressLoading(true)
+    setAddressLoadError("")
+    void loadAddresses(userId).then((savedAddresses) => {
+      if (!active) return
       setAddresses(savedAddresses)
       const savedAddress = savedAddresses.find((item) => item.is_primary) || savedAddresses[0]
       if (savedAddress) {
@@ -5367,8 +5453,18 @@ export function CheckoutPage({
       } else {
         setEditingAddress(true)
       }
-      setPayment(preferred === "gcash" ? "GCash" : preferred === "card" ? "Credit or debit card" : "Cash on delivery")
+    }).catch(() => {
+      if (active) setAddressLoadError("We couldn't load your delivery addresses. Reconnect and try again.")
+    }).finally(() => { if (active) setAddressLoading(false) })
+    return () => { active = false }
+  }, [userId, addressLoadAttempt])
+  useEffect(() => {
+    let active = true
+    // A preference is optional; a failure here must not hide saved addresses.
+    void loadPaymentPreference(userId).then(preferred => {
+      if (active && !paymentChosen.current) setPayment(preferred === "gcash" ? "GCash" : preferred === "card" ? "Credit or debit card" : "Cash on delivery")
     }).catch(() => undefined)
+    return () => { active = false }
   }, [userId])
   const selectAddress = (savedAddress: MobileAddress) => {
     setSelectedAddressId(savedAddress.id || "")
@@ -5394,25 +5490,32 @@ export function CheckoutPage({
     setError("")
   }
   const persistAddress = async () => {
+    if (addressSavePending.current || !mounted.current) return
     const required = [addressDraft.recipient_name, addressDraft.mobile, addressDraft.address_line, addressDraft.barangay, addressDraft.city, addressDraft.province, addressDraft.postal_code]
     if (required.some((value) => !value.trim())) {
       setError("Complete the recipient, mobile number, and full Philippine delivery address.")
       return
     }
+    addressSavePending.current = true
     setSavingAddress(true)
     setError("")
     try {
-      await saveAddress(userId, addressDraft)
-      const updated = await loadAddresses(userId)
-      setAddresses(updated)
-      const saved = addressDraft.id
-        ? updated.find((item) => item.id === addressDraft.id)
-        : updated.find((item) => item.address_line === addressDraft.address_line && item.mobile === addressDraft.mobile) || updated[0]
-      if (saved) selectAddress(saved)
+      const savedAddress = await saveAddress(userId, addressDraft)
+      if (!mounted.current) return
+      // The RPC returns the exact row it committed. Don't turn a successful
+      // save into a failed form (or duplicate insert on retry) just because a
+      // second list refresh fails or finds an older similar street address.
+      setAddresses(current => [
+        ...current.filter(item => item.id !== savedAddress.id).map(item => savedAddress.is_primary ? { ...item, is_primary: false } : item),
+        savedAddress,
+      ])
+      setAddressDraft(savedAddress)
+      selectAddress(savedAddress)
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "The address could not be saved.")
+      if (mounted.current) setError(cause instanceof Error ? cause.message : "The address could not be saved.")
     } finally {
-      setSavingAddress(false)
+      addressSavePending.current = false
+      if (mounted.current) setSavingAddress(false)
     }
   }
   const steps = ["Delivery", "Payment", "Review"]
@@ -5458,7 +5561,7 @@ export function CheckoutPage({
     if (!result.checkoutUrl || !/^https:\/\//i.test(result.checkoutUrl)) {
       throw new Error("The secure PayMongo payment page could not be opened. Your order has not been completed; please try again.")
     }
-    window.localStorage.setItem("cozycraft-pending-payment", JSON.stringify({
+    localStore.setItem("cozycraft-pending-payment", JSON.stringify({
       orderId: result.order?.id,
       orderNumber: result.order?.order_number,
       startedAt: new Date().toISOString(),
@@ -5599,6 +5702,8 @@ export function CheckoutPage({
                 </small>
               </div>
             </div>
+            {addressLoading && <p className="form-notice" role="status">Loading your delivery addresses…</p>}
+            {addressLoadError && <div className="form-notice" role="alert"><p>{addressLoadError}</p><button type="button" className="text-button" onClick={() => setAddressLoadAttempt(attempt => attempt + 1)}>Retry delivery addresses</button></div>}
             {!editingAddress && addresses.length > 0 && <section className="checkout-addresses" aria-label="Saved delivery addresses">
               <div className="checkout-address-heading">
                 <div>
@@ -5685,7 +5790,7 @@ export function CheckoutPage({
                   key={method.name}
                   disabled={!method.enabled}
                   className={payment === method.name ? "selected" : ""}
-                  onClick={() => method.enabled && setPayment(method.name)}
+                  onClick={() => { if (method.enabled) { paymentChosen.current = true; setPayment(method.name) } }}
                 >
                   <span className="material-symbols-rounded">
                     {method.icon}

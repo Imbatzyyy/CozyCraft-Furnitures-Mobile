@@ -35,7 +35,7 @@ export default function App() {
   useAppMotion()
   useEffect(() => {
     const handleNativeBack = (event: MessageEvent) => {
-      if (event.data?.type !== "cozycraft-native-back") return
+      if (event.source !== window.parent || event.data?.type !== "cozycraft-native-back") return
       const route = window.location.hash.split("?")[0]
       const action = mobileShellBackAction(route, hasStorefrontReturnState())
       if (action === "storefront") return

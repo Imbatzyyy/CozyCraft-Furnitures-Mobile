@@ -1,3 +1,4 @@
+import { localStore } from "./browser-storage"
 export const MOBILE_TEXT_SIZE_OPTIONS = [
   { id: "standard", label: "Standard", scale: 1, layoutScale: 1, note: "Original size" },
   { id: "comfortable", label: "Comfortable", scale: 1.15, layoutScale: 1.08, note: "Recommended" },
@@ -11,7 +12,7 @@ export const DEFAULT_MOBILE_TEXT_SIZE: MobileTextSize = "comfortable"
 export const MOBILE_TEXT_SIZE_STORAGE_KEY = "cozycraft-mobile-text-size-v1"
 
 function browserLocalStorage() {
-  return typeof window === "undefined" ? null : window.localStorage
+  return typeof window === "undefined" ? null : localStore
 }
 
 export function isMobileTextSize(value: unknown): value is MobileTextSize {

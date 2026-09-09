@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 const mocks = vi.hoisted(() => ({
   loadAddresses: vi.fn(),
   loadPaymentPreference: vi.fn(),
+  saveAddress: vi.fn(),
   requestPaymentEmailVerification: vi.fn(),
 }))
 
@@ -13,6 +14,7 @@ vi.mock("./lib/mobile-data", async (importOriginal) => {
     ...actual,
     loadAddresses: mocks.loadAddresses,
     loadPaymentPreference: mocks.loadPaymentPreference,
+    saveAddress: mocks.saveAddress,
   }
 })
 
@@ -99,9 +101,55 @@ beforeEach(() => {
   }])
   mocks.loadPaymentPreference.mockResolvedValue("gcash")
   mocks.requestPaymentEmailVerification.mockReset()
+  mocks.saveAddress.mockReset()
 })
 
 describe("checkout payment handoff", () => {
+  it("guards same-frame duplicate address submits and uses the returned row", async () => {
+    let resolve!: (address: Record<string, unknown>) => void
+    mocks.saveAddress.mockReturnValueOnce(new Promise(done => { resolve = done }))
+    renderCheckout()
+    await screen.findByText("Saved addresses")
+    fireEvent.click(screen.getByRole("button", { name: "Edit Home address" }))
+    const save = screen.getByRole("button", { name: "Save and use this address" })
+    fireEvent.click(save)
+    fireEvent.click(save)
+    expect(mocks.saveAddress).toHaveBeenCalledTimes(1)
+    const data = mocks.saveAddress.mock.calls[0][1]
+    resolve({ ...data, id: addressId, label: "Verified Home" })
+    await screen.findByText("Verified Home")
+    expect(screen.queryByRole("button", { name: "Save and use this address" })).toBeNull()
+    expect(mocks.loadAddresses).toHaveBeenCalledTimes(1)
+  })
+
+  it("keeps addresses usable when the optional payment preference fails", async () => {
+    mocks.loadPaymentPreference.mockRejectedValueOnce(new Error("temporarily offline"))
+    renderCheckout()
+    expect(await screen.findByText("Saved addresses")).toBeTruthy()
+    fireEvent.click(screen.getByRole("button", { name: /continue/i }))
+    expect(screen.getByText("PAYMENT METHOD")).toBeTruthy()
+  })
+
+  it("shows a retry instead of a blank delivery step when loading fails", async () => {
+    mocks.loadAddresses.mockRejectedValueOnce(new Error("offline"))
+    renderCheckout()
+    fireEvent.click(await screen.findByRole("button", { name: "Retry delivery addresses" }))
+    expect(await screen.findByText("Saved addresses")).toBeTruthy()
+    expect(screen.queryByRole("button", { name: "Retry delivery addresses" })).toBeNull()
+  })
+
+  it("does not overwrite a chosen payment method with a delayed preference", async () => {
+    let resolve!: (method: string) => void
+    mocks.loadPaymentPreference.mockReturnValueOnce(new Promise<string>(done => { resolve = done }))
+    renderCheckout()
+    await screen.findByText("Saved addresses")
+    fireEvent.click(screen.getByRole("button", { name: /continue/i }))
+    fireEvent.click(screen.getByRole("button", { name: /Credit or debit card/ }))
+    resolve("gcash")
+    await waitFor(() => expect(screen.getByRole("button", { name: /Credit or debit card/ }).classList.contains("selected")).toBe(true))
+    expect(screen.getByRole("button", { name: /GCash/ }).classList.contains("selected")).toBe(false)
+  })
+
   it("keeps the complete amount breakdown and exposes an OTP request failure on Review", async () => {
     mocks.requestPaymentEmailVerification.mockRejectedValue(
       new Error("The payment code email could not be sent. Please try again."),

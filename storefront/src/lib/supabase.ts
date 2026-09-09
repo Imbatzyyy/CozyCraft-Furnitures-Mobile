@@ -1,3 +1,4 @@
+import { localStore, sessionStore } from "./browser-storage"
 import { createClient, type Session } from "@supabase/supabase-js"
 import { publicSupabaseConfig } from "./public-config"
 import { boundedFetch } from "./request-lifecycle"
@@ -36,31 +37,32 @@ const MOBILE_CUSTOMER_CACHE_KEYS = [
 ]
 
 export const isGuestMode = () =>
-  typeof window !== "undefined" && window.localStorage.getItem(GUEST_MODE_KEY) === "guest"
+  typeof window !== "undefined" && localStore.getItem(GUEST_MODE_KEY) === "guest"
 
 export const leaveGuestMode = () => {
   if (typeof window === "undefined") return
-  window.localStorage.removeItem(GUEST_MODE_KEY)
+  localStore.removeItem(GUEST_MODE_KEY)
 }
 
 export function clearMobileCustomerCache() {
   if (typeof window === "undefined") return
-  MOBILE_CUSTOMER_CACHE_KEYS.forEach((key) => window.localStorage.removeItem(key))
-  window.localStorage.removeItem(MOBILE_CUSTOMER_CACHE_OWNER_KEY)
-  window.sessionStorage.removeItem("cozycraft-profile-avatar-url-v1")
+  MOBILE_CUSTOMER_CACHE_KEYS.forEach((key) => localStore.removeItem(key))
+  localStore.removeItem(MOBILE_CUSTOMER_CACHE_OWNER_KEY)
+  sessionStore.removeItem("cozycraft-profile-avatar-url-v1")
+  sessionStore.removeItem("cozycraft-storefront-return-state")
 }
 
 export const mobileCustomerCacheOwner = () =>
-  typeof window === "undefined" ? "" : window.localStorage.getItem(MOBILE_CUSTOMER_CACHE_OWNER_KEY) || ""
+  typeof window === "undefined" ? "" : localStore.getItem(MOBILE_CUSTOMER_CACHE_OWNER_KEY) || ""
 
 export function rememberMobileCustomerCacheOwner(userId: string) {
   if (typeof window === "undefined" || !userId) return
-  window.localStorage.setItem(MOBILE_CUSTOMER_CACHE_OWNER_KEY, userId)
+  localStore.setItem(MOBILE_CUSTOMER_CACHE_OWNER_KEY, userId)
 }
 
 const clearLocalAuthTokens = () => {
   if (typeof window === "undefined") return
-  for (const storage of [window.localStorage, window.sessionStorage]) {
+  for (const storage of [localStore, sessionStore]) {
     for (let index = storage.length - 1; index >= 0; index -= 1) {
       const key = storage.key(index) || ""
       if ((key.startsWith("sb-") && key.endsWith("-auth-token")) || key === "supabase.auth.token") {
@@ -71,9 +73,9 @@ const clearLocalAuthTokens = () => {
 }
 
 export async function enterGuestMode() {
-  window.localStorage.setItem(GUEST_MODE_KEY, "guest")
-  window.localStorage.removeItem("cozycraft-auth-intent")
-  window.localStorage.removeItem("cozycraft-pending-payment")
+  localStore.setItem(GUEST_MODE_KEY, "guest")
+  localStore.removeItem("cozycraft-auth-intent")
+  localStore.removeItem("cozycraft-pending-payment")
   clearMobileCustomerCache()
   try {
     await supabase.auth.signOut({ scope: "local" })
@@ -118,8 +120,8 @@ if (typeof window !== "undefined") {
   const consumeCallback = nativeAuthCallbackConsumer(async (callback) => {
     const { data, error } = await supabase.auth.exchangeCodeForSession(callback.searchParams.get("code")!)
     if (error || !data.user) throw error || new Error("Sign-in could not finish")
-    if (window.localStorage.getItem("cozycraft-auth-intent") === "recovery") {
-      window.localStorage.removeItem("cozycraft-auth-intent")
+    if (localStore.getItem("cozycraft-auth-intent") === "recovery") {
+      localStore.removeItem("cozycraft-auth-intent")
       window.location.hash = "#/reset-password"
       return
     }

@@ -32,6 +32,50 @@ describe('HomePage', () => {
     expect(component).toBeTruthy();
   });
 
+  it('ignores unrelated windows trying to consume a payment return', async () => {
+    const iframe = document.createElement('iframe');
+    document.body.appendChild(iframe);
+    component.storefront = new ElementRef<HTMLIFrameElement>(iframe);
+    const bridge = component as unknown as { pendingAppUrl: string; deliveryTimers: number[] };
+    const url = 'com.cozycraft.furniture://payment/return?order=qa';
+    bridge.pendingAppUrl = url;
+    await component.onMessage(new MessageEvent('message', {
+      data: { type: 'cozycraft-app-url-consumed', url }, source: window,
+    }));
+    expect(bridge.pendingAppUrl).toBe(url);
+    await component.onMessage(new MessageEvent('message', {
+      data: { type: 'cozycraft-app-url-consumed', url }, source: iframe.contentWindow!,
+    }));
+    expect(bridge.pendingAppUrl).toBe('');
+    iframe.remove();
+  });
+
+  it('rejects native actions before a storefront sender exists', async () => {
+    const bridge = component as unknown as { pendingAppUrl: string };
+    bridge.pendingAppUrl = 'pending';
+    await component.onMessage(new MessageEvent('message', { data: { type: 'cozycraft-app-url-consumed' } }));
+    expect(bridge.pendingAppUrl).toBe('pending');
+  });
+
+  it('starts the shell when storage reads are unavailable', () => {
+    spyOn(Storage.prototype, 'getItem').and.throwError('Storage unavailable');
+    expect(() => TestBed.createComponent(HomePage)).not.toThrow();
+  });
+
+  it('acknowledges callbacks even when optional cache removal fails', async () => {
+    const iframe = document.createElement('iframe');
+    document.body.appendChild(iframe);
+    component.storefront = new ElementRef<HTMLIFrameElement>(iframe);
+    const bridge = component as unknown as { pendingAppUrl: string; deliveryTimers: number[] };
+    const url = 'com.cozycraft.furniture://auth/callback?code=qa';
+    bridge.pendingAppUrl = url;
+    spyOn(Storage.prototype, 'removeItem').and.throwError('Storage unavailable');
+    await component.onMessage(new MessageEvent('message', { data: { type: 'cozycraft-auth-callback-received', url }, source: iframe.contentWindow! }));
+    expect(bridge.pendingAppUrl).toBe('');
+    expect(bridge.deliveryTimers).toEqual([]);
+    iframe.remove();
+  });
+
   it('discards a paid result belonging to a replaced checkout', async () => {
     const monitor = component as unknown as {
       pendingPaymongoOrderId: string;

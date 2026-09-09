@@ -1,3 +1,4 @@
+import { localStore } from "../lib/browser-storage"
 import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { supabase } from "../lib/supabase"
@@ -13,7 +14,7 @@ const stops: { target: string; title: string; copy: string; pose: CompanionPose 
 const memoryDone = new Set<string>()
 const inProgress = new Map<string, { step: number; replay: boolean }>()
 function doneHere(id: string) {
-  try { return memoryDone.has(id) || localStorage.getItem(`cozy-tour-v1:${id}`) === "done" } catch { return memoryDone.has(id) }
+  try { return memoryDone.has(id) || localStore.getItem(`cozy-tour-v1:${id}`) === "done" } catch { return memoryDone.has(id) }
 }
 export default function WelcomeTour({ userId, blocked, newGoogleAccount = false, onResolved }: { userId: string; blocked: boolean; newGoogleAccount?: boolean; onResolved?: (pending: boolean) => void }) {
   const [eligible, setEligible] = useState(() => inProgress.has(userId))
@@ -83,7 +84,7 @@ export default function WelcomeTour({ userId, blocked, newGoogleAccount = false,
     replaying.current = false
     memoryDone.add(userId)
     inProgress.delete(userId)
-    try { localStorage.setItem(`cozy-tour-v1:${userId}`, "done") } catch { /* Session memory still prevents repeats. */ }
+    try { localStore.setItem(`cozy-tour-v1:${userId}`, "done") } catch { /* Session memory still prevents repeats. */ }
     setEligible(false); setReplay(false)
     resolvedRef.current?.(false)
     // This is a UI preference, never an authorization or reward claim.

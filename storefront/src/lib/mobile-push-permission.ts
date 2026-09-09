@@ -1,3 +1,4 @@
+import { localStore } from "./browser-storage"
 export type MobilePushPermission = "unknown" | "granted" | "denied" | "unsupported"
 
 export const MOBILE_PUSH_PERMISSION_STORAGE_KEY = "cozycraft-native-push-permission"
@@ -11,7 +12,7 @@ export function normalizeMobilePushPermission(value: unknown): MobilePushPermiss
 }
 
 export function readMobilePushPermission(
-  storage: PermissionStorage | null = typeof window === "undefined" ? null : window.localStorage,
+  storage: PermissionStorage | null = typeof window === "undefined" ? null : localStore,
 ): MobilePushPermission {
   if (!storage) return "unknown"
   try {
@@ -23,7 +24,7 @@ export function readMobilePushPermission(
 
 export function saveMobilePushPermission(
   permission: MobilePushPermission,
-  storage: PermissionStorage | null = typeof window === "undefined" ? null : window.localStorage,
+  storage: PermissionStorage | null = typeof window === "undefined" ? null : localStore,
 ) {
   if (!storage) return
   try {

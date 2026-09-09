@@ -1,3 +1,4 @@
+import { sessionStore } from "./browser-storage"
 export type StorefrontReturnState = {
   tab: "account"
   scrollTop: number
@@ -7,7 +8,7 @@ export type StorefrontReturnState = {
 const STOREFRONT_RETURN_STATE_KEY = "cozycraft-storefront-return-state"
 
 function browserSessionStorage() {
-  return typeof window === "undefined" ? null : window.sessionStorage
+  return typeof window === "undefined" ? null : sessionStore
 }
 
 export function rememberStorefrontReturnState(

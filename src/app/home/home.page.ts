@@ -6,6 +6,18 @@ import { LocalNotifications } from '@capacitor/local-notifications';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { Capacitor, CapacitorHttp } from '@capacitor/core';
 
+// These values also live on the shell instance. Optional disk caching must
+// not prevent launch, callback acknowledgement or push-token delivery.
+const readNativeCache = (key: string) => {
+  try { return window.localStorage.getItem(key) || ''; } catch { return ''; }
+};
+const writeNativeCache = (key: string, value: string | null) => {
+  try {
+    if (value === null) window.localStorage.removeItem(key);
+    else window.localStorage.setItem(key, value);
+  } catch { /* Continue using the current in-memory native state. */ }
+};
+
 export const paymongoBrowserOptions = (url: string, platform: string): OpenOptions => ({
   url,
   presentationStyle: platform === 'ios' ? 'popover' : 'fullscreen',
@@ -155,8 +167,8 @@ export class HomePage implements AfterViewInit {
     : 0;
   // Native push registration is supported on both packaged mobile platforms.
   private readonly nativePushConfigured = ['android', 'ios'].includes(this.platform);
-  private pendingAppUrl = window.localStorage.getItem('cozycraft-pending-native-url') || '';
-  private pushToken = window.localStorage.getItem('cozycraft-native-push-token') || '';
+  private pendingAppUrl = readNativeCache('cozycraft-pending-native-url');
+  private pushToken = readNativeCache('cozycraft-native-push-token');
   private deliveryTimers: number[] = [];
   private paymongoBrowserOpening = false;
   private pendingPaymongoOrderId = '';
@@ -169,7 +181,7 @@ export class HomePage implements AfterViewInit {
   private deliverAppUrl(url: string) {
     if (!url) return;
     this.pendingAppUrl = url;
-    window.localStorage.setItem('cozycraft-pending-native-url', url);
+    writeNativeCache('cozycraft-pending-native-url', url);
     this.deliveryTimers.forEach((timer) => window.clearTimeout(timer));
     this.deliveryTimers = [0, 250, 750, 1500, 3000].map((delay) => window.setTimeout(() => {
       this.storefront?.nativeElement.contentWindow?.postMessage(
@@ -357,7 +369,7 @@ export class HomePage implements AfterViewInit {
       });
     void PushNotifications.addListener('registration', ({ value }) => {
       this.pushToken = value;
-      window.localStorage.setItem('cozycraft-native-push-token', value);
+      writeNativeCache('cozycraft-native-push-token', value);
       this.deliverPushToken();
     });
     void PushNotifications.addListener('registrationError', (error) => {
@@ -409,11 +421,15 @@ export class HomePage implements AfterViewInit {
 
   @HostListener('window:message', ['$event'])
   async onMessage(event: MessageEvent) {
+    // Every native capability belongs to this app's storefront iframe. Apply
+    // the same boundary to navigation/browser actions as to payment requests.
+    const sender = this.storefront?.nativeElement.contentWindow;
+    if (!sender || event.source !== sender) return;
     if (event.data?.type === 'cozycraft-auth-callback-received') {
       if (event.source !== this.storefront?.nativeElement.contentWindow) return;
       if (event.data.url !== this.pendingAppUrl) return;
       this.pendingAppUrl = '';
-      window.localStorage.removeItem('cozycraft-pending-native-url');
+      writeNativeCache('cozycraft-pending-native-url', null);
       this.deliveryTimers.forEach((timer) => window.clearTimeout(timer));
       this.deliveryTimers = [];
       return;
@@ -484,7 +500,7 @@ export class HomePage implements AfterViewInit {
       const url = String(event.data.url || '');
       if (!url || url === this.pendingAppUrl) {
         this.pendingAppUrl = '';
-        window.localStorage.removeItem('cozycraft-pending-native-url');
+        writeNativeCache('cozycraft-pending-native-url', null);
         this.deliveryTimers.forEach((timer) => window.clearTimeout(timer));
         this.deliveryTimers = [];
       }
