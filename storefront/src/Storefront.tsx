@@ -122,6 +122,7 @@ import CustomerWelcomeFlow from "./features/auth/CustomerWelcomeFlow"
 import {
   acknowledgeMobileWelcomeVoucher,
   completeMobileGoogleOnboarding,
+  mergeGoogleOnboarding,
   emptyGoogleOnboardingStatus,
   isGoogleCustomer,
   loadMobileGoogleOnboarding,
@@ -875,7 +876,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
           setOrders(nextOrders as CustomerOrder[])
           applyNotifications(nextNotifications)
           setGoogleIdentityUserId(isGoogleCustomer(session.user) ? reconnectUserId : "")
-          setGoogleOnboarding(nextOnboarding)
+          setGoogleOnboarding((current) => mergeGoogleOnboarding(current, nextOnboarding))
           setAccountSnapshotUserId(reconnectUserId)
         }
         retryVisibleRemoteImages(resourceRevision)
@@ -1398,7 +1399,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
           setProfile(nextProfile)
           setSaved(nextSaved)
           applyNotifications(nextNotifications)
-          setGoogleOnboarding(nextOnboarding)
+          setGoogleOnboarding((current) => mergeGoogleOnboarding(current, nextOnboarding))
 
           const [nextCart, nextOrders] = await Promise.all([
             loadCart(userIdToHydrate, catalog),
@@ -2053,8 +2054,6 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
     && tab !== "account"
 
   const completeGoogleUsername = async (username: string, name?: { firstName: string; lastName: string }) => {
-    const { error: tourError } = await supabase.auth.updateUser({ data: { cozy_tour_pending_v1: true } })
-    if (tourError) throw new Error("We couldn’t prepare your welcome. Please try again.")
     if (name) {
       const { error } = await supabase.from("profiles").update({ full_name: `${name.firstName.trim()} ${name.lastName.trim()}`.trim() }).eq("id", userId).select("id").single()
       if (error) throw new Error("Your name could not be saved. Please try again.")
@@ -2062,9 +2061,13 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
     const next = await completeMobileGoogleOnboarding(username)
     if (next.userId !== userId) throw new Error("Your account changed. Please try again.")
     setGoogleOnboarding(next)
-    const { data } = await supabase.auth.getSession()
-    if (data.session?.user.id === userId) setProfile(await loadProfile(data.session.user))
-    setLoyaltyRedemptions(await loadMobileRedemptions(userId))
+    // Nonessential preference/cache refreshes must not turn a committed
+    // username into a failed submission or trigger pre-save auth hydration.
+    void supabase.auth.updateUser({ data: { cozy_tour_pending_v1: true } }).catch(() => {})
+    void supabase.auth.getSession().then(async ({ data }) => {
+      if (data.session?.user.id === userId && identityRef.current === userId) setProfile(await loadProfile(data.session.user))
+    }).catch(() => {})
+    void loadMobileRedemptions(userId).then((value) => { if (identityRef.current === userId) setLoyaltyRedemptions(value) }).catch(() => {})
     if (!next.showVoucher) flash("Your CozyCraft username is ready")
   }
 

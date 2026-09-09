@@ -18,6 +18,13 @@ export type MobileGoogleOnboardingStatus = {
   voucher: MobileWelcomeVoucher | null
 }
 
+// Username completion is irreversible within a signed-in onboarding session.
+// A request started before the save must not reopen the setup form afterward.
+export function mergeGoogleOnboarding(current: MobileGoogleOnboardingStatus | null, incoming: MobileGoogleOnboardingStatus) {
+  if (current?.userId === incoming.userId && current.username && !current.needsUsername && incoming.needsUsername) return current
+  return incoming
+}
+
 const recordValue = (value: unknown): Record<string, unknown> =>
   value && typeof value === "object" && !Array.isArray(value)
     ? value as Record<string, unknown>

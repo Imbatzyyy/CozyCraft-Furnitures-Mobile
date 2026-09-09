@@ -34,6 +34,7 @@ export default function GoogleCustomerOnboarding({
   const [firstName, setFirstName] = useState(displayName.trim().split(/\s+/)[0] || "")
   const [lastName, setLastName] = useState(displayName.trim().split(/\s+/).slice(1).join(" "))
   const input = useRef<HTMLInputElement>(null)
+  const submitting = useRef(false)
   const dialog = useRef<HTMLElement>(null)
   const latest = useRef({ status, busy, dismissVoucher })
   latest.current = { status, busy, dismissVoucher }
@@ -44,7 +45,9 @@ export default function GoogleCustomerOnboarding({
     setUsername(status.username)
     setBusy(false)
     setError("")
-  }, [status.userId, status.needsUsername, status.showVoucher, status.username])
+    setNameConfirmed(false)
+    submitting.current = false
+  }, [status.userId])
 
   useEffect(() => {
     if (!status.needsUsername) return
@@ -122,7 +125,7 @@ export default function GoogleCustomerOnboarding({
 
   const saveUsername = async (event: React.FormEvent) => {
     event.preventDefault()
-    if (busy) return
+    if (submitting.current) return
     if (!nameConfirmed) {
       if (!firstName.trim() || !lastName.trim()) { setError("Enter your first and last name."); return }
       setError("")
@@ -135,12 +138,14 @@ export default function GoogleCustomerOnboarding({
       return
     }
     setBusy(true)
+    submitting.current = true
     setError("")
     try {
       await complete(normalized, { firstName: firstName.trim(), lastName: lastName.trim() })
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Your username could not be saved. Please try again.")
     } finally {
+      submitting.current = false
       setBusy(false)
     }
   }

@@ -27,6 +27,24 @@ const voucherStatus: MobileGoogleOnboardingStatus = {
 }
 
 describe("first-time Google customer onboarding", () => {
+  it("preserves the draft and submission lock during status refreshes", async () => {
+    let finish!: () => void
+    const complete = vi.fn(() => new Promise<void>((resolve) => { finish = resolve }))
+    const props = { displayName: "Joy Rivera", complete, dismissVoucher: vi.fn(), startShopping: vi.fn() }
+    const view = render(<GoogleCustomerOnboarding {...props} status={usernameStatus} />)
+    fireEvent.change(screen.getByLabelText("First name"), { target: { value: "Joy Anne" } })
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }))
+    fireEvent.change(screen.getByLabelText("Username"), { target: { value: "joy.home" } })
+    view.rerender(<GoogleCustomerOnboarding {...props} status={{ ...usernameStatus, username: "stale" }} />)
+    expect((screen.getByLabelText("Username") as HTMLInputElement).value).toBe("joy.home")
+    fireEvent.click(screen.getByRole("button", { name: /Continue to CozyCraft/ }))
+    view.rerender(<GoogleCustomerOnboarding {...props} status={{ ...usernameStatus }} />)
+    expect((screen.getByRole("button", { name: /Saving your account/ }) as HTMLButtonElement).disabled).toBe(true)
+    expect(complete).toHaveBeenCalledTimes(1)
+    expect(complete).toHaveBeenCalledWith("joy.home", { firstName: "Joy Anne", lastName: "Rivera" })
+    finish()
+    await waitFor(() => expect(screen.queryByText("Saving your account…")).toBeNull())
+  })
   it("uses initials when no customer-selected photo exists", () => {
     expect(customerInitials("Joy Rivera")).toBe("JR")
     expect(customerInitials("joy")).toBe("J")
