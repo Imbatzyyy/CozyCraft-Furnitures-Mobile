@@ -20,6 +20,8 @@ for (const engine of [chromium, webkit]) {
     const saved = new Set(scenario.startsWith("move-") ? ["qa-A", "qa-B"] : [])
     const cart = new Map()
     let wishlistWrites = 0, moves = 0
+    let releaseMove = null
+    const moveGate = scenario === "move-signout" ? new Promise(resolve => { releaseMove = resolve }) : null
     await context.routeWebSocket(/supabase\.(co|in)/, ws => ws.close())
     await context.route(/https:\/\/[^/]*supabase\.(co|in)\//, async route => {
       const req = route.request(), url = new URL(req.url()), path = url.pathname
@@ -46,7 +48,8 @@ for (const engine of [chromium, webkit]) {
         data = [...cart.values()]
       } else if (path.endsWith("/move_wishlist_item_to_cart")) {
         moves++
-        await pause(700)
+        if (moveGate) await moveGate
+        else await pause(700)
         return route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ message: "QA deliberate move failure" }) })
       } else if (path.startsWith("/functions/")) data = {}
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(data) })
@@ -107,7 +110,13 @@ for (const engine of [chromium, webkit]) {
           // Saving another piece while a move fails must not restore a whole
           // old wishlist snapshot over the customer's more recent choices.
           if (scenario === "move-signout") {
-            await page.evaluate(async () => { const { enterGuestMode } = await import("/src/lib/supabase.ts"); await enterGuestMode() })
+            // Exercise the real sign-out controls, including in the compiled
+            // release where development-only /src imports do not exist.
+            await page.locator(".lux-nav button").nth(4).click()
+            await page.locator("button.signout").click()
+            await page.getByRole("button", { name: "Yes, sign out", exact: true }).click()
+            await page.waitForURL("**/#/welcome")
+            releaseMove?.()
           } else if (scenario === "move-bag-rollback") {
             await page.locator(".lux-nav button").nth(0).click()
             await card("C").locator(".card-add").click()
@@ -132,7 +141,7 @@ for (const engine of [chromium, webkit]) {
     } catch (error) {
       failures.push(`${engine.name()} ${scenario}: ${error.message}; runtime: ${errors.join(" | ")}`)
       await page.screenshot({ path: `/tmp/cozy-overall-${engine.name()}-${scenario}.png` }).catch(() => {})
-    } finally { await context.close() }
+    } finally { releaseMove?.(); await context.close() }
   }
   await browser.close()
 }
