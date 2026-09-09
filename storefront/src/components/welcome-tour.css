@@ -1,4 +1,5 @@
-.welcome-tour { position: fixed; inset: 0; z-index: 15000; background: #201f1b80; display: flex; align-items: center; justify-content: center; padding: max(16px, env(safe-area-inset-top)) 16px max(120px, calc(env(safe-area-inset-bottom) + 105px)); box-sizing: border-box; }
+.welcome-tour { position: fixed; inset: 0; z-index: 15000; isolation: isolate; overflow: hidden; display: flex; align-items: center; justify-content: center; padding: max(16px, env(safe-area-inset-top)) 16px max(120px, calc(env(safe-area-inset-bottom) + 105px)); box-sizing: border-box; }
+.welcome-tour-shade { position: absolute; inset: 0; background: #201f1b80; pointer-events: none; }
 .welcome-tour-card { position: relative; width: 100%; max-width: 360px; max-height: 100%; overflow-y: auto; overscroll-behavior: contain; box-sizing: border-box; background: #faf8f1; color: #292a23; border: 1px solid #fff9; border-radius: 28px; padding: 20px 24px 24px; text-align: center; outline: none; }
 .welcome-tour button { font: inherit; cursor: pointer; min-height: 44px; border: 0; border-radius: 14px; padding: 10px 16px; }
 .welcome-tour .tour-skip { display: block; margin-left: auto; background: transparent; color: #565a49; text-decoration: underline; font-size: .875rem; }
@@ -10,10 +11,11 @@
 .tour-actions button { background: #ebe8df; color: #292a23; }
 .tour-actions .tour-next { flex: 1; background: #30392b; color: #fffdf7; }
 .welcome-tour button:focus-visible { outline: 3px solid #9c7950; outline-offset: 3px; }
-.welcome-tour-highlight { position: fixed; border: 3px solid #f6e7aa; border-radius: 22px; box-sizing: border-box; background: #ffffff20; pointer-events: none; }
+.welcome-tour-highlight { position: fixed; border: 3px solid #f6e7aa; border-radius: 22px; box-sizing: border-box; background: transparent; box-shadow: 0 0 0 100vmax #201f1b80; pointer-events: none; transition: left 220ms ease-out, top 220ms ease-out, width 220ms ease-out, height 220ms ease-out; }
 .tour-content { animation: tour-arrive 240ms ease-out both; }
 @keyframes tour-arrive { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
 @media (max-height: 620px) { .welcome-tour { padding-bottom: 105px; } .welcome-tour .cozy-companion { width: 100px; height: 80px; } .welcome-tour-card { padding: 12px 18px; } .tour-content h2 { font-size: 1.4rem; } }
-@media (prefers-reduced-motion: reduce) { .tour-content { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .tour-content { animation: none; } .welcome-tour-highlight { transition: none; } }
+html[data-cozy-motion="economy"] .welcome-tour-highlight { transition: none; }
 html[data-cozy-motion="economy"] .tour-content { animation: none; }
 html[data-cozy-motion="economy"] .welcome-tour .cozy-companion { animation: none; }

@@ -18,6 +18,23 @@ async function toPassword() {
   await waitFor(() => expect(screen.getByText("At least 10 characters")).toBeTruthy())
 }
 describe("guided signup", () => {
+  it("rejects mismatched passwords without creating an account", async () => {
+    await toPassword()
+    fill(/Create a password/, "StrongCozy1!"); fill(/Confirm password/, "DifferentCozy1!")
+    fireEvent.click(screen.getByRole("checkbox"))
+    fireEvent.click(screen.getByRole("button", { name: /Create my account/ }))
+    expect(screen.getByRole("alert").textContent).toContain("Passwords do not match")
+    expect(mocks.signup).not.toHaveBeenCalled()
+  })
+  it("does not show verification success for a duplicate account", async () => {
+    mocks.signup.mockResolvedValue({ data: { user: { identities: [] }, session: null }, error: null })
+    await toPassword()
+    fill(/Create a password/, "StrongCozy1!"); fill(/Confirm password/, "StrongCozy1!")
+    fireEvent.click(screen.getByRole("checkbox"))
+    fireEvent.click(screen.getByRole("button", { name: /Create my account/ }))
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("already exists"))
+    expect(screen.queryByText("One last step.")).toBeNull()
+  })
   beforeEach(() => { mocks.signup.mockReset(); mocks.resend.mockReset(); vi.stubGlobal("localStorage", { getItem: () => null, setItem: vi.fn(), removeItem: vi.fn() }) })
   it("validates a step and preserves names when going back", () => {
     render(<MemoryRouter><CreateAccount /></MemoryRouter>)

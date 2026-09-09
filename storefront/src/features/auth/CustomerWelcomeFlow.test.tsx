@@ -15,6 +15,21 @@ function fixture(fail = false) {
   return { id, status, dismissVoucher, complete: vi.fn(), startShopping: vi.fn() }
 }
 describe("Google signup welcome sequence", () => {
+  it("keeps a replay exclusive when a voucher is waiting and preferences refresh", async () => {
+    const f = fixture()
+    render(<CustomerWelcomeFlow userId={f.id} {...f} blocked={false} displayName="Alex Rivera" />)
+    await screen.findByText("Welcome home.")
+    fireEvent.click(screen.getByText("Skip tour"))
+    await screen.findByText("WELCOME-FIXTURE")
+    fireEvent(window, new Event("cozycraft-replay-tour"))
+    await screen.findByText("Welcome home.")
+    fireEvent(window, new Event("online"))
+    await waitFor(() => expect(auth.getUser).toHaveBeenCalled())
+    expect(screen.queryByText("WELCOME-FIXTURE")).toBeNull()
+    expect(screen.getAllByRole("dialog")).toHaveLength(1)
+    fireEvent.click(screen.getByText("Skip tour"))
+    await screen.findByText("WELCOME-FIXTURE")
+  })
   it("shows the tour before the issued voucher and hands off on Finish", async () => {
     const f = fixture()
     render(<CustomerWelcomeFlow userId={f.id} {...f} blocked={false} displayName="Alex Rivera" />)

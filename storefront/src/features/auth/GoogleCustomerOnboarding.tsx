@@ -50,6 +50,16 @@ export default function GoogleCustomerOnboarding({
   }, [status.userId])
 
   useEffect(() => {
+    // A successfully dismissed voucher can be reopened after a retry/replay.
+    // Reset only this phase's request state, never the signup draft.
+    if (!status.needsUsername) {
+      setBusy(false)
+      setError("")
+      submitting.current = false
+    }
+  }, [status.needsUsername, status.showVoucher])
+
+  useEffect(() => {
     if (!status.needsUsername) return
     const frame = window.requestAnimationFrame(() => input.current?.focus())
     return () => window.cancelAnimationFrame(frame)
@@ -151,7 +161,8 @@ export default function GoogleCustomerOnboarding({
   }
 
   const continueFromVoucher = async (shop: boolean) => {
-    if (busy) return
+    if (submitting.current) return
+    submitting.current = true
     setBusy(true)
     setError("")
     try {
@@ -159,6 +170,8 @@ export default function GoogleCustomerOnboarding({
       else await dismissVoucher()
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Please try again.")
+    } finally {
+      submitting.current = false
       setBusy(false)
     }
   }

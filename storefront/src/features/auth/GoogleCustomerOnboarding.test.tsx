@@ -27,6 +27,19 @@ const voucherStatus: MobileGoogleOnboardingStatus = {
 }
 
 describe("first-time Google customer onboarding", () => {
+  it("recovers voucher actions after failure and reopening", async () => {
+    const dismissVoucher = vi.fn().mockRejectedValueOnce(new Error("Please retry")) .mockResolvedValue(undefined)
+    const props = { displayName: "Joy Rivera", complete: vi.fn(), dismissVoucher, startShopping: vi.fn() }
+    const view = render(<GoogleCustomerOnboarding {...props} status={voucherStatus} />)
+    fireEvent.click(screen.getByText("Keep it for later"))
+    await screen.findByText("Please retry")
+    fireEvent.click(screen.getByText("Keep it for later"))
+    await waitFor(() => expect(dismissVoucher).toHaveBeenCalledTimes(2))
+    view.rerender(<GoogleCustomerOnboarding {...props} status={{ ...voucherStatus, showVoucher: false }} />)
+    view.rerender(<GoogleCustomerOnboarding {...props} status={voucherStatus} />)
+    expect((screen.getByText("Keep it for later") as HTMLButtonElement).disabled).toBe(false)
+    expect(screen.queryByText("Please retry")).toBeNull()
+  })
   it("preserves the draft and submission lock during status refreshes", async () => {
     let finish!: () => void
     const complete = vi.fn(() => new Promise<void>((resolve) => { finish = resolve }))

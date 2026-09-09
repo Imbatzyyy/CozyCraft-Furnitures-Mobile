@@ -23,6 +23,7 @@ export default function WelcomeTour({ userId, blocked, newGoogleAccount = false,
   const dialog = useRef<HTMLElement>(null)
   const finishRef = useRef<() => void>(() => {})
   const resolvedRef = useRef(onResolved)
+  const replaying = useRef(false)
   resolvedRef.current = onResolved
   const open = Boolean(userId) && (eligible || replay) && !blocked
   useEffect(() => {
@@ -31,6 +32,7 @@ export default function WelcomeTour({ userId, blocked, newGoogleAccount = false,
     if (!userId) return
     void supabase.auth.getUser().then(({ data, error }) => {
       if (!active) return
+      if (replaying.current) return
       if (error || !data.user) throw new Error("Welcome preferences unavailable")
       if (data.user.id !== userId) { resolvedRef.current?.(false); return }
       const metadata = data.user.user_metadata || {}
@@ -44,6 +46,7 @@ export default function WelcomeTour({ userId, blocked, newGoogleAccount = false,
       resolvedRef.current?.(pending)
     }).catch(() => {
       if (!active) return
+      if (replaying.current) return
       // Verified onboarding status is sufficient to offer the tour even if
       // the additional metadata request is temporarily unavailable.
       const pending = newGoogleAccount && !doneHere(userId)
@@ -58,11 +61,12 @@ export default function WelcomeTour({ userId, blocked, newGoogleAccount = false,
     return () => window.removeEventListener("online", online)
   }, [])
   useEffect(() => {
-    const replayTour = () => { setStep(-1); setReplay(true) }
+    const replayTour = () => { replaying.current = true; setStep(-1); setReplay(true); resolvedRef.current?.(true) }
     window.addEventListener("cozycraft-replay-tour", replayTour)
     return () => window.removeEventListener("cozycraft-replay-tour", replayTour)
   }, [])
   const finish = () => {
+    replaying.current = false
     memoryDone.add(userId)
     try { localStorage.setItem(`cozy-tour-v1:${userId}`, "done") } catch { /* Session memory still prevents repeats. */ }
     setEligible(false); setReplay(false)
@@ -97,18 +101,24 @@ export default function WelcomeTour({ userId, blocked, newGoogleAccount = false,
     const measure = () => {
       const target = step >= 0 ? document.querySelector<HTMLElement>(`button[data-nav="${stops[step].target}"]`) : null
       const bounds = target?.getBoundingClientRect()
-      setRect(bounds && bounds.width && bounds.top >= 0 && bounds.bottom <= window.innerHeight ? bounds : null)
+      const next = bounds && bounds.width && bounds.top >= 0 && bounds.bottom <= window.innerHeight ? bounds : null
+      setRect((current) => current?.left === next?.left && current?.top === next?.top && current?.width === next?.width && current?.height === next?.height ? current : next)
+    }
+    let frame = 0
+    const scheduleMeasure = () => {
+      if (frame) return
+      frame = window.requestAnimationFrame(() => { frame = 0; measure() })
     }
     measure()
-    window.addEventListener("resize", measure); window.visualViewport?.addEventListener("resize", measure)
-    document.addEventListener("scroll", measure, true)
+    window.addEventListener("resize", scheduleMeasure); window.visualViewport?.addEventListener("resize", scheduleMeasure)
+    document.addEventListener("scroll", scheduleMeasure, true)
     dialog.current?.focus({ preventScroll: true })
-    return () => { window.removeEventListener("resize", measure); window.visualViewport?.removeEventListener("resize", measure); document.removeEventListener("scroll", measure, true) }
+    return () => { window.cancelAnimationFrame(frame); window.removeEventListener("resize", scheduleMeasure); window.visualViewport?.removeEventListener("resize", scheduleMeasure); document.removeEventListener("scroll", scheduleMeasure, true) }
   }, [open, step])
   if (!open) return null
   const stop = stops[step]
   return createPortal(<div className="welcome-tour">
-    {rect && <div className="welcome-tour-highlight" aria-hidden="true" style={{ left: rect.left - 4, top: rect.top - 4, width: rect.width + 8, height: rect.height + 8 }} />}
+    {rect ? <div className="welcome-tour-highlight" aria-hidden="true" style={{ left: rect.left - 6, top: rect.top - 6, width: rect.width + 12, height: rect.height + 12 }} /> : <div className="welcome-tour-shade" aria-hidden="true" />}
     <section ref={dialog} role="dialog" aria-modal="true" aria-labelledby="tour-title" tabIndex={-1} className="welcome-tour-card">
       <button className="tour-skip" onClick={finish}>Skip tour</button>
       <div key={step} className="tour-content">
