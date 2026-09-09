@@ -36,7 +36,11 @@ describe("Google signup welcome sequence", () => {
     await screen.findByText("Welcome home.")
     expect(screen.queryByText("WELCOME-FIXTURE")).toBeNull()
     fireEvent.click(screen.getByText("Show me around"))
-    for (let n = 0; n < 3; n++) fireEvent.click(screen.getByText("Next"))
+    for (let n = 0; n < 3; n++) {
+      await waitFor(() => expect((screen.getByText("Next") as HTMLButtonElement).disabled).toBe(false))
+      fireEvent.click(screen.getByText("Next"))
+    }
+    await waitFor(() => expect((screen.getByText("Finish") as HTMLButtonElement).disabled).toBe(false))
     fireEvent.click(screen.getByText("Finish"))
     await screen.findByText("WELCOME-FIXTURE")
     expect(screen.getAllByRole("dialog")).toHaveLength(1)

@@ -24,6 +24,11 @@ export default function WelcomeTour({ userId, blocked, newGoogleAccount = false,
   const finishRef = useRef<() => void>(() => {})
   const resolvedRef = useRef(onResolved)
   const replaying = useRef(false)
+  const advancing = useRef(false)
+  const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [transitioning, setTransitioning] = useState(false)
+  const finished = useRef(false)
+  useEffect(() => () => { if (advanceTimer.current) clearTimeout(advanceTimer.current) }, [])
   resolvedRef.current = onResolved
   const open = Boolean(userId) && (eligible || replay) && !blocked
   useEffect(() => {
@@ -61,11 +66,13 @@ export default function WelcomeTour({ userId, blocked, newGoogleAccount = false,
     return () => window.removeEventListener("online", online)
   }, [])
   useEffect(() => {
-    const replayTour = () => { replaying.current = true; setStep(-1); setReplay(true); resolvedRef.current?.(true) }
+    const replayTour = () => { if (replaying.current) return; finished.current = false; replaying.current = true; setStep(-1); setReplay(true); resolvedRef.current?.(true) }
     window.addEventListener("cozycraft-replay-tour", replayTour)
     return () => window.removeEventListener("cozycraft-replay-tour", replayTour)
   }, [])
   const finish = () => {
+    if (finished.current) return
+    finished.current = true
     replaying.current = false
     memoryDone.add(userId)
     try { localStorage.setItem(`cozy-tour-v1:${userId}`, "done") } catch { /* Session memory still prevents repeats. */ }
@@ -77,12 +84,21 @@ export default function WelcomeTour({ userId, blocked, newGoogleAccount = false,
     }).catch(() => { /* Offline completion is retained on this device. */ })
   }
   finishRef.current = finish
+  const advance = (delta: number) => {
+    if (advancing.current || finished.current) return
+    advancing.current = true
+    setTransitioning(true)
+    if (delta > 0 && step === stops.length - 1) finish()
+    else setStep((current) => Math.max(-1, Math.min(stops.length - 1, current + delta)))
+    advanceTimer.current = setTimeout(() => { advancing.current = false; setTransitioning(false) }, 280)
+  }
   useEffect(() => {
     if (!open) return
     const previous = document.activeElement as HTMLElement | null
     const root = document.getElementById("root")
     const wasInert = root?.inert ?? false
     if (root) root.inert = true
+    document.documentElement.classList.add("cozy-tour-open")
     dialog.current?.focus()
     const key = (e: KeyboardEvent) => {
       if (e.key === "Escape") { e.preventDefault(); e.stopImmediatePropagation(); finishRef.current(); return }
@@ -94,7 +110,7 @@ export default function WelcomeTour({ userId, blocked, newGoogleAccount = false,
     }
     const back = (e: MessageEvent) => { if (e.source === window.parent && e.data?.type === "cozycraft-native-back") { e.stopImmediatePropagation(); finishRef.current() } }
     document.addEventListener("keydown", key, true); window.addEventListener("message", back, true)
-    return () => { if (root) root.inert = wasInert; document.removeEventListener("keydown", key, true); window.removeEventListener("message", back, true); if (previous?.isConnected) previous.focus() }
+    return () => { document.documentElement.classList.remove("cozy-tour-open"); if (root) root.inert = wasInert; document.removeEventListener("keydown", key, true); window.removeEventListener("message", back, true); if (previous?.isConnected) previous.focus() }
   }, [open])
   useEffect(() => {
     if (!open) return
@@ -128,8 +144,8 @@ export default function WelcomeTour({ userId, blocked, newGoogleAccount = false,
         <p>{stop?.copy || "Want a quick look around?"}</p>
       </div>
       <div className="tour-actions">
-        {step >= 0 && <button onClick={() => setStep(step - 1)}>Back</button>}
-        <button className="tour-next" onClick={() => step === stops.length - 1 ? finish() : setStep(step + 1)}>{step < 0 ? "Show me around" : step === stops.length - 1 ? "Finish" : "Next"}<span aria-hidden="true"> →</span></button>
+        {step >= 0 && <button disabled={transitioning} onClick={() => advance(-1)}>Back</button>}
+        <button className="tour-next" disabled={transitioning} onClick={() => advance(1)}>{step < 0 ? "Show me around" : step === stops.length - 1 ? "Finish" : "Next"}<span aria-hidden="true"> →</span></button>
       </div>
     </section>
   </div>, document.body)
