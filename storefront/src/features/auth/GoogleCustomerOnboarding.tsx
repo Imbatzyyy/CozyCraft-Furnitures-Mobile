@@ -23,13 +23,16 @@ export default function GoogleCustomerOnboarding({
 }: {
   status: MobileGoogleOnboardingStatus
   displayName: string
-  complete: (username: string) => Promise<void>
+  complete: (username: string, name?: { firstName: string; lastName: string }) => Promise<void>
   dismissVoucher: () => Promise<void>
   startShopping: () => Promise<void>
 }) {
   const [username, setUsername] = useState("")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
+  const [nameConfirmed, setNameConfirmed] = useState(false)
+  const [firstName, setFirstName] = useState(displayName.trim().split(/\s+/)[0] || "")
+  const [lastName, setLastName] = useState(displayName.trim().split(/\s+/).slice(1).join(" "))
   const input = useRef<HTMLInputElement>(null)
   const dialog = useRef<HTMLElement>(null)
   const latest = useRef({ status, busy, dismissVoucher })
@@ -119,6 +122,13 @@ export default function GoogleCustomerOnboarding({
 
   const saveUsername = async (event: React.FormEvent) => {
     event.preventDefault()
+    if (busy) return
+    if (!nameConfirmed) {
+      if (!firstName.trim() || !lastName.trim()) { setError("Enter your first and last name."); return }
+      setError("")
+      setNameConfirmed(true)
+      return
+    }
     const normalized = username.trim()
     if (!/^[A-Za-z0-9._-]{3,24}$/.test(normalized)) {
       setError("Use 3–24 letters, numbers, dots, underscores, or hyphens.")
@@ -127,7 +137,7 @@ export default function GoogleCustomerOnboarding({
     setBusy(true)
     setError("")
     try {
-      await complete(normalized)
+      await complete(normalized, { firstName: firstName.trim(), lastName: lastName.trim() })
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Your username could not be saved. Please try again.")
     } finally {
@@ -159,15 +169,19 @@ export default function GoogleCustomerOnboarding({
     >
       {status.needsUsername ? (
         <form className="google-onboarding-card username-step" onSubmit={saveUsername} noValidate>
-          <div className="google-onboarding-monogram" aria-hidden="true">
-            {customerInitials(displayName)}
+          {nameConfirmed && <button type="button" className="google-onboarding-secondary" disabled={busy} onClick={() => setNameConfirmed(false)}>← Back</button>}
+          <div key={nameConfirmed ? "username" : "name"} className="signup-slide">
+            <CozyCompanion pose={nameConfirmed ? "signup-username" : "signup-name"} />
           </div>
-          <p className="google-onboarding-eyebrow">WELCOME TO COZYCRAFT</p>
-          <h1 id="google-onboarding-title">Make this account <em>yours.</em></h1>
+          <p className="google-onboarding-eyebrow">STEP {nameConfirmed ? "2" : "1"} OF 2</p>
+          <h1 id="google-onboarding-title">{nameConfirmed ? "Make it yours." : "A warm welcome."}</h1>
           <p className="google-onboarding-lead">
-            Choose the username you want CozyCraft to show. We’ll use initials until you personally add a profile photo.
+            {nameConfirmed ? "Choose a username that feels like you." : "Is this how we should call you?"}
           </p>
-          <label htmlFor="google-onboarding-username">
+          {!nameConfirmed ? <>
+            <label>First name<input ref={input} value={firstName} onChange={(e) => setFirstName(e.target.value)} autoComplete="given-name" /></label>
+            <label>Last name<input value={lastName} onChange={(e) => setLastName(e.target.value)} autoComplete="family-name" /></label>
+          </> : <><label htmlFor="google-onboarding-username">
             <span>Username</span>
             <input
               ref={input}
@@ -184,14 +198,14 @@ export default function GoogleCustomerOnboarding({
             />
           </label>
           <p id="google-onboarding-username-help" className="google-onboarding-help">
-            Your photo and verified mobile number remain empty until you add them in My Profile.
-          </p>
+            3–24 letters, numbers, dots, underscores, or hyphens.
+          </p></>}
           {error && <p className="google-onboarding-error" role="alert">{error}</p>}
-          <button className="google-onboarding-primary" type="submit" disabled={busy || username.trim().length < 3}>
-            {busy ? "Saving your username…" : "Continue to CozyCraft"}
+          <button className="google-onboarding-primary" type="submit" disabled={busy || (nameConfirmed && username.trim().length < 3)}>
+            {busy ? "Saving your account…" : nameConfirmed ? "Continue to CozyCraft" : "Continue"}
             {!busy && <span className="material-symbols-rounded" aria-hidden="true">arrow_forward</span>}
           </button>
-          <small className="google-onboarding-footnote">Usernames are unique and can be changed later from My Profile.</small>
+          <small className="google-onboarding-footnote">You can update these details in My Profile.</small>
         </form>
       ) : voucher ? (
         <div className="google-onboarding-card voucher-step">

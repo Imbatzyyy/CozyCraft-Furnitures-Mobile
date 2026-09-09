@@ -1,0 +1,43 @@
+// Isolated fixture only: no real account or email is created.
+const { chromium, webkit } = await import(process.env.PLAYWRIGHT_MODULE || "playwright")
+const base = process.env.QA_URL || "http://127.0.0.1:5188"
+for (const [engine, options] of [[chromium, { channel: "chrome" }], [webkit, {}]]) {
+  const browser = await engine.launch(options)
+  for (const [width, height, text] of [[390, 844, "comfortable"], [320, 568, "extra-large"], [844, 390, "large"], [768, 1024, "standard"]]) {
+    const page = await browser.newPage({ viewport: { width, height }, reducedMotion: "reduce" })
+    const errors = []
+    page.on("pageerror", (error) => errors.push(error.message))
+    await page.goto(`${base}/?signup&text=${text}`)
+    await page.getByLabel("First name").fill("Mary Jane")
+    await page.getByLabel("Last name").fill("Santos")
+    const next = () => page.locator("button[type=submit]").click()
+    await next()
+    await page.getByLabel("Username", { exact: false }).fill("mary.home")
+    await next()
+    await page.getByLabel("Email address").fill("mary@example.test")
+    await next()
+    await page.getByLabel("Create a password", { exact: false }).fill("CozyStrong123!")
+    await page.getByLabel("Confirm password", { exact: false }).fill("CozyStrong123!")
+    await page.getByRole("checkbox").check()
+    if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)) throw new Error(`Overflow at ${width}`)
+    await next()
+    await page.getByText("One last step.").waitFor()
+    await page.getByRole("button", { name: "Resend confirmation email" }).click()
+    await page.getByText("A new confirmation email was sent.").waitFor()
+    if (errors.length) throw new Error(errors.join("\n"))
+    console.log(`${engine.name()} ${width}x${height} ${text}: signup + resend passed`)
+    await page.close()
+  }
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } })
+  await page.goto(`${base}/?google-onboarding=username`)
+  await page.getByLabel("First name").fill("Mary")
+  await page.getByLabel("Last name").fill("Santos")
+  await page.getByRole("button", { name: "Continue", exact: true }).click()
+  await page.getByLabel("Username", { exact: true }).fill("mary.home")
+  await page.getByRole("button", { name: /Back/ }).click()
+  if (await page.getByLabel("First name").inputValue() !== "Mary") throw new Error("Google name not preserved")
+  await page.getByRole("button", { name: "Continue", exact: true }).click()
+  if (await page.getByLabel("Username", { exact: true }).inputValue() !== "mary.home") throw new Error("Google username not preserved")
+  console.log(`${engine.name()}: Google Back preserves names and username`)
+  await browser.close()
+}

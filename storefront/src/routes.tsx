@@ -1,4 +1,6 @@
-import { lazy, Suspense, useEffect, useState } from "react"
+import { lazy, Suspense, useEffect, useRef, useState } from "react"
+import CozyCompanion, { type CompanionPose } from "./components/CozyCompanion"
+import "./features/auth/signup-journey.css"
 import useVisibleInterval from "./components/useVisibleInterval"
 import DocumentSections from "./components/DocumentSections"
 import CozyLaunchScreen from "./components/CozyLaunchScreen"
@@ -773,7 +775,7 @@ function ResetPassword() {
   )
 }
 
-function CreateAccount() {
+export function CreateAccount() {
   const nav = useNavigate()
   const [first, setFirst] = useState("")
   const [last, setLast] = useState("")
@@ -790,35 +792,63 @@ function CreateAccount() {
   const [passwordMinimum, setPasswordMinimum] = useState(8)
   const [usernameRequired, setUsernameRequired] = useState(true)
   const [googleEnabled, setGoogleEnabled] = useState(true)
+  const [settingsReady, setSettingsReady] = useState(false)
+  const [settingsAttempt, setSettingsAttempt] = useState(0)
+  const [step, setStep] = useState(0)
+  const [direction, setDirection] = useState("forward")
+  const submitting = useRef(false)
+  const stepTitle = useRef<HTMLHeadingElement>(null)
+  const steps = usernameRequired ? ["name", "username", "email", "security"] : ["name", "email", "security"]
+  const current = steps[Math.min(step, steps.length - 1)]
+  const titles: Record<string, string> = { name: "What should we call you?", username: "Make it yours.", email: "Stay in the loop.", security: "Your own cozy space." }
+  const move = (next: number) => {
+    setDirection(next < step ? "backward" : "forward")
+    setNotice("")
+    setStep(next)
+  }
+  useEffect(() => {
+    if (step > 0) stepTitle.current?.focus({ preventScroll: true })
+  }, [step])
+  useEffect(() => {
+    const back = (event: MessageEvent) => {
+      if (event.source !== window.parent || event.data?.type !== "cozycraft-native-back" || verification || step === 0) return
+      event.stopImmediatePropagation()
+      if (!busy) move(step - 1)
+    }
+    window.addEventListener("message", back, true)
+    return () => window.removeEventListener("message", back, true)
+  }, [step, busy, verification])
 
   useEffect(() => {
     let active = true
     const loadSettings = async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("store_settings")
         .select("account_settings")
         .eq("id", true)
         .maybeSingle()
       const settings = data?.account_settings as Record<string, unknown> | undefined
-      if (!active || !settings) return
+      if (!active) return
+      if (error || !settings) throw new Error("Account settings unavailable")
       setPasswordMinimum(Math.max(8, Number(settings.password_minimum_length) || 8))
       setUsernameRequired(settings.username_required !== false)
       setGoogleEnabled(settings.google_auth_enabled !== false)
+      setSettingsReady(true)
     }
-    void loadSettings()
+    void loadSettings().catch(() => { if (active) setNotice("Account settings couldn’t load. Check your connection before creating your account.") })
     const channel = supabase
       .channel("mobile-registration-settings")
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "store_settings" },
-        loadSettings,
+        () => { void loadSettings().catch(() => { if (active) setSettingsReady(false) }) },
       )
       .subscribe()
     return () => {
       active = false
       void supabase.removeChannel(channel)
     }
-  }, [])
+  }, [settingsAttempt])
 
   const requirements = [
     password.length >= passwordMinimum,
@@ -840,8 +870,17 @@ function CreateAccount() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (submitting.current) return
     setNotice("")
     setNoticeKind("error")
+    if (current !== "security") {
+      if (current === "name" && (!first.trim() || !last.trim())) return setNotice("Enter your first and last name to continue.")
+      if (current === "username" && !/^[A-Za-z0-9._-]{3,24}$/.test(username.trim())) return setNotice("Use 3–24 letters, numbers, dots, underscores, or hyphens.")
+      if (current === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return setNotice("Enter a valid email address.")
+      move(step + 1)
+      return
+    }
+    if (!settingsReady) return setNotice("Please reload account settings before continuing.")
     if (!first.trim() || !last.trim()) {
       setNotice("Enter your first and last name to continue.")
       return
@@ -867,19 +906,22 @@ function CreateAccount() {
       return
     }
     setBusy(true)
-    window.localStorage.setItem(MOBILE_POLICY_PENDING_KEY, MOBILE_POLICY_VERSION)
+    submitting.current = true
+    try {
+    try { window.localStorage.setItem(MOBILE_POLICY_PENDING_KEY, MOBILE_POLICY_VERSION) } catch { /* Storage can be unavailable in private browsers. */ }
     const result = await supabase.auth.signUp({
       email: email.trim().toLowerCase(),
       password,
       options: {
         data: {
           full_name: `${first.trim()} ${last.trim()}`.trim(),
+          first_name: first.trim(),
+          last_name: last.trim(),
           username: username.trim(),
         },
         emailRedirectTo: mobileRedirectUrl(),
       },
     })
-    setBusy(false)
     const message = result.error?.message.toLowerCase() || ""
     const code = result.error?.code?.toLowerCase() || ""
     const duplicate =
@@ -888,13 +930,15 @@ function CreateAccount() {
       message.includes("already exists") ||
       (Array.isArray(result.data.user?.identities) && result.data.user.identities.length === 0)
     if (result.error || duplicate) {
-      window.localStorage.removeItem(MOBILE_POLICY_PENDING_KEY)
+      try { window.localStorage.removeItem(MOBILE_POLICY_PENDING_KEY) } catch { /* Optional persistence. */ }
       setNotice(duplicate
         ? "An account with this email already exists. Sign in instead."
         : result.error?.message || "Account creation failed.")
       return
     }
     if (!result.data.session) {
+      setPassword("")
+      setConfirm("")
       setVerification(true)
       return
     }
@@ -904,14 +948,20 @@ function CreateAccount() {
       console.warn("Policy acceptance will retry on the next session", cause)
     })
     nav("/shop")
+    } catch {
+      setNotice("We couldn’t finish connecting. Please try again; if you already received a confirmation email, use that link.")
+    } finally {
+      submitting.current = false
+      setBusy(false)
+    }
   }
 
   if (verification) {
     return (
-      <main className="auth-phone registration-verify">
+      <main className="auth-phone registration-verify signup-journey">
         <Link className="back-link" to="/sign-in">← Back to sign in</Link>
         <section>
-          <span className="registration-check">✓</span>
+          <CozyCompanion pose="signup-verify" />
           <p className="eyebrow-auth">CONFIRM YOUR EMAIL</p>
           <h1>One last step.</h1>
           <p>
@@ -927,6 +977,7 @@ function CreateAccount() {
             onClick={async () => {
               setResending(true)
               setNotice("")
+              try {
               const { error } = await supabase.auth.resend({
                 type: "signup",
                 email: email.trim().toLowerCase(),
@@ -935,6 +986,8 @@ function CreateAccount() {
               setResending(false)
               setNoticeKind(error ? "error" : "success")
               setNotice(error ? error.message : "A new confirmation email was sent.")
+              } catch { setNoticeKind("error"); setNotice("Couldn’t send the email. Please try again.") }
+              finally { setResending(false) }
             }}
           >
             {resending ? "Sending…" : "Resend confirmation email"}
@@ -946,44 +999,33 @@ function CreateAccount() {
   }
 
   return (
-    <main className="auth-phone form-page create deluxe-create">
+    <main className="auth-phone form-page create deluxe-create signup-journey">
       <header className="create-top">
-        <BackLink />
-        <span>
-          01 <i /> 02
-        </span>
+        {step === 0 ? <BackLink /> : <button type="button" className="back-link" disabled={busy} onClick={() => move(step - 1)}>← <span>Back</span></button>}
+        <span aria-live="polite">Step {Math.min(step + 1, steps.length)} of {steps.length}</span>
       </header>
-      <section className="create-intro">
-        <Mark />
-        <p className="eyebrow-auth">HOME CIRCLE MEMBERSHIP</p>
-        <h1>
-          Make it
-          <br />
-          <em>yours.</em>
-        </h1>
-        <p className="intro">A considered account for a considered home.</p>
+      <div className="signup-progress" aria-hidden="true">{steps.map((value, index) => <i key={value} className={index <= step ? "active" : ""} />)}</div>
+      <section key={current} className={`create-intro signup-slide ${direction}`}>
+        <CozyCompanion pose={`signup-${current}` as CompanionPose} />
+        <h1 ref={stepTitle} tabIndex={-1}>{titles[current]}</h1>
+        <p className="intro">{current === "name" ? "A little introduction. A warm welcome." : current === "username" ? "Choose a name that feels like you." : current === "email" ? "For your account and order updates." : "A strong password keeps it yours."}</p>
       </section>
       <section className="create-form-card">
-        <div className="membership-note">
-          <span>✦</span>
-          <p>
-            <b>Member first</b>
-            <small>
-              Early access, personal delivery updates, and points on every
-              purchase.
-            </small>
-          </p>
-        </div>
-        {googleEnabled && (
+        {googleEnabled && step === 0 && (
           <>
             <button
               type="button"
               className="google create-google"
+              disabled={busy || !settingsReady}
               onClick={async () => {
+                if (submitting.current) return
+                submitting.current = true
+                setBusy(true)
+                try {
                 clearMobileCustomerCache()
                 leaveGuestMode()
                 setNotice("")
-                window.localStorage.setItem(MOBILE_POLICY_PENDING_KEY, MOBILE_POLICY_VERSION)
+                try { window.localStorage.setItem(MOBILE_POLICY_PENDING_KEY, MOBILE_POLICY_VERSION) } catch { /* Optional persistence. */ }
                 const { data, error } = await supabase.auth.signInWithOAuth({
                   provider: "google",
                   options: googleOAuthOptions(mobileRedirectUrl()),
@@ -992,6 +1034,8 @@ function CreateAccount() {
                 else if (data.url && window.parent !== window) {
                   window.parent.postMessage({ type: "cozycraft-open-oauth", url: data.url }, "*")
                 }
+                } catch { setNotice("Couldn’t connect to Google. Please try again.") }
+                finally { submitting.current = false; setBusy(false) }
               }}
             >
               <img src={googleMark} alt="" aria-hidden="true" />
@@ -1001,11 +1045,11 @@ function CreateAccount() {
           </>
         )}
         <form onSubmit={submit} noValidate>
-          <div className="registration-name-grid">
+          {current === "name" && <div className="registration-name-grid">
             <Field label="First name" value={first} onChange={setFirst} autoComplete="given-name" />
             <Field label="Last name" value={last} onChange={setLast} autoComplete="family-name" />
-          </div>
-          {usernameRequired && (
+          </div>}
+          {current === "username" && (
             <Field
               label="Username"
               value={username}
@@ -1014,14 +1058,14 @@ function CreateAccount() {
               hint="3–24 characters; letters, numbers, dots, underscores, or hyphens"
             />
           )}
-          <Field
+          {current === "email" && <Field
             label="Email address"
             type="email"
             value={email}
             onChange={setEmail}
             autoComplete="email"
-          />
-          <Field
+          />}
+          {current === "security" && <><Field
             label="Create a password"
             type="password"
             value={password}
@@ -1062,9 +1106,10 @@ function CreateAccount() {
               <Link to="/terms" onClick={(event) => event.stopPropagation()}>Terms</Link> and{" "}
               <Link to="/privacy-policy" onClick={(event) => event.stopPropagation()}>Privacy Policy</Link>.
             </span>
-          </label>
-          <button className="auth-primary" type="submit" disabled={busy}>
-            {busy ? "CREATING ACCOUNT…" : "CREATE MY ACCOUNT"} <b>→</b>
+          </label></>}
+          {current === "security" && !settingsReady && <button type="button" className="registration-resend" onClick={() => setSettingsAttempt((value) => value + 1)}>Reload account settings</button>}
+          <button className="auth-primary" type="submit" disabled={busy || (current === "security" && !settingsReady)}>
+            {busy ? "Creating your account…" : current === "security" ? "Create my account" : "Continue"} <b>→</b>
           </button>
           {notice && (
             <p className={`form-notice ${noticeKind}`} role="alert">

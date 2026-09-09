@@ -1,0 +1,25 @@
+.auth-phone.signup-journey { min-height: 100svh; height: auto; overflow: visible; padding: max(24px, env(safe-area-inset-top)) 24px max(32px, env(safe-area-inset-bottom)); background: radial-gradient(ellipse at 50% 25%, #ede6d8 0%, transparent 55%), #faf8f4; }
+.signup-journey .create-top { margin: 0 auto 14px; max-width: 440px; }
+.signup-journey .back-link { border: 0; background: transparent; min-height: 44px; padding: 0 10px 0 0; font: inherit; color: inherit; }
+.signup-progress { display: flex; gap: 6px; max-width: 440px; margin: 0 auto; }
+.signup-progress i { flex: 1; height: 3px; border-radius: 4px; background: #dedbd2; }
+.signup-progress i.active { background: #727e5b; transition: background 220ms ease; }
+.signup-journey .create-intro { text-align: center; margin: 10px auto 22px; max-width: 440px; }
+.signup-journey .cozy-companion { width: 230px; height: 210px; max-width: 100%; margin: 0 auto 10px; }
+.signup-journey .create-intro h1 { font-size: clamp(1.8rem, 7vw, 2.5rem); line-height: 1.12; margin: 0 0 12px; outline: none; }
+.signup-journey .create-intro .intro { margin: 0; font-size: 1rem; }
+.signup-journey .create-form-card { max-width: 440px; margin: 0 auto; padding: 0; background: transparent; border: 0; box-shadow: none; }
+.signup-journey .registration-name-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.signup-journey .registration-name-grid > * { min-width: 0; }
+.signup-journey input { min-width: 0; width: 100%; box-sizing: border-box; }
+.signup-journey input[type=checkbox] { width: auto; }
+.signup-journey .auth-primary { min-height: 54px; margin-top: 18px; text-transform: none; letter-spacing: .02em; }
+.signup-journey .form-notice { overflow-wrap: anywhere; }
+.signup-slide { animation: signup-arrive 320ms cubic-bezier(.2,.75,.25,1) both; }
+.username-step .cozy-companion { width: 230px; height: 210px; max-width: 100%; margin-inline: auto; }
+.signup-slide.backward { animation-name: signup-return; }
+@keyframes signup-arrive { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes signup-return { from { opacity: 0; transform: translateX(-18px); } to { opacity: 1; transform: translateX(0); } }
+@media (max-height: 650px) { .signup-journey .cozy-companion { width: 150px; height: 130px; } }
+@media (max-width: 350px) { .signup-journey .registration-name-grid { grid-template-columns: 1fr; gap: 0; } .auth-phone.signup-journey { padding-inline: 18px; } }
+@media (prefers-reduced-motion: reduce) { .signup-slide { animation: none; } .signup-progress i { transition: none; } }

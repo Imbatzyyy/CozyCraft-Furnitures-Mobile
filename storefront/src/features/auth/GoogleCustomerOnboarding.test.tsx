@@ -38,8 +38,8 @@ describe("first-time Google customer onboarding", () => {
     render(<GoogleCustomerOnboarding status={usernameStatus} displayName="Joy Rivera"
       complete={complete} dismissVoucher={vi.fn()} startShopping={vi.fn()} />)
 
-    expect(screen.getByText("JR")).toBeTruthy()
-    expect(screen.getByText(/profile photo/i)).toBeTruthy()
+    expect((screen.getByLabelText("First name") as HTMLInputElement).value).toBe("Joy")
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }))
     const input = screen.getByLabelText("Username")
     fireEvent.change(input, { target: { value: "j!" } })
     expect((input as HTMLInputElement).value).toBe("j")
@@ -47,7 +47,7 @@ describe("first-time Google customer onboarding", () => {
 
     fireEvent.change(input, { target: { value: "joy.home" } })
     fireEvent.click(screen.getByRole("button", { name: /Continue to CozyCraft/ }))
-    await waitFor(() => expect(complete).toHaveBeenCalledWith("joy.home"))
+    await waitFor(() => expect(complete).toHaveBeenCalledWith("joy.home", { firstName: "Joy", lastName: "Rivera" }))
   })
 
   it("shows the issued voucher and lets the customer start shopping", async () => {

@@ -23,6 +23,8 @@ const fixtureAddress = {
 
 export const createClient = () => ({
   auth: {
+    signUp: async () => ({ data: { user: { ...user, identities: [{ id: "fixture" }] }, session: null }, error: null }),
+    resend: async () => ({ error: null }),
     getSession: async () => ({ data: { session: { user, access_token: "local-fixture" } }, error: null }),
     getUser: async () => ({ data: { user }, error: null }),
     onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
@@ -43,6 +45,7 @@ export const createClient = () => ({
         : table === "reviews" ? [{ id: "qa-review", rating: 5, body: "The seat is comfortable and the finish looks beautiful in our home. Delivery was carefully handled.", image_urls: ["/furniture/photo-1599696848652-f0ff23bc911f.jpg", "/furniture/photo-1599696848652-f0ff23bc911f.jpg"], created_at: "2026-09-01T09:00:00Z", approved: true, reviewer_display_name: "Alexandra Rivera Santos" }]
         : ["support_tickets", "return_requests"].includes(table) ? []
         : table === "content_pages" ? null
+        : table === "store_settings" ? { account_settings: { password_minimum_length: 10, username_required: true, google_auth_enabled: true } }
         : {
             phone: verifiedPhone,
             phone_verified_at: verifiedAt,

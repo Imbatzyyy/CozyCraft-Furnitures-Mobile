@@ -2052,7 +2052,11 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
     && !membershipOpen
     && tab !== "account"
 
-  const completeGoogleUsername = async (username: string) => {
+  const completeGoogleUsername = async (username: string, name?: { firstName: string; lastName: string }) => {
+    if (name) {
+      const { error } = await supabase.from("profiles").update({ full_name: `${name.firstName.trim()} ${name.lastName.trim()}`.trim() }).eq("id", userId).select("id").single()
+      if (error) throw new Error("Your name could not be saved. Please try again.")
+    }
     const next = await completeMobileGoogleOnboarding(username)
     if (next.userId !== userId) throw new Error("Your account changed. Please try again.")
     setGoogleOnboarding(next)
