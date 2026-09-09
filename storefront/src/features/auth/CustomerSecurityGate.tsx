@@ -119,6 +119,7 @@ export default function CustomerSecurityGate({ children, handoff = false, onBloc
     const { data: subscription } = supabase.auth.onAuthStateChange((event) => {
       if (!shouldRecheckAuthenticator(event)) return
       if (event === "SIGNED_OUT") {
+        generation.current += 1
         clearCustomerSecurityWarmAccess()
         setAccess({ kind: "checking" })
       }

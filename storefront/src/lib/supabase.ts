@@ -1,6 +1,7 @@
 import { createClient, type Session } from "@supabase/supabase-js"
 import { publicSupabaseConfig } from "./public-config"
 import { boundedFetch } from "./request-lifecycle"
+import { nativeAuthCallbackConsumer } from "./native-auth-callback"
 
 export const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || publicSupabaseConfig.url
 const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || publicSupabaseConfig.publishableKey
@@ -114,24 +115,32 @@ export async function verifyCustomerSession(userId: string) {
 }
 
 if (typeof window !== "undefined") {
+  const consumeCallback = nativeAuthCallbackConsumer(async (callback) => {
+    const { data, error } = await supabase.auth.exchangeCodeForSession(callback.searchParams.get("code")!)
+    if (error || !data.user) throw error || new Error("Sign-in could not finish")
+    if (window.localStorage.getItem("cozycraft-auth-intent") === "recovery") {
+      window.localStorage.removeItem("cozycraft-auth-intent")
+      window.location.hash = "#/reset-password"
+      return
+    }
+    const customer = await verifyCustomerSession(data.user.id)
+    if (customer) {
+      clearMobileCustomerCache()
+      leaveGuestMode()
+    }
+    window.location.hash = customer ? "#/shop" : "#/sign-in?reason=invalid-login"
+  }, (url) => window.parent.postMessage({ type: "cozycraft-auth-callback-received", url }, "*"), () => {
+    // Never repeatedly exchange a spent code or leave an unhandled rejection.
+    const showFailure = () => { window.location.hash = "#/sign-in?reason=callback-failed" }
+    void supabase.auth.getSession().then(({ data }) => {
+      // Upgrading an older app can redeliver its already-spent stored URL.
+      // Do not interrupt a customer who is already signed in to the shop.
+      if (data.session && window.location.hash.startsWith("#/shop")) return
+      showFailure()
+    }).catch(showFailure)
+  })
   window.addEventListener("message", (event) => {
-    if (event.data?.type !== "cozycraft-auth-callback") return
-    const callback = new URL(String(event.data.url))
-    const code = callback.searchParams.get("code")
-    if (!code) return
-    void supabase.auth.exchangeCodeForSession(code).then(async ({ data, error }) => {
-      if (error || !data.user) return
-      if (window.localStorage.getItem("cozycraft-auth-intent") === "recovery") {
-        window.localStorage.removeItem("cozycraft-auth-intent")
-        window.location.hash = "#/reset-password"
-        return
-      }
-      const customer = await verifyCustomerSession(data.user.id)
-      if (customer) {
-        clearMobileCustomerCache()
-        leaveGuestMode()
-      }
-      window.location.hash = customer ? "#/shop" : "#/sign-in?reason=invalid-login"
-    })
+    if (event.source !== window.parent || event.data?.type !== "cozycraft-auth-callback") return
+    consumeCallback(event.data.url)
   })
 }

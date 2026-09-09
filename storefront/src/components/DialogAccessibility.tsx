@@ -10,6 +10,7 @@ export default function DialogAccessibility() {
     let initiator: HTMLElement | null = null
     const rememberInitiator = (event: Event) => { initiator = (event.target as HTMLElement)?.closest<HTMLElement>(controls) || null }
     const restore = new Map<HTMLElement, HTMLElement | null>()
+    let frame = 0
     const reconcile = () => {
       const next = Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"][aria-modal="true"]'))
         .filter(visible).map((element, order) => {
@@ -28,13 +29,13 @@ export default function DialogAccessibility() {
         restore.delete(previous)
       }
       if (next && !restore.has(next)) restore.set(next, initiator && !next.contains(initiator) ? initiator : document.activeElement as HTMLElement | null)
-      if (next && !next.contains(document.activeElement)) {
+      if (next && !next.hasAttribute("data-cozy-focus-managed") && !next.contains(document.activeElement)) {
         next.tabIndex = -1
         next.focus({ preventScroll: true })
       }
     }
     const keydown = (event: KeyboardEvent) => {
-      if (!active || event.key !== "Tab") return
+      if (!active || event.defaultPrevented || active.hasAttribute("data-cozy-focus-managed") || event.key !== "Tab") return
       const items = Array.from(active.querySelectorAll<HTMLElement>(controls)).filter(visible)
       const first = items[0], last = items.at(-1)
       if (!first) { event.preventDefault(); active.focus(); return }
@@ -44,7 +45,11 @@ export default function DialogAccessibility() {
         event.preventDefault(); first.focus()
       }
     }
-    const observer = new MutationObserver(reconcile)
+    // Coalesce DOM changes from typing, live data, and animations instead of
+    // forcing dialog/layout measurement for every React mutation batch.
+    const observer = new MutationObserver(() => {
+      if (!frame) frame = window.requestAnimationFrame(() => { frame = 0; reconcile() })
+    })
     observer.observe(document.body, { childList: true, subtree: true })
     document.addEventListener("keydown", keydown)
     document.addEventListener("pointerdown", rememberInitiator, true)
@@ -52,6 +57,7 @@ export default function DialogAccessibility() {
     reconcile()
     return () => {
       observer.disconnect()
+      window.cancelAnimationFrame(frame)
       document.removeEventListener("keydown", keydown)
       document.removeEventListener("pointerdown", rememberInitiator, true)
       document.removeEventListener("click", rememberInitiator, true)

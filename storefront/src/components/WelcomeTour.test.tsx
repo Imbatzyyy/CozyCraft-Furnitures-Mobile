@@ -14,6 +14,20 @@ function setup(metadata: Record<string, unknown> = { cozy_tour_pending_v1: true 
   return { userId, ...render(<WelcomeTour userId={userId} blocked={blocked} />) }
 }
 describe("welcome tour", () => {
+  it("keeps an active step across preference changes and a parent remount", async () => {
+    const view = setup()
+    await screen.findByText("Welcome home.")
+    fireEvent.click(screen.getByText("Show me around"))
+    auth.getUser.mockResolvedValue({ data: { user: { id: view.userId, user_metadata: {} } } })
+    view.rerender(<WelcomeTour userId={view.userId} blocked={false} newGoogleAccount />)
+    fireEvent(window, new Event("online"))
+    await waitFor(() => expect(screen.getByText("Discover your cozy.")).toBeTruthy())
+    view.unmount()
+    render(<WelcomeTour userId={view.userId} blocked={false} />)
+    expect(screen.getByText("Discover your cozy.")).toBeTruthy()
+    fireEvent.click(screen.getByText("Skip tour"))
+    expect(screen.queryByRole("dialog")).toBeNull()
+  })
   it("accepts only one step from a burst of rapid taps", async () => {
     setup()
     await screen.findByText("Welcome home.")

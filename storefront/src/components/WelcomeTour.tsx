@@ -11,19 +11,20 @@ const stops: { target: string; title: string; copy: string; pose: CompanionPose 
   { target: "account", title: "Your own space.", copy: "Your orders, rewards, and details—all together.", pose: "tour-account" },
 ]
 const memoryDone = new Set<string>()
+const inProgress = new Map<string, { step: number; replay: boolean }>()
 function doneHere(id: string) {
   try { return memoryDone.has(id) || localStorage.getItem(`cozy-tour-v1:${id}`) === "done" } catch { return memoryDone.has(id) }
 }
 export default function WelcomeTour({ userId, blocked, newGoogleAccount = false, onResolved }: { userId: string; blocked: boolean; newGoogleAccount?: boolean; onResolved?: (pending: boolean) => void }) {
-  const [eligible, setEligible] = useState(false)
-  const [step, setStep] = useState(-1)
-  const [replay, setReplay] = useState(false)
+  const [eligible, setEligible] = useState(() => inProgress.has(userId))
+  const [step, setStep] = useState(() => inProgress.get(userId)?.step ?? -1)
+  const [replay, setReplay] = useState(() => inProgress.get(userId)?.replay ?? false)
   const [rect, setRect] = useState<DOMRect | null>(null)
   const [retry, setRetry] = useState(0)
   const dialog = useRef<HTMLElement>(null)
   const finishRef = useRef<() => void>(() => {})
   const resolvedRef = useRef(onResolved)
-  const replaying = useRef(false)
+  const replaying = useRef(replay)
   const advancing = useRef(false)
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [transitioning, setTransitioning] = useState(false)
@@ -32,12 +33,17 @@ export default function WelcomeTour({ userId, blocked, newGoogleAccount = false,
   resolvedRef.current = onResolved
   const open = Boolean(userId) && (eligible || replay) && !blocked
   useEffect(() => {
+    if (open) inProgress.set(userId, { step, replay })
+  }, [open, userId, step, replay])
+  useEffect(() => {
     let active = true
     // A refresh must not reset an in-progress tour or consume its handoff.
     if (!userId) return
+    if (inProgress.has(userId)) { resolvedRef.current?.(true); return }
     void supabase.auth.getUser().then(({ data, error }) => {
       if (!active) return
       if (replaying.current) return
+      if (inProgress.has(userId)) { resolvedRef.current?.(true); return }
       if (error || !data.user) throw new Error("Welcome preferences unavailable")
       if (data.user.id !== userId) { resolvedRef.current?.(false); return }
       const metadata = data.user.user_metadata || {}
@@ -52,6 +58,7 @@ export default function WelcomeTour({ userId, blocked, newGoogleAccount = false,
     }).catch(() => {
       if (!active) return
       if (replaying.current) return
+      if (inProgress.has(userId)) { resolvedRef.current?.(true); return }
       // Verified onboarding status is sufficient to offer the tour even if
       // the additional metadata request is temporarily unavailable.
       const pending = newGoogleAccount && !doneHere(userId)
@@ -75,6 +82,7 @@ export default function WelcomeTour({ userId, blocked, newGoogleAccount = false,
     finished.current = true
     replaying.current = false
     memoryDone.add(userId)
+    inProgress.delete(userId)
     try { localStorage.setItem(`cozy-tour-v1:${userId}`, "done") } catch { /* Session memory still prevents repeats. */ }
     setEligible(false); setReplay(false)
     resolvedRef.current?.(false)
@@ -99,7 +107,7 @@ export default function WelcomeTour({ userId, blocked, newGoogleAccount = false,
     const wasInert = root?.inert ?? false
     if (root) root.inert = true
     document.documentElement.classList.add("cozy-tour-open")
-    dialog.current?.focus()
+    dialog.current?.focus({ preventScroll: true })
     const key = (e: KeyboardEvent) => {
       if (e.key === "Escape") { e.preventDefault(); e.stopImmediatePropagation(); finishRef.current(); return }
       if (e.key !== "Tab") return
@@ -110,7 +118,7 @@ export default function WelcomeTour({ userId, blocked, newGoogleAccount = false,
     }
     const back = (e: MessageEvent) => { if (e.source === window.parent && e.data?.type === "cozycraft-native-back") { e.stopImmediatePropagation(); finishRef.current() } }
     document.addEventListener("keydown", key, true); window.addEventListener("message", back, true)
-    return () => { document.documentElement.classList.remove("cozy-tour-open"); if (root) root.inert = wasInert; document.removeEventListener("keydown", key, true); window.removeEventListener("message", back, true); if (previous?.isConnected) previous.focus() }
+    return () => { document.documentElement.classList.remove("cozy-tour-open"); if (root) root.inert = wasInert; document.removeEventListener("keydown", key, true); window.removeEventListener("message", back, true); if (previous?.isConnected) previous.focus({ preventScroll: true }) }
   }, [open])
   useEffect(() => {
     if (!open) return
@@ -135,7 +143,7 @@ export default function WelcomeTour({ userId, blocked, newGoogleAccount = false,
   const stop = stops[step]
   return createPortal(<div className="welcome-tour">
     {rect ? <div className="welcome-tour-highlight" aria-hidden="true" style={{ left: rect.left - 6, top: rect.top - 6, width: rect.width + 12, height: rect.height + 12 }} /> : <div className="welcome-tour-shade" aria-hidden="true" />}
-    <section ref={dialog} role="dialog" aria-modal="true" aria-labelledby="tour-title" tabIndex={-1} className="welcome-tour-card">
+    <section ref={dialog} role="dialog" aria-modal="true" data-cozy-focus-managed="true" aria-labelledby="tour-title" tabIndex={-1} className="welcome-tour-card">
       <button className="tour-skip" onClick={finish}>Skip tour</button>
       <div key={step} className="tour-content">
         <CozyCompanion pose={stop?.pose || "tour-guide"} />

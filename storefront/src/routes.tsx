@@ -1,5 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react"
 import CozyCompanion, { type CompanionPose } from "./components/CozyCompanion"
+import useStepTransition from "./components/useStepTransition"
+import { readManualSignupDraft, saveManualSignupDraft, clearManualSignupDraft } from "./features/auth/manual-signup-draft"
 import "./features/auth/signup-journey.css"
 import useVisibleInterval from "./components/useVisibleInterval"
 import DocumentSections from "./components/DocumentSections"
@@ -533,6 +535,10 @@ function SignIn() {
   const [googleEnabled, setGoogleEnabled] = useState(true)
 
   useEffect(() => {
+    if (new URLSearchParams(location.search).get("reason") === "callback-failed") {
+      setNoticeKind("error")
+      setNotice("The sign-in link couldn’t finish. Please start sign-in again to get a fresh secure link.")
+    }
     if (new URLSearchParams(location.search).get("reason") === "invalid-login") {
       setNoticeKind("error")
       setNotice("Incorrect email or password. Please check your credentials.")
@@ -777,10 +783,11 @@ function ResetPassword() {
 
 export function CreateAccount() {
   const nav = useNavigate()
-  const [first, setFirst] = useState("")
-  const [last, setLast] = useState("")
-  const [username, setUsername] = useState("")
-  const [email, setEmail] = useState("")
+  const [draft] = useState(readManualSignupDraft)
+  const [first, setFirst] = useState(draft.first)
+  const [last, setLast] = useState(draft.last)
+  const [username, setUsername] = useState(draft.username)
+  const [email, setEmail] = useState(draft.email)
   const [password, setPassword] = useState("")
   const [confirm, setConfirm] = useState("")
   const [agreed, setAgreed] = useState(false)
@@ -789,22 +796,33 @@ export function CreateAccount() {
   const [busy, setBusy] = useState(false)
   const [verification, setVerification] = useState(false)
   const [resending, setResending] = useState(false)
+  const resendPending = useRef(false)
   const [passwordMinimum, setPasswordMinimum] = useState(8)
   const [usernameRequired, setUsernameRequired] = useState(true)
   const [googleEnabled, setGoogleEnabled] = useState(true)
   const [settingsReady, setSettingsReady] = useState(false)
+  const [settingsFailed, setSettingsFailed] = useState(false)
   const [settingsAttempt, setSettingsAttempt] = useState(0)
-  const [step, setStep] = useState(0)
+  const [step, setStep] = useState(draft.step)
   const [direction, setDirection] = useState("forward")
+  const transition = useStepTransition()
   const submitting = useRef(false)
   const stepTitle = useRef<HTMLHeadingElement>(null)
-  const steps = usernameRequired ? ["name", "username", "email", "security"] : ["name", "email", "security"]
+  useEffect(() => {
+    if (!verification) saveManualSignupDraft({ first, last, username, email, step })
+  }, [first, last, username, email, step, verification])
+  // Keep stable step identities even when a slow/realtime settings response
+  // changes whether a username is required. Optional is not a removed step.
+  const steps = ["name", "username", "email", "security"]
   const current = steps[Math.min(step, steps.length - 1)]
   const titles: Record<string, string> = { name: "What should we call you?", username: "Make it yours.", email: "Stay in the loop.", security: "Your own cozy space." }
   const move = (next: number) => {
+    if (submitting.current) return
+    transition.move(() => {
     setDirection(next < step ? "backward" : "forward")
     setNotice("")
     setStep(next)
+    })
   }
   useEffect(() => {
     if (step > 0) stepTitle.current?.focus({ preventScroll: true })
@@ -833,15 +851,22 @@ export function CreateAccount() {
       setPasswordMinimum(Math.max(8, Number(settings.password_minimum_length) || 8))
       setUsernameRequired(settings.username_required !== false)
       setGoogleEnabled(settings.google_auth_enabled !== false)
+      setSettingsFailed(false)
       setSettingsReady(true)
     }
-    void loadSettings().catch(() => { if (active) setNotice("Account settings couldn’t load. Check your connection before creating your account.") })
+    const settingsFailure = () => {
+      if (!active) return
+      setSettingsReady(false)
+      setSettingsFailed(true)
+      setNotice("Account settings couldn’t load. Check your connection before creating your account.")
+    }
+    void loadSettings().catch(settingsFailure)
     const channel = supabase
       .channel("mobile-registration-settings")
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "store_settings" },
-        () => { void loadSettings().catch(() => { if (active) setSettingsReady(false) }) },
+        () => { void loadSettings().catch(settingsFailure) },
       )
       .subscribe()
     return () => {
@@ -870,17 +895,17 @@ export function CreateAccount() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (submitting.current) return
+    if (submitting.current || transition.locked.current) return
+    if (!settingsReady) return
     setNotice("")
     setNoticeKind("error")
     if (current !== "security") {
       if (current === "name" && (!first.trim() || !last.trim())) return setNotice("Enter your first and last name to continue.")
-      if (current === "username" && !/^[A-Za-z0-9._-]{3,24}$/.test(username.trim())) return setNotice("Use 3–24 letters, numbers, dots, underscores, or hyphens.")
+      if (current === "username" && (usernameRequired || username.trim()) && !/^[A-Za-z0-9._-]{3,24}$/.test(username.trim())) return setNotice("Use 3–24 letters, numbers, dots, underscores, or hyphens.")
       if (current === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return setNotice("Enter a valid email address.")
       move(step + 1)
       return
     }
-    if (!settingsReady) return setNotice("Please reload account settings before continuing.")
     if (!first.trim() || !last.trim()) {
       setNotice("Enter your first and last name to continue.")
       return
@@ -937,6 +962,7 @@ export function CreateAccount() {
         : result.error?.message || "Account creation failed.")
       return
     }
+    clearManualSignupDraft()
     if (!result.data.session) {
       setPassword("")
       setConfirm("")
@@ -976,6 +1002,8 @@ export function CreateAccount() {
             className="registration-resend"
             disabled={resending}
             onClick={async () => {
+              if (resendPending.current) return
+              resendPending.current = true
               setResending(true)
               setNotice("")
               try {
@@ -988,7 +1016,7 @@ export function CreateAccount() {
               setNoticeKind(error ? "error" : "success")
               setNotice(error ? error.message : "A new confirmation email was sent.")
               } catch { setNoticeKind("error"); setNotice("Couldn’t send the email. Please try again.") }
-              finally { setResending(false) }
+              finally { resendPending.current = false; setResending(false) }
             }}
           >
             {resending ? "Sending…" : "Resend confirmation email"}
@@ -1002,7 +1030,7 @@ export function CreateAccount() {
   return (
     <main className="auth-phone form-page create deluxe-create signup-journey">
       <header className="create-top">
-        {step === 0 ? <BackLink /> : <button type="button" className="back-link" disabled={busy} onClick={() => move(step - 1)}>← <span>Back</span></button>}
+        {step === 0 ? <BackLink /> : <button type="button" className="back-link" disabled={busy || transition.transitioning} onClick={() => move(step - 1)}>← <span>Back</span></button>}
         <span aria-live="polite">Step {Math.min(step + 1, steps.length)} of {steps.length}</span>
       </header>
       <div className="signup-progress" aria-hidden="true">{steps.map((value, index) => <i key={value} className={index <= step ? "active" : ""} />)}</div>
@@ -1045,7 +1073,7 @@ export function CreateAccount() {
             <div className="or"><span />OR<span /></div>
           </>
         )}
-        <form onSubmit={submit} noValidate>
+        <form onSubmit={submit} onKeyDown={(event) => { if (event.key === "Enter" && event.repeat) event.preventDefault() }} noValidate>
           {current === "name" && <div className="registration-name-grid">
             <Field label="First name" value={first} onChange={setFirst} autoComplete="given-name" />
             <Field label="Last name" value={last} onChange={setLast} autoComplete="family-name" />
@@ -1056,7 +1084,7 @@ export function CreateAccount() {
               value={username}
               onChange={(value) => setUsername(value.replace(/[^A-Za-z0-9._-]/g, "").slice(0, 24))}
               autoComplete="username"
-              hint="3–24 characters; letters, numbers, dots, underscores, or hyphens"
+              hint={`${usernameRequired ? "" : "Optional. "}3–24 characters; letters, numbers, dots, underscores, or hyphens`}
             />
           )}
           {current === "email" && <Field
@@ -1072,7 +1100,7 @@ export function CreateAccount() {
             value={password}
             onChange={setPassword}
             autoComplete="new-password"
-            hint={`At least ${passwordMinimum} characters`}
+            hint={settingsReady ? `At least ${passwordMinimum} characters` : "Checking password requirements…"}
           />
           <div className="password-strength" aria-live="polite">
             <div>
@@ -1108,9 +1136,13 @@ export function CreateAccount() {
               <Link to="/privacy-policy" onClick={(event) => event.stopPropagation()}>Privacy Policy</Link>.
             </span>
           </label></>}
-          {current === "security" && !settingsReady && <button type="button" className="registration-resend" onClick={() => setSettingsAttempt((value) => value + 1)}>Reload account settings</button>}
-          <button className="auth-primary" type="submit" disabled={busy || (current === "security" && !settingsReady)}>
-            {busy ? "Creating your account…" : current === "security" ? "Create my account" : "Continue"} <b>→</b>
+          {settingsFailed && <button type="button" className="registration-resend" onClick={() => {
+            setSettingsFailed(false)
+            setNotice("")
+            setSettingsAttempt((value) => value + 1)
+          }}>Reload account settings</button>}
+          <button className="auth-primary" type="submit" disabled={busy || transition.transitioning || !settingsReady}>
+            {!settingsReady && !settingsFailed ? "Loading settings…" : busy ? "Creating your account…" : current === "security" ? "Create my account" : "Continue"} <b>→</b>
           </button>
           {notice && (
             <p className={`form-notice ${noticeKind}`} role="alert">

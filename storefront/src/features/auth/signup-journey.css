@@ -15,11 +15,14 @@
 .signup-journey input[type=checkbox] { width: auto; }
 .signup-journey .auth-primary { min-height: 54px; margin-top: 18px; text-transform: none; letter-spacing: .02em; }
 .signup-journey .form-notice { overflow-wrap: anywhere; }
-.signup-slide { animation: signup-arrive 320ms cubic-bezier(.2,.75,.25,1) both; }
+.signup-slide { animation: signup-arrive 200ms cubic-bezier(.2,.75,.25,1) both; }
 .username-step .cozy-companion { width: 230px; height: 210px; max-width: 100%; margin-inline: auto; }
 .signup-slide.backward { animation-name: signup-return; }
 @keyframes signup-arrive { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: translateX(0); } }
 @keyframes signup-return { from { opacity: 0; transform: translateX(-18px); } to { opacity: 1; transform: translateX(0); } }
-@media (max-height: 650px) { .signup-journey .cozy-companion { width: 150px; height: 130px; } }
+/* Width stays stable when the keyboard opens; height-based breakpoints made
+   the mascot and form jump while the customer was typing. */
+.signup-journey .cozy-companion, .username-step .cozy-companion { width: clamp(176px, 55vw, 230px); height: auto; aspect-ratio: 23 / 21; }
+html[data-cozy-motion="economy"] .signup-slide { animation: none; }
 @media (max-width: 350px) { .signup-journey .registration-name-grid { grid-template-columns: 1fr; gap: 0; } .auth-phone.signup-journey { padding-inline: 18px; } }
 @media (prefers-reduced-motion: reduce) { .signup-slide { animation: none; } .signup-progress i { transition: none; } }

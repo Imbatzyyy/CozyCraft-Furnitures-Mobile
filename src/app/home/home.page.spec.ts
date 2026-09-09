@@ -172,4 +172,21 @@ describe('HomePage', () => {
     expect(deliverPermission).toHaveBeenCalledTimes(1);
     iframe.remove();
   });
+  it('acknowledges only the current auth callback from the storefront and cancels redelivery', async () => {
+    const iframe = document.createElement('iframe');
+    document.body.appendChild(iframe);
+    component.storefront = new ElementRef<HTMLIFrameElement>(iframe);
+    const bridge = component as unknown as { pendingAppUrl: string; deliveryTimers: number[] };
+    const url = 'com.cozycraft.furniture://auth/callback?code=current';
+    bridge.pendingAppUrl = url;
+    window.localStorage.setItem('cozycraft-pending-native-url', url);
+    bridge.deliveryTimers = [window.setTimeout(() => undefined, 3000)];
+    await component.onMessage(new MessageEvent('message', { data: { type: 'cozycraft-auth-callback-received', url: 'old' }, source: iframe.contentWindow! }));
+    expect(bridge.pendingAppUrl).toBe(url);
+    await component.onMessage(new MessageEvent('message', { data: { type: 'cozycraft-auth-callback-received', url }, source: iframe.contentWindow! }));
+    expect(bridge.pendingAppUrl).toBe('');
+    expect(bridge.deliveryTimers).toEqual([]);
+    expect(window.localStorage.getItem('cozycraft-pending-native-url')).toBeNull();
+    iframe.remove();
+  });
 });

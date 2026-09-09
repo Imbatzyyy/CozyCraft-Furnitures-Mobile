@@ -119,6 +119,7 @@ import { usePhoneVerification } from "./features/profile/usePhoneVerification"
 import { normalizePhilippineMobile, type VerifiedPhone } from "./features/profile/phone-verification"
 import PaymentEmailVerificationDialog from "./features/checkout/PaymentEmailVerificationDialog"
 import CustomerWelcomeFlow from "./features/auth/CustomerWelcomeFlow"
+import { observeCustomerSession } from "./lib/customer-session-observer"
 import { retainGoogleOnboardingDraftFor } from "./features/auth/google-onboarding-draft"
 import {
   acknowledgeMobileWelcomeVoucher,
@@ -1258,8 +1259,10 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
     let live = true
     let activeAuthUserId = mobileCustomerCacheOwner()
     let hydration: { userId: string; promise: Promise<void> } | null = null
+    let hydratedIdentity = ""
 
     const clearAccountState = (email = "", nextIdentity = "") => {
+      hydratedIdentity = ""
       retainGoogleOnboardingDraftFor(nextIdentity)
       setAccountSnapshotUserId("")
       setSaved([])
@@ -1411,6 +1414,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
           setBag(preserveBagOrder(nextCart as CartLine[]))
           setOrders(nextOrders as CustomerOrder[])
           setAccountSnapshotUserId(userIdToHydrate)
+          hydratedIdentity = userIdToHydrate
         } catch (error) {
           console.error(error)
         }
@@ -1422,6 +1426,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
     }
 
     const useSession = (session: Session | null) => {
+      if (!live) return
       if (isGuestMode()) {
         resetToGuest()
         if (session) window.setTimeout(() => void enterGuestMode(), 0)
@@ -1445,18 +1450,21 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
       setGoogleIdentityUserId(isGoogleCustomer(session.user) ? nextUserId : "")
       setAccountSnapshotUserId((current) => current === nextUserId ? current : "")
       setUserId(nextUserId)
-      void hydrateCustomer(session)
+      // TOKEN_REFRESHED / USER_UPDATED / same-account SIGNED_IN may fire just
+      // from returning to the app or saving tutorial preferences. Realtime
+      // and reconnect handlers already refresh data; don't reload the entire
+      // catalog, bag, orders and profile for each of those auth notifications.
+      if (hydratedIdentity !== nextUserId) void hydrateCustomer(session)
     }
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => useSession(session))
-    void supabase.auth.getSession().then(({ data }) => useSession(data.session))
+    const stopObservingSession = observeCustomerSession(supabase.auth, useSession)
     return () => {
       live = false
       catalogRefresh.dispose()
       void supabase.removeChannel(catalogChannel)
       void supabase.removeChannel(settingsChannel)
       void supabase.removeChannel(deliveryAreasChannel)
-      authListener.subscription.unsubscribe()
+      stopObservingSession()
     }
   }, [])
 
@@ -2102,7 +2110,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
         )}
         {userId && (
           <CustomerWelcomeFlow
-            key={userId}
+            key={`welcome:${userId}`}
             userId={userId}
             blocked={catalogLoading || accountSnapshotUserId !== userId || checkoutOpen || paymentReturning || Boolean(placedOrder) || search || chatOpen || Boolean(detail) || compareOpen || categoryOpen !== null || profileOpen || notificationsOpen || membershipOpen}
             status={visibleGoogleOnboarding}
@@ -2595,7 +2603,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
           <i aria-hidden="true" />
         </button>}
         <MobileCareChat
-          key={userId || "guest"}
+          key={`care:${userId || "guest"}`}
           open={chatOpen}
           userId={userId}
           online={online}

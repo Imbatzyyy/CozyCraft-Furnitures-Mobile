@@ -29,6 +29,25 @@ const voucherStatus: MobileGoogleOnboardingStatus = {
 
 describe("first-time Google customer onboarding", () => {
   beforeEach(() => clearGoogleOnboardingDraft())
+  it("keeps a slow save locked if the surrounding route remounts", async () => {
+    let resolve!: () => void
+    const complete = vi.fn(() => new Promise<void>((r) => { resolve = r }))
+    const props = { status: usernameStatus, displayName: "Prince Balane", complete, dismissVoucher: vi.fn(), startShopping: vi.fn() }
+    const first = render(<GoogleCustomerOnboarding {...props} />)
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }))
+    fireEvent.change(screen.getByLabelText("Username"), { target: { value: "prince.home" } })
+    await waitFor(() => expect((screen.getByRole("button", { name: /Continue to CozyCraft/ }) as HTMLButtonElement).disabled).toBe(false))
+    fireEvent.click(screen.getByRole("button", { name: /Continue to CozyCraft/ }))
+    await waitFor(() => expect(complete).toHaveBeenCalledTimes(1))
+    first.unmount()
+    render(<GoogleCustomerOnboarding {...props} />)
+    const saving = screen.getByRole("button", { name: /Saving your account/ }) as HTMLButtonElement
+    expect(saving.disabled).toBe(true)
+    for (let n = 0; n < 10; n++) fireEvent.click(saving)
+    expect(complete).toHaveBeenCalledTimes(1)
+    resolve()
+    await waitFor(() => expect(screen.queryByText("Saving your account…")).toBeNull())
+  })
   it("preserves edited names and Step 2 across an ancestor remount", async () => {
     const complete = vi.fn().mockResolvedValue(undefined)
     const props = { status: usernameStatus, displayName: "Prince Balane", complete, dismissVoucher: vi.fn(), startShopping: vi.fn() }
@@ -73,10 +92,11 @@ describe("first-time Google customer onboarding", () => {
     fireEvent.change(screen.getByLabelText("Username"), { target: { value: "joy.home" } })
     view.rerender(<GoogleCustomerOnboarding {...props} status={{ ...usernameStatus, username: "stale" }} />)
     expect((screen.getByLabelText("Username") as HTMLInputElement).value).toBe("joy.home")
+    await waitFor(() => expect((screen.getByRole("button", { name: /Continue to CozyCraft/ }) as HTMLButtonElement).disabled).toBe(false))
     fireEvent.click(screen.getByRole("button", { name: /Continue to CozyCraft/ }))
     view.rerender(<GoogleCustomerOnboarding {...props} status={{ ...usernameStatus }} />)
     expect((screen.getByRole("button", { name: /Saving your account/ }) as HTMLButtonElement).disabled).toBe(true)
-    expect(complete).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(complete).toHaveBeenCalledTimes(1))
     expect(complete).toHaveBeenCalledWith("joy.home", { firstName: "Joy Anne", lastName: "Rivera" })
     finish()
     await waitFor(() => expect(screen.queryByText("Saving your account…")).toBeNull())
@@ -100,6 +120,7 @@ describe("first-time Google customer onboarding", () => {
     expect((screen.getByRole("button", { name: /Continue to CozyCraft/ }) as HTMLButtonElement).disabled).toBe(true)
 
     fireEvent.change(input, { target: { value: "joy.home" } })
+    await waitFor(() => expect((screen.getByRole("button", { name: /Continue to CozyCraft/ }) as HTMLButtonElement).disabled).toBe(false))
     fireEvent.click(screen.getByRole("button", { name: /Continue to CozyCraft/ }))
     await waitFor(() => expect(complete).toHaveBeenCalledWith("joy.home", { firstName: "Joy", lastName: "Rivera" }))
   })

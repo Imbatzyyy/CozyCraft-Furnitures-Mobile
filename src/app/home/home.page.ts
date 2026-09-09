@@ -409,6 +409,15 @@ export class HomePage implements AfterViewInit {
 
   @HostListener('window:message', ['$event'])
   async onMessage(event: MessageEvent) {
+    if (event.data?.type === 'cozycraft-auth-callback-received') {
+      if (event.source !== this.storefront?.nativeElement.contentWindow) return;
+      if (event.data.url !== this.pendingAppUrl) return;
+      this.pendingAppUrl = '';
+      window.localStorage.removeItem('cozycraft-pending-native-url');
+      this.deliveryTimers.forEach((timer) => window.clearTimeout(timer));
+      this.deliveryTimers = [];
+      return;
+    }
     if (event.data?.type === 'cozycraft-request-push-permission-status') {
       if (event.source !== this.storefront?.nativeElement.contentWindow) return;
       await this.deliverPushPermission().catch((error) => {

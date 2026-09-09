@@ -32,6 +32,17 @@ beforeEach(() => {
 const mount = () => render(<CustomerSecurityGate><p>Protected customer profile</p></CustomerSecurityGate>)
 
 describe("mobile compatibility with website two-step security", () => {
+  it("never reopens the app from a security response that predates sign-out", async () => {
+    let resolve!: (value: unknown) => void
+    mocks.factors.mockReturnValueOnce(new Promise((r) => { resolve = r }))
+    mount()
+    await waitFor(() => expect(mocks.factors).toHaveBeenCalledTimes(1))
+    mocks.session.mockResolvedValue({ data: { session: null }, error: null })
+    await act(async () => { mocks.authChange?.("SIGNED_OUT") })
+    await act(async () => { resolve({ data: { totp: [] }, error: null }) })
+    await waitFor(() => expect(window.location.hash).toBe("#/sign-in"))
+    expect(screen.queryByText("Protected customer profile")).toBeNull()
+  })
   it("uses the shared launch surface while account security is pending", async () => {
     let release!: (value: unknown) => void
     mocks.session.mockReturnValue(new Promise((resolve) => { release = resolve }))

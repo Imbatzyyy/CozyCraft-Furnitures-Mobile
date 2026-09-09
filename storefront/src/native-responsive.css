@@ -22,21 +22,21 @@ body.google-onboarding-open {
   display: grid;
   place-items: center;
   min-width: 0;
-  min-height: 100dvh;
+  height: 100dvh;
   padding:
     max(16px, env(safe-area-inset-top))
     clamp(12px, 4vw, 24px)
     max(16px, env(safe-area-inset-bottom));
   overflow-x: hidden;
-  overflow-y: auto;
+  overflow-y: hidden;
   overscroll-behavior: contain;
   background:
     radial-gradient(circle at 78% 15%, rgba(193, 209, 183, .2), transparent 28%),
     rgba(29, 27, 24, .66);
-  -webkit-backdrop-filter: blur(20px) saturate(112%);
-  backdrop-filter: blur(20px) saturate(112%);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
   -webkit-overflow-scrolling: touch;
-  animation: google-onboarding-backdrop-in 180ms ease-out both;
+  animation: none;
 }
 
 .google-onboarding-overlay,
@@ -68,7 +68,7 @@ body.google-onboarding-open {
     inset 0 1px rgba(255, 255, 255, .82);
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
-  animation: google-onboarding-card-in 260ms cubic-bezier(.2, .82, .2, 1) both;
+  animation: none;
 }
 
 .google-onboarding-card::-webkit-scrollbar {

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import CozyCompanion from "../../components/CozyCompanion"
+import useStepTransition from "../../components/useStepTransition"
+import { pendingGoogleSetup, submitGoogleSetupOnce } from "./google-onboarding-submit"
 import type { MobileGoogleOnboardingStatus } from "./google-customer-onboarding"
 import { clearGoogleOnboardingDraft, readGoogleOnboardingDraft, saveGoogleOnboardingDraft } from "./google-onboarding-draft"
 
@@ -36,18 +38,30 @@ function GoogleOnboardingForm({
 }: OnboardingProps) {
   const [initial] = useState(() => readGoogleOnboardingDraft(status.userId, displayName, status.username))
   const [username, setUsername] = useState(initial.username)
-  const [busy, setBusy] = useState(false)
+  const [busy, setBusy] = useState(() => Boolean(pendingGoogleSetup(status.userId)))
   const [error, setError] = useState("")
   const [nameConfirmed, setNameConfirmed] = useState(initial.nameConfirmed)
   const [firstName, setFirstName] = useState(initial.firstName)
   const [lastName, setLastName] = useState(initial.lastName)
   const input = useRef<HTMLInputElement>(null)
-  const submitting = useRef(false)
+  const submitting = useRef(Boolean(pendingGoogleSetup(status.userId)))
+  const transition = useStepTransition()
   const dialog = useRef<HTMLElement>(null)
   const latest = useRef({ status, busy, dismissVoucher })
   latest.current = { status, busy, dismissVoucher }
   const voucher = status.showVoucher ? status.voucher : null
   const modalOpen = status.needsUsername || Boolean(voucher)
+  useEffect(() => {
+    const pending = pendingGoogleSetup(status.userId)
+    if (!pending) return
+    let active = true
+    void pending.catch((cause) => {
+      if (active) setError(cause instanceof Error ? cause.message : "Please try again.")
+    }).finally(() => {
+      if (active) { submitting.current = false; setBusy(false) }
+    })
+    return () => { active = false }
+  }, [status.userId])
 
   useEffect(() => {
     if (status.needsUsername) saveGoogleOnboardingDraft({ userId: status.userId, username, firstName, lastName, nameConfirmed })
@@ -65,12 +79,6 @@ function GoogleOnboardingForm({
   }, [status.needsUsername, status.showVoucher])
 
   useEffect(() => {
-    if (!status.needsUsername) return
-    const frame = window.requestAnimationFrame(() => input.current?.focus())
-    return () => window.cancelAnimationFrame(frame)
-  }, [status.needsUsername])
-
-  useEffect(() => {
     // The component remains mounted after the one-time voucher is dismissed.
     // Only lock the storefront while a visible onboarding step exists, then
     // immediately release `inert` and scroll locking when the last step closes.
@@ -83,8 +91,9 @@ function GoogleOnboardingForm({
     document.body.classList.add("google-onboarding-open")
 
     const focusDialog = () => {
-      if (latest.current.status.needsUsername) input.current?.focus()
-      else dialog.current?.focus()
+      // Focusing an input during the opening animation invokes the mobile
+      // keyboard and changes the viewport while the card is still moving.
+      dialog.current?.focus({ preventScroll: true })
     }
     const frame = window.requestAnimationFrame(focusDialog)
     const keyboard = (event: KeyboardEvent) => {
@@ -132,7 +141,7 @@ function GoogleOnboardingForm({
       document.body.classList.remove("google-onboarding-open")
       document.removeEventListener("keydown", keyboard, true)
       window.removeEventListener("message", nativeBack, true)
-      if (previouslyFocused?.isConnected) previouslyFocused.focus()
+      if (previouslyFocused?.isConnected) previouslyFocused.focus({ preventScroll: true })
     }
   }, [modalOpen, status.userId, status.needsUsername])
 
@@ -140,11 +149,11 @@ function GoogleOnboardingForm({
 
   const saveUsername = async (event: React.FormEvent) => {
     event.preventDefault()
-    if (submitting.current) return
+    if (submitting.current || transition.locked.current) return
     if (!nameConfirmed) {
       if (!firstName.trim() || !lastName.trim()) { setError("Enter your first and last name."); return }
       setError("")
-      setNameConfirmed(true)
+      transition.move(() => setNameConfirmed(true))
       return
     }
     const normalized = username.trim()
@@ -156,7 +165,7 @@ function GoogleOnboardingForm({
     submitting.current = true
     setError("")
     try {
-      await complete(normalized, { firstName: firstName.trim(), lastName: lastName.trim() })
+      await submitGoogleSetupOnce(status.userId, () => complete(normalized, { firstName: firstName.trim(), lastName: lastName.trim() }))
       clearGoogleOnboardingDraft(status.userId)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Your username could not be saved. Please try again.")
@@ -188,12 +197,13 @@ function GoogleOnboardingForm({
       className="google-onboarding-overlay"
       role="dialog"
       aria-modal="true"
+      data-cozy-focus-managed="true"
       aria-labelledby="google-onboarding-title"
       tabIndex={-1}
     >
       {status.needsUsername ? (
-        <form className="google-onboarding-card username-step" onSubmit={saveUsername} noValidate>
-          {nameConfirmed && <button type="button" className="google-onboarding-secondary" disabled={busy} onClick={() => setNameConfirmed(false)}>← Back</button>}
+        <form className="google-onboarding-card username-step" onSubmit={saveUsername} onKeyDown={(event) => { if (event.key === "Enter" && event.repeat) event.preventDefault() }} noValidate>
+          {nameConfirmed && <button type="button" className="google-onboarding-secondary" disabled={busy || transition.transitioning} onClick={() => transition.move(() => setNameConfirmed(false))}>← Back</button>}
           <div key={nameConfirmed ? "username" : "name"} className="signup-slide">
             <CozyCompanion pose={nameConfirmed ? "signup-username" : "signup-name"} />
           </div>
@@ -225,7 +235,7 @@ function GoogleOnboardingForm({
             3–24 letters, numbers, dots, underscores, or hyphens.
           </p></>}
           {error && <p className="google-onboarding-error" role="alert">{error}</p>}
-          <button className="google-onboarding-primary" type="submit" disabled={busy || (nameConfirmed && username.trim().length < 3)}>
+          <button className="google-onboarding-primary" type="submit" disabled={busy || transition.transitioning || (nameConfirmed && username.trim().length < 3)}>
             {busy ? "Saving your account…" : nameConfirmed ? "Continue to CozyCraft" : "Continue"}
             {!busy && <span className="material-symbols-rounded" aria-hidden="true">arrow_forward</span>}
           </button>

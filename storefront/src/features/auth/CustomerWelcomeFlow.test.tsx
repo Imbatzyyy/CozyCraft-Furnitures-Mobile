@@ -33,6 +33,7 @@ describe("Google signup welcome sequence", () => {
       expect(screen.getByLabelText("Username")).toBe(username)
       expect(screen.getByText("STEP 2 OF 2")).toBeTruthy()
     }
+    await waitFor(() => expect((screen.getByRole("button", { name: /Continue to CozyCraft/ }) as HTMLButtonElement).disabled).toBe(false))
     fireEvent.click(screen.getByRole("button", { name: /Continue to CozyCraft/ }))
     await waitFor(() => expect(f.complete).toHaveBeenCalledWith("prince.home", { firstName: "Prince Alex", lastName: "Balane" }))
   })
