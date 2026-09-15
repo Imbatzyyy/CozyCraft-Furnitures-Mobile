@@ -20,7 +20,10 @@
     "cap:add:ios": "npx cap add ios",
     "native:prepare": "bash scripts/prepare-native-web.sh all",
     "native:ios": "bash scripts/prepare-native-web.sh ios",
-    "native:android": "bash scripts/prepare-native-web.sh android"
+    "native:android": "bash scripts/prepare-native-web.sh android",
+    "ios:toolchain": "node scripts/xcode-toolchain.mjs info",
+    "ios:toolchain:test": "node --test scripts/xcode-toolchain.test.mjs",
+    "ios:build:check": "node scripts/xcode-toolchain.mjs build -project ios/App/App.xcodeproj -scheme App -configuration Debug -destination 'generic/platform=iOS Simulator' -derivedDataPath ios/App/build/compatibility CODE_SIGNING_ALLOWED=NO build"
   },
   "private": true,
   "dependencies": {

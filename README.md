@@ -79,10 +79,26 @@ npm run cap:ios
 The `native:android` and `native:ios` commands rebuild the Angular shell and
 copy the resulting web application into the corresponding Capacitor project.
 
-On Xcode 26.6, use `npm run cap:ios` or double-click
-`Open CozyCraft in Xcode.command` from Finder. Both launch a fresh Xcode process
-with the repository's compiler-probe workaround, so an older Xcode session
-cannot leave Swift Package pre-planning stuck. No developer path is hard-coded.
+Use `npm run cap:ios` or double-click `Open CozyCraft in Xcode.command` from
+Finder. The launcher selects the newest installed supported Xcode in Applications
+or Downloads and uses that exact installation for package resolution and the IDE.
+This avoids building with an older command-line Xcode when Xcode 27 is installed
+elsewhere. It does not change the Mac's global `xcode-select` setting.
+
+`COZYCRAFT_XCODE_APP=/path/to/Xcode.app` or `DEVELOPER_DIR` explicitly selects a
+toolchain. An invalid override fails clearly. The compiler-probe workaround is
+used only on Xcode 26.6, not on Xcode 27. Existing iOS 16 minimum support is retained.
+
+```bash
+npm run ios:toolchain
+npm run ios:toolchain:test
+npm run ios:build:check
+```
+
+The last command compiles an unsigned simulator app using the selected Xcode.
+To install on an iPhone, select scheme `App` and the paired phone in Xcode and
+press Run. A simulator build, source push, or unsigned device build is not an
+installation on the phone.
 
 ## Verification
 
