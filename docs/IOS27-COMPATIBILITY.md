@@ -7,6 +7,7 @@ Checked September 15, 2026. Scope: the customer mobile app, not the website or a
 - Added `scripts/xcode-toolchain.mjs`: package resolution, build checks and the launcher use the same exact Xcode bundle. It discovers supported installations in Applications and Downloads, honors `COZYCRAFT_XCODE_APP` / `DEVELOPER_DIR`, and fails on invalid explicit overrides.
 - Restricted the old compiler-probe workaround to Xcode 26.6. Xcode 27 uses the normal compiler. The Mac's global `xcode-select` setting is not modified.
 - Replaced the app's legacy `@UIApplicationMain` entry-point spelling with `@main`. Existing SceneDelegate lifecycle and URL handoff remain intact.
+- Removed the iOS 26/27 native top scroll-edge fade from the outer WKWebView and pinned its window, WebView backing surface and under-page surface to white. The status bar uses dark content over that light surface.
 - Added eight toolchain regression tests and documented repeatable inspection/build commands in the README.
 - Preserved the existing iOS 16 minimum deployment target, current UI, dependencies and backend contracts.
 
