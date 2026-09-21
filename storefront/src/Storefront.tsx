@@ -103,6 +103,8 @@ import { buildMobileRecommendations } from "./lib/mobile-recommendations"
 import { mobileCartStockStatus } from "./lib/mobile-cart-stock"
 import { preserveMobileCartOrder } from "./lib/mobile-cart-order"
 import { clearStorefrontReturnState, notificationBadgeCount, readStorefrontReturnState, rememberStorefrontReturnState } from "./lib/mobile-navigation"
+import AppNavigation from "./features/navigation/AppNavigation"
+import type { AppInfoSection } from "./features/navigation/app-navigation-data"
 import { MOBILE_TEXT_SIZE_OPTIONS, readMobileTextSize, saveMobileTextSize, type MobileTextSize } from "./lib/mobile-text-size"
 import { normalizeMobilePushPermission, readMobilePushPermission, saveMobilePushPermission, type MobilePushPermission } from "./lib/mobile-push-permission"
 import {
@@ -613,6 +615,8 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
     return () => animation?.cancel()
   }, [tab])
   const [assistantAccountView, setAssistantAccountView] = useState<"orders" | "addresses" | "payments" | "support" | null>(null)
+  const [appInfoPage, setAppInfoPage] = useState<AppInfoSection | null>(null)
+  const [appNavigationOpen, setAppNavigationOpen] = useState(false)
   const [navGlassIndex, setNavGlassIndex] = useState(returnState?.tab === "account" ? 4 : 2)
   const [navGlassPosition, setNavGlassPosition] = useState(returnState?.tab === "account" ? 90 : 50)
   const [navGlassScrubbing, setNavGlassScrubbing] = useState(false)
@@ -1946,6 +1950,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
   }
 
   const openAssistantDestination = (destination: MobileAssistantDestination) => {
+    if (destination === "about") { setAppInfoPage("about"); return }
     if (["orders", "addresses", "payments", "support"].includes(destination)) {
       setAssistantAccountView(destination as "orders" | "addresses" | "payments" | "support")
       navigateTo("account")
@@ -2120,12 +2125,13 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
     onRefresh: refreshVisibleData,
     // Checkout, search, chat, and full-screen confirmation surfaces contain
     // inputs or payment state where a pull should never interrupt the flow.
-    disabled: checkoutOpen || paymentReturning || search || chatOpen || compareOpen || categoryOpen !== null || placedOrder !== null,
+    disabled: appNavigationOpen || checkoutOpen || paymentReturning || search || chatOpen || compareOpen || categoryOpen !== null || placedOrder !== null,
   })
 
   // Care is a floating browsing shortcut. Keep it off task-focused pages and
   // account surfaces where it would compete with the page's primary action.
   const showCareLauncher = !chatOpen
+    && !appNavigationOpen
     && !checkoutOpen
     && !paymentReturning
     && !search
@@ -2198,7 +2204,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
           <CustomerWelcomeFlow
             key={`welcome:${userId}`}
             userId={userId}
-            blocked={catalogLoading || accountSnapshotUserId !== userId || checkoutOpen || paymentReturning || Boolean(placedOrder) || search || chatOpen || Boolean(detail) || compareOpen || categoryOpen !== null || profileOpen || notificationsOpen || membershipOpen}
+            blocked={appNavigationOpen || catalogLoading || accountSnapshotUserId !== userId || checkoutOpen || paymentReturning || Boolean(placedOrder) || search || chatOpen || Boolean(detail) || compareOpen || categoryOpen !== null || profileOpen || notificationsOpen || membershipOpen}
             status={visibleGoogleOnboarding}
             displayName={`${profile.firstName} ${profile.lastName}`.trim() || profile.name}
             complete={completeGoogleUsername}
@@ -2215,9 +2221,12 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
           />
         )}
         <header className="lux-header">
+          <div className="ccnav-brand">
+          <AppNavigation activeTab={tab} displayName={userId ? profile.firstName || profile.name : ""} savedCount={saved.length} bagCount={bagCount} navigate={openAssistantDestination} infoPage={appInfoPage} changeInfoPage={setAppInfoPage} onOpenChange={setAppNavigationOpen}/>
           <button className="logo-button" onClick={() => navigateTo("home")}>
             <img src={cozyLogo} alt="CozyCraft Furniture" />
           </button>
+          </div>
           <div>
             <button
               className="round-icon"
@@ -2615,6 +2624,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
               initialOrder={orderToView}
               onInitialOrderHandled={() => setOrderToView(null)}
               onInitialViewHandled={() => setAssistantAccountView(null)}
+              openAppAbout={() => setAppInfoPage("about")}
             />
           )}
         </section>
@@ -3773,6 +3783,7 @@ export function Account({
   onInitialViewHandled,
   initialOrder,
   onInitialOrderHandled,
+  openAppAbout,
 }: {
   userId: string
   flash: (s: string) => void
@@ -3799,6 +3810,7 @@ export function Account({
   onInitialViewHandled: () => void
   initialOrder?: CustomerOrder | null
   onInitialOrderHandled?: () => void
+  openAppAbout?: () => void
 }) {
   const [view, setView] = useState<string | null>(null)
   const [confirmSignOut, setConfirmSignOut] = useState(false)
@@ -4067,6 +4079,7 @@ export function Account({
   ]
   const active = entries.find((x) => x.id === view)
   const openContentDocument = (route: "about" | "contact" | "terms" | "privacy-policy") => {
+    if (route === "about" && openAppAbout) { openAppAbout(); return }
     const scrollTop = document.querySelector<HTMLElement>(".lux-body")?.scrollTop || 0
     rememberStorefrontReturnState(scrollTop, unreadNotificationCount)
     window.location.hash = `#/${route}`
