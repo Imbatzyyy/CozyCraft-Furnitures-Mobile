@@ -61,7 +61,7 @@ export type MobileRedemption = {
   id: string
   points_cost: number
   discount_amount: number
-  reward_source: "points" | "welcome"
+  reward_source: "points" | "welcome" | "surprise"
   minimum_order_amount: number
   status: "available" | "applied" | "used" | "expired" | "cancelled"
   code: string
@@ -1249,7 +1249,7 @@ export async function markNotification(userId: string, id?: string) {
 }
 
 export async function registerPushToken(token: string, platform: string) {
-  const { error } = await supabase.rpc("register_mobile_push_token", {
+  const { error } = await supabase.rpc(['ios', 'android'].includes(platform) ? "register_mobile_shopping_token" : "register_mobile_push_token", {
     p_token: token,
     p_platform: platform,
   })

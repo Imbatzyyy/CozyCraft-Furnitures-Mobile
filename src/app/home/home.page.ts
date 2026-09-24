@@ -4,6 +4,7 @@ import { Browser } from '@capacitor/browser';
 import type { OpenOptions } from '@capacitor/browser';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { PushNotifications } from '@capacitor/push-notifications';
+import { nativeNotificationId } from './notification-handoff';
 import { Capacitor, CapacitorHttp } from '@capacitor/core';
 
 // These values also live on the shell instance. Optional disk caching must
@@ -169,6 +170,7 @@ export class HomePage implements AfterViewInit {
   private readonly nativePushConfigured = ['android', 'ios'].includes(this.platform);
   private pendingAppUrl = readNativeCache('cozycraft-pending-native-url');
   private pushToken = readNativeCache('cozycraft-native-push-token');
+  private pendingNotificationId = '';
   private deliveryTimers: number[] = [];
   private paymongoBrowserOpening = false;
   private pendingPaymongoOrderId = '';
@@ -197,6 +199,7 @@ export class HomePage implements AfterViewInit {
     this.deliverNativePlatform();
     if (this.pendingAppUrl) this.deliverAppUrl(this.pendingAppUrl);
     this.deliverPushToken();
+    this.deliverNotification();
     void this.deliverPushPermission();
   }
 
@@ -233,6 +236,13 @@ export class HomePage implements AfterViewInit {
       type: 'cozycraft-push-token',
       token: this.pushToken,
       platform: this.platform,
+    }, '*');
+  }
+
+  private deliverNotification() {
+    if (!this.pendingNotificationId) return;
+    this.storefront?.nativeElement.contentWindow?.postMessage({
+      type: 'cozycraft-open-notifications', notificationId: this.pendingNotificationId,
     }, '*');
   }
 
@@ -338,6 +348,11 @@ export class HomePage implements AfterViewInit {
     }
     if (this.platform === 'android') {
       await PushNotifications.createChannel({
+        id: 'cozycraft_shopping_v1', name: 'Offers and shopping reminders',
+        description: 'Optional Cozy Surprises, bag and wishlist reminders.',
+        importance: 3, visibility: 0, vibration: false,
+      });
+      await PushNotifications.createChannel({
         // A new channel id is intentional: Android never raises the importance
         // of an existing channel after it has been created on a device.
         id: 'cozycraft_important_v2',
@@ -375,11 +390,10 @@ export class HomePage implements AfterViewInit {
     void PushNotifications.addListener('registrationError', (error) => {
       console.error('CozyCraft push registration failed', error);
     });
-    void PushNotifications.addListener('pushNotificationActionPerformed', () => {
-      this.storefront?.nativeElement.contentWindow?.postMessage(
-        { type: 'cozycraft-open-notifications' },
-        '*',
-      );
+    void PushNotifications.addListener('pushNotificationActionPerformed', ({ notification }) => {
+      this.pendingNotificationId = nativeNotificationId(notification.data);
+      if (this.pendingNotificationId) this.deliverNotification();
+      else this.storefront?.nativeElement.contentWindow?.postMessage({ type: 'cozycraft-open-notifications' }, '*');
     });
     void PushNotifications.addListener('pushNotificationReceived', (notification) => {
       this.storefront?.nativeElement.contentWindow?.postMessage({
@@ -411,11 +425,10 @@ export class HomePage implements AfterViewInit {
         '*',
       );
     });
-    void LocalNotifications.addListener('localNotificationActionPerformed', () => {
-      this.storefront?.nativeElement.contentWindow?.postMessage(
-        { type: 'cozycraft-open-notifications' },
-        '*',
-      );
+    void LocalNotifications.addListener('localNotificationActionPerformed', ({ notification }) => {
+      this.pendingNotificationId = nativeNotificationId(notification.extra);
+      if (this.pendingNotificationId) this.deliverNotification();
+      else this.storefront?.nativeElement.contentWindow?.postMessage({ type: 'cozycraft-open-notifications' }, '*');
     });
   }
 
@@ -425,6 +438,14 @@ export class HomePage implements AfterViewInit {
     // the same boundary to navigation/browser actions as to payment requests.
     const sender = this.storefront?.nativeElement.contentWindow;
     if (!sender || event.source !== sender) return;
+    if (event.data?.type === 'cozycraft-notifications-ready') {
+      this.deliverNotification();
+      return;
+    }
+    if (event.data?.type === 'cozycraft-notification-consumed') {
+      if (String(event.data.notificationId) === this.pendingNotificationId) this.pendingNotificationId = '';
+      return;
+    }
     if (event.data?.type === 'cozycraft-auth-callback-received') {
       if (event.source !== this.storefront?.nativeElement.contentWindow) return;
       if (event.data.url !== this.pendingAppUrl) return;
@@ -553,6 +574,7 @@ export class HomePage implements AfterViewInit {
       return;
     }
     if (event.data?.type === 'cozycraft-local-notification') {
+      if (['promotion', 'cart_reminder', 'wishlist_reminder', 'shopping_offer'].includes(String(event.data.kind))) return;
       const permission = await LocalNotifications.checkPermissions();
       // Local order alerts respect the permission the customer chose in
       // context. Realtime updates must never summon an OS permission dialog.

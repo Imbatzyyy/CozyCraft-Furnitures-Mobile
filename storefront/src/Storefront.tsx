@@ -123,6 +123,9 @@ import { usePhoneVerification } from "./features/profile/usePhoneVerification"
 import { normalizePhilippineMobile, type VerifiedPhone } from "./features/profile/phone-verification"
 import PaymentEmailVerificationDialog from "./features/checkout/PaymentEmailVerificationDialog"
 import CustomerWelcomeFlow from "./features/auth/CustomerWelcomeFlow"
+import ShoppingPreferences from "./features/notifications/ShoppingPreferences"
+import ShoppingNotificationBridge from "./features/notifications/ShoppingNotificationBridge"
+import { isShoppingNotification, shoppingNotificationDestination } from "./features/notifications/shopping-notifications"
 import { observeCustomerSession } from "./lib/customer-session-observer"
 import { retainGoogleOnboardingDraftFor } from "./features/auth/google-onboarding-draft"
 import {
@@ -700,6 +703,9 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
   const [categoryOpen, setCategoryOpen] =
     useState<typeof categories[number] | null>(null)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [shoppingNotificationId, setShoppingNotificationId] = useState("")
+  const [shoppingOfferOpen, setShoppingOfferOpen] = useState(false)
+  const [welcomeReady, setWelcomeReady] = useState({ userId: "", ready: false })
   const [notifications, setNotifications] = useState<Array<Record<string, any>>>([])
   const [notificationsHydrated, setNotificationsHydrated] = useState(false)
   const applyNotifications = (items: Array<Record<string, any>>) => {
@@ -902,7 +908,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
   useEffect(() => {
     const openNativeNotification = (event: MessageEvent) => {
       if (event.source !== window.parent) return
-      if (event.data?.type === "cozycraft-open-notifications") setNotificationsOpen(true)
+      if (event.data?.type === "cozycraft-open-notifications" && !event.data.notificationId) setNotificationsOpen(true)
       if (event.data?.type === "cozycraft-push-token") {
         const token = String(event.data.token || "")
         const platform = String(event.data.platform || "unknown")
@@ -1577,12 +1583,16 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
         if (!current() || revision !== revisions.notifications) return
         applyNotifications(next)
         const item = event?.new
-        if (event?.eventType === "INSERT" && item && window.parent !== window) {
+        // Marketing is delivered only by the server queue. Mirroring a
+        // Realtime insert locally would duplicate the push and bypass consent,
+        // quiet hours and frequency limits while the app is open.
+        if (event?.eventType === "INSERT" && item && !isShoppingNotification(item.kind) && window.parent !== window) {
           window.parent.postMessage({
             type: "cozycraft-local-notification",
             title: String(item.title || "CozyCraft update"),
             body: String(item.message || "You have a new update."),
             id: String(item.id || ""),
+            kind: String(item.kind || ""),
           }, "*")
         }
       } catch (error) { console.error(error) }
@@ -2204,7 +2214,8 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
           <CustomerWelcomeFlow
             key={`welcome:${userId}`}
             userId={userId}
-            blocked={appNavigationOpen || catalogLoading || accountSnapshotUserId !== userId || checkoutOpen || paymentReturning || Boolean(placedOrder) || search || chatOpen || Boolean(detail) || compareOpen || categoryOpen !== null || profileOpen || notificationsOpen || membershipOpen}
+            blocked={shoppingOfferOpen || appNavigationOpen || catalogLoading || accountSnapshotUserId !== userId || checkoutOpen || paymentReturning || Boolean(placedOrder) || search || chatOpen || Boolean(detail) || compareOpen || categoryOpen !== null || profileOpen || notificationsOpen || membershipOpen}
+            onReadyChange={(ready) => setWelcomeReady(current => current.userId === userId && current.ready === ready ? current : { userId, ready })}
             status={visibleGoogleOnboarding}
             displayName={`${profile.firstName} ${profile.lastName}`.trim() || profile.name}
             complete={completeGoogleUsername}
@@ -2220,6 +2231,9 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
             }}
           />
         )}
+        <ShoppingNotificationBridge userId={userId} requestedId={shoppingNotificationId}
+          blocked={welcomeReady.userId !== userId || !welcomeReady.ready || catalogLoading || accountSnapshotUserId !== userId || appNavigationOpen || checkoutOpen || paymentReturning || Boolean(placedOrder) || search || chatOpen || Boolean(detail) || compareOpen || categoryOpen !== null || profileOpen || notificationsOpen || membershipOpen}
+          settled={() => setShoppingNotificationId("")} navigate={openAssistantDestination} notice={flash} onOpenChange={setShoppingOfferOpen} />
         <header className="lux-header">
           <div className="ccnav-brand">
           <AppNavigation activeTab={tab} displayName={userId ? profile.firstName || profile.name : ""} savedCount={saved.length} bagCount={bagCount} navigate={openAssistantDestination} infoPage={appInfoPage} changeInfoPage={setAppInfoPage} onOpenChange={setAppNavigationOpen}/>
@@ -2723,6 +2737,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
             userId={userId}
             close={() => setNotificationsOpen(false)}
             refresh={async () => userId && applyNotifications(await loadNotifications(userId))}
+            openItem={(id) => { setNotificationsOpen(false); setShoppingNotificationId(id) }}
           />
         )}
         {membershipOpen && (
@@ -5828,7 +5843,7 @@ export function CheckoutPage({
                   disabled={!eligible}
                   onClick={() => eligible && setRedemptionId(reward.id)}
                 >
-                  <span>{reward.reward_source === "welcome" ? "WELCOME REWARD" : reward.code}</span>
+                  <span>{reward.reward_source === "welcome" ? "WELCOME REWARD" : reward.reward_source === "surprise" ? "COZY SURPRISE" : reward.code}</span>
                   <b>Save ₱{Number(reward.discount_amount).toLocaleString()}</b>
                   <small>{eligible
                     ? `Expires ${new Date(reward.expires_at).toLocaleDateString("en-PH")}`
@@ -6556,6 +6571,7 @@ export function ProfilePage({
             </i>
           </button>
         </section>
+        <ShoppingPreferences key={userId} userId={userId} />
         <section className="profile-security" aria-label="Account security">
           <div className="field-heading">
             <p className="hello">ACCOUNT SECURITY</p>
@@ -6671,11 +6687,12 @@ function CategoryPage({
   )
 }
 
-export function NotificationsPage({ close, items, userId, refresh }: {
+export function NotificationsPage({ close, items, userId, refresh, openItem }: {
   close: () => void
   items: Array<Record<string, any>>
   userId: string
   refresh: () => Promise<unknown>
+  openItem?: (id: string) => void
 }) {
   const [filter, setFilter] = useState<"all" | "unread">("all")
   const [notice, setNotice] = useState("")
@@ -6741,22 +6758,23 @@ export function NotificationsPage({ close, items, userId, refresh }: {
             data-kind={item.kind}
             role="button"
             tabIndex={0}
-            aria-label={`${item.read_at ? "Read" : "Unread"}: ${item.title}. Mark as read`}
+            aria-label={`${item.read_at ? "Read" : "Unread"}: ${item.title}. ${openItem && shoppingNotificationDestination(item) ? "Open" : "Mark as read"}`}
             onKeyDown={(event) => {
               if (event.key === "Enter" || event.key === " ") {
                 event.preventDefault()
-                void markRead(String(item.id))
+                if (openItem && shoppingNotificationDestination(item)) openItem(String(item.id))
+                else void markRead(String(item.id))
               }
             }}
             className={!item.read_at ? "new" : ""}
             aria-disabled={saving}
-            onClick={() => void markRead(String(item.id))}
+            onClick={() => { if (openItem && shoppingNotificationDestination(item)) openItem(String(item.id)); else void markRead(String(item.id)) }}
           >
             <span className="notification-mark">
               <span className="material-symbols-rounded" aria-hidden="true">
                 {String(item.kind).includes("order")
                   ? item.kind === "order_confirmation" ? "task_alt" : "local_shipping"
-                  : item.kind === "promotion"
+                  : item.kind === "cart_reminder" ? "shopping_bag" : item.kind === "wishlist_reminder" ? "favorite" : item.kind === "shopping_offer" ? "redeem" : item.kind === "promotion"
                     ? "campaign"
                     : String(item.kind).includes("support")
                       ? "support_agent"
@@ -6767,6 +6785,7 @@ export function NotificationsPage({ close, items, userId, refresh }: {
               <h2>{item.title}</h2>
               <p>{item.message}</p>
               <small>{new Date(item.created_at).toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" })}</small>
+              {shoppingNotificationDestination(item) && <span className="shopping-notification-action">{item.kind === "cart_reminder" ? "Review your bag" : item.kind === "wishlist_reminder" ? "See your favorites" : "View your offer"} →</span>}
             </div>
             {!item.read_at && <i />}
           </article>

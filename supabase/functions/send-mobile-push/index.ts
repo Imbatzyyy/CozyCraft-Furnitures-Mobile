@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.111.0";
+import { shoppingKinds, shoppingPushOptions } from "../_shared/shopping-push.ts";
 
 type PushRecord = {
   id: number;
@@ -9,9 +10,11 @@ type PushRecord = {
   message: string;
   entity_type?: string | null;
   entity_id?: string | null;
+  expires_at?: string;
+  lease_id?: string;
 };
 
-type Device = { id: string; token: string; platform: string };
+type Device = { id: string; token: string; platform: string; shopping_supported?: boolean };
 type PushResult = { sent: boolean; invalid: boolean; reason: string | null };
 
 const encoder = new TextEncoder();
@@ -115,13 +118,14 @@ const dataPayload = (notification: PushRecord) => ({
   kind: String(notification.kind || "notification"),
   entityType: String(notification.entity_type || ""),
   entityId: String(notification.entity_id || ""),
-  route: "/notifications",
+  route: shoppingPushOptions(notification.kind).route,
 });
 
 const notificationTag = (notification: PushRecord) =>
   `cozycraft-${notification.kind}-${notification.entity_id || notification.id}`.slice(0, 64);
 
 const sendAndroid = async (device: Device, notification: PushRecord): Promise<PushResult> => {
+  const options = shoppingPushOptions(notification.kind, notification.expires_at);
   const access = await googleAccessToken();
   const response = await fetch(
     `https://fcm.googleapis.com/v1/projects/${encodeURIComponent(access.projectId)}/messages:send`,
@@ -134,8 +138,9 @@ const sendAndroid = async (device: Device, notification: PushRecord): Promise<Pu
         data: dataPayload(notification),
         android: {
           priority: "high",
+          ...(options.marketing ? { ttl: `${options.ttl}s` } : {}),
           notification: {
-            channel_id: "cozycraft_important_v2",
+            channel_id: options.marketing && !device.shopping_supported ? 'cozycraft_important_v2' : options.channel,
             icon: "ic_stat_cozycraft",
             color: "#A65F43",
             sound: "default",
@@ -163,6 +168,7 @@ const postToApns = async (
   topic: string,
 ) => {
   const isOrder = String(notification.kind).includes("order");
+  const options = shoppingPushOptions(notification.kind, notification.expires_at);
   const response = await fetch(`https://${host}/3/device/${encodeURIComponent(device.token)}`, {
     method: "POST",
     headers: {
@@ -171,6 +177,7 @@ const postToApns = async (
       "apns-push-type": "alert",
       "apns-priority": "10",
       "apns-collapse-id": notificationTag(notification),
+      ...(options.marketing ? { "apns-expiration": String(Math.floor(Date.now() / 1000) + options.ttl) } : {}),
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -231,27 +238,40 @@ Deno.serve(async (request) => {
   if (!supabaseUrl || !serviceRoleKey) return json({ error: "Push service is not configured." }, 503);
 
   const payload = await request.json().catch(() => ({}));
-  const notification = (payload.record || payload.notification || payload) as PushRecord;
-  if (!notification?.id || !notification?.user_id || !notification?.title || !notification?.message) {
-    return json({ error: "A customer notification record is required." }, 400);
-  }
-
   const admin = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  const { data: devices, error: deviceError } = await admin
+  const dispatch = async (notificationId: number) => {
+  // Always read the canonical row. Payloads cannot substitute a recipient or
+  // a fabricated offer, and a deleted/stale notification has no side effects.
+  const { data: stored, error: readError } = await admin.from('customer_notifications')
+    .select('*').eq('id', notificationId).maybeSingle();
+  if (readError) throw new Error('notification_read_failed');
+  if (!stored) return { notificationId, skipped: true };
+  let notification = stored as PushRecord;
+  if (shoppingKinds.has(notification.kind)) {
+    const { data, error } = await admin.rpc('prepare_mobile_shopping_push', { p_notification_id: notificationId });
+    // Fail closed when the migration is missing. Never bypass consent/rate limits.
+    if (error) throw new Error('shopping_queue_unavailable');
+    if (!data) return { notificationId, skipped: true };
+    notification = data as PushRecord;
+  }
+  let deviceQuery = admin
     .from("mobile_push_tokens")
-    .select("id,token,platform")
+    .select("id,token,platform,shopping_supported")
     .eq("user_id", notification.user_id)
     .eq("active", true);
-  if (deviceError) return json({ error: "Unable to read registered devices." }, 500);
-  if (!devices?.length) return json({ notificationId: notification.id, sent: 0, failed: 0, disabled: 0 });
+  if (shoppingKinds.has(notification.kind) && notification.kind !== 'promotion') {
+    deviceQuery = deviceQuery.eq('shopping_supported', true).in('platform', ['ios','android']);
+  }
+  const { data: devices, error: deviceError } = await deviceQuery;
+  if (deviceError) throw new Error('device_read_failed');
 
   let sent = 0;
   let failed = 0;
   const invalidIds: string[] = [];
   const failureKinds = new Set<string>();
-  await Promise.all((devices as Device[]).map(async (device) => {
+  await Promise.all(((devices || []) as Device[]).map(async (device) => {
     try {
       const result = device.platform.toLowerCase().startsWith("ios")
         ? await sendIos(device, notification)
@@ -269,15 +289,42 @@ Deno.serve(async (request) => {
   if (invalidIds.length) {
     await admin
       .from("mobile_push_tokens")
-      .update({ active: false, updated_at: new Date().toISOString() })
+      .update({ active: false })
       .in("id", invalidIds);
   }
-  return json({
+  if (notification.lease_id) {
+    const { error } = await admin.rpc('finish_mobile_shopping_push', {
+      p_notification_id: notification.id, p_lease_id: notification.lease_id, p_sent: sent > 0,
+    });
+    if (error) throw new Error('shopping_receipt_failed');
+  }
+  return {
     notificationId: notification.id,
     sent,
     failed,
     disabled: invalidIds.length,
-    audience: devices.length,
+    audience: devices?.length || 0,
     failures: [...failureKinds],
-  });
+  };
+  };
+  try {
+    if (payload.shoppingQueue === true) {
+      const { data, error } = await admin.rpc('due_mobile_shopping_pushes');
+      if (error) throw new Error('shopping_queue_unavailable');
+      const results = [];
+      // Bounded batches, with individual failures isolated. Lease recovery and
+      // stable collapse IDs handle worker crashes without a phone-side timer.
+      for (let offset = 0; offset < (data || []).length; offset += 5) {
+        results.push(...await Promise.all((data as number[]).slice(offset, offset + 5).map(async id => {
+          try { return await dispatch(id); } catch { return { notificationId: id, retry: true }; }
+        })));
+      }
+      return json({ results });
+    }
+    const notificationId = Number((payload.record || payload.notification || payload)?.id);
+    if (!Number.isSafeInteger(notificationId) || notificationId <= 0) return json({ error: 'A notification id is required.' }, 400);
+    return json(await dispatch(notificationId));
+  } catch {
+    return json({ error: 'Notification dispatch could not be completed.' }, 503);
+  }
 });

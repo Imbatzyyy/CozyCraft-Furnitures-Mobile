@@ -5,7 +5,7 @@ import type { MobileGoogleOnboardingStatus } from "./google-customer-onboarding"
 
 // One owner controls the three surfaces. A voucher is never acknowledged by
 // starting/skipping a tutorial, and two modal focus locks never overlap.
-export default function CustomerWelcomeFlow({ userId, status, blocked, displayName, complete, dismissVoucher, startShopping, refreshStatus }: {
+export default function CustomerWelcomeFlow({ userId, status, blocked, displayName, complete, dismissVoucher, startShopping, refreshStatus, onReadyChange }: {
   userId: string
   status: MobileGoogleOnboardingStatus | null
   blocked: boolean
@@ -14,11 +14,13 @@ export default function CustomerWelcomeFlow({ userId, status, blocked, displayNa
   dismissVoucher: () => Promise<void>
   startShopping: () => Promise<void>
   refreshStatus?: () => Promise<void>
+  onReadyChange?: (ready: boolean) => void
 }) {
   const [tourPending, setTourPending] = useState<boolean | null>(null)
   const [rewardError, setRewardError] = useState("")
   const [retry, setRetry] = useState(0)
   const checked = useRef(false)
+  const [rewardChecked, setRewardChecked] = useState(false)
   const refresh = useRef(refreshStatus)
   refresh.current = refreshStatus
   // A same-account refresh may temporarily have no snapshot. Keep the mounted
@@ -29,6 +31,9 @@ export default function CustomerWelcomeFlow({ userId, status, blocked, displayNa
   const currentStatus = status?.userId === userId ? status : snapshot?.userId === userId ? snapshot : null
   const needsSetup = Boolean(currentStatus?.needsUsername)
   const awaitingTour = tourPending !== false
+  const onReady = useRef(onReadyChange); onReady.current = onReadyChange
+  const ready = Boolean(currentStatus && !needsSetup && !awaitingTour && !currentStatus.showVoucher && (!refreshStatus || rewardChecked))
+  useEffect(() => { onReady.current?.(ready); return () => onReady.current?.(false) }, [ready])
   const visibleStatus = currentStatus ? { ...currentStatus, showVoucher: currentStatus.showVoucher && !needsSetup && !awaitingTour && !blocked } : null
   useEffect(() => {
     if (awaitingTour || blocked || needsSetup || !refresh.current || checked.current) return
@@ -36,7 +41,7 @@ export default function CustomerWelcomeFlow({ userId, status, blocked, displayNa
     // A failed initial lookup must not silently lose the reward after Finish
     // or Skip. This idempotent check never acknowledges or consumes a voucher.
     void refresh.current().then(() => {
-      if (active) { checked.current = true; setRewardError("") }
+      if (active) { checked.current = true; setRewardChecked(true); setRewardError("") }
     }).catch(() => {
       if (active) setRewardError("We couldn’t check your welcome reward. Please try again.")
     })

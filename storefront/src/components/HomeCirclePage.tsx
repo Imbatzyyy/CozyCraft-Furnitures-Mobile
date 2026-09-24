@@ -54,7 +54,7 @@ export default function HomeCirclePage({ points, tier, lifetimeSpend, orderCount
     } finally { pending.current = false; setBusy(false) }
   }
   const rewardRow = (reward: MobileRedemption) => <article className="hc-voucher" key={reward.id}>
-    <div><span className="hc-eyebrow">{reward.reward_source === "welcome" ? "Welcome reward" : "Points reward"}</span>
+    <div><span className="hc-eyebrow">{reward.reward_source === "welcome" ? "Welcome reward" : reward.reward_source === "surprise" ? "Cozy Surprise" : "Points reward"}</span>
       <h3>{amount(reward.discount_amount)} off</h3>
       {reward.minimum_order_amount > 0 && <p>On orders from {amount(reward.minimum_order_amount)}</p>}
       <p>{rewardState(reward, now) === "available" ? `Use by ${date(reward.expires_at)}` : rewardState(reward, now) === "expired" ? `Expired ${date(reward.expires_at)}` : "Saved in your reward history"}</p>
