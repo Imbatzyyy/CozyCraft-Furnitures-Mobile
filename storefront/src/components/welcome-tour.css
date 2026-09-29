@@ -11,7 +11,7 @@
 .tour-actions button { background: #ebe8df; color: #292a23; }
 .tour-actions .tour-next { flex: 1; background: #30392b; color: #fffdf7; }
 .welcome-tour button:focus-visible { outline: 3px solid #9c7950; outline-offset: 3px; }
-.welcome-tour-highlight { position: fixed; border: 3px solid #f6e7aa; border-radius: 22px; box-sizing: border-box; background: transparent; box-shadow: 0 0 0 100vmax #201f1b80; pointer-events: none; transition: left 220ms ease-out, top 220ms ease-out, width 220ms ease-out, height 220ms ease-out; }
+.welcome-tour-highlight { position: fixed; border: 3px solid #f6e7aa; border-radius: 22px; box-sizing: border-box; background: transparent; box-shadow: 0 0 0 100vmax #201f1b80; pointer-events: none; top: 0; left: 0; transition: transform 260ms cubic-bezier(.2,.8,.2,1), width 260ms cubic-bezier(.2,.8,.2,1), height 260ms cubic-bezier(.2,.8,.2,1); will-change: transform; }
 .tour-content { animation: tour-arrive 240ms ease-out both; }
 @keyframes tour-arrive { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
 @media (max-height: 620px) { .welcome-tour { padding-bottom: 105px; } .welcome-tour .cozy-companion { width: 100px; height: 80px; } .welcome-tour-card { padding: 12px 18px; } .tour-content h2 { font-size: 1.4rem; } }

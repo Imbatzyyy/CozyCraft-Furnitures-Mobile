@@ -70,7 +70,7 @@ export default function HomeCirclePage({ points, tier, lifetimeSpend, orderCount
         <strong className="hc-points">{ready ? points.toLocaleString("en-PH") : "—"}</strong>
         <p>{ready ? current.rate + " on eligible deliveries" : "Updating your Home Circle balance…"}</p>
         <div className="hc-progress-label"><span>{next ? `Next: ${next.name}` : "Your highest level"}</span><span>{ready ? `${Math.round(progress)}%` : "—"}</span></div>
-        <div className="hc-progress" role="progressbar" aria-label={next ? `Progress to ${next.name}` : "Highest tier reached"} aria-valuenow={ready ? Math.round(progress) : undefined} aria-valuemin={0} aria-valuemax={100}><i style={{ width: `${ready ? progress : 0}%` }}/></div>
+        <div className="hc-progress" role="progressbar" aria-label={next ? `Progress to ${next.name}` : "Highest tier reached"} aria-valuenow={ready ? Math.round(progress) : undefined} aria-valuemin={0} aria-valuemax={100}><i style={{ transform: `translate3d(${(ready ? progress : 0) - 100}%, 0, 0)` }}/></div>
         <p className="hc-progress-note">{!ready ? "Your account is syncing." : next ? `${amount(Math.max(0, next.target - lifetimeSpend))} in eligible deliveries to your next level.` : "Welcome to the full Home Circle experience."}</p>
       </section>
       <dl className="hc-summary"><div><dt>Eligible spend</dt><dd>{ready ? amount(lifetimeSpend) : "—"}</dd></div><div><dt>Delivered orders</dt><dd>{orderCount.toLocaleString()}</dd></div></dl>

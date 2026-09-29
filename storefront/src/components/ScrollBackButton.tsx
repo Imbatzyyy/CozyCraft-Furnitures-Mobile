@@ -3,7 +3,7 @@ import { createPortal } from "react-dom"
 import "./scroll-back-button.css"
 
 // Each entry delegates to the same control customers already use at the top.
-const pages = [
+export const pages = [
   [".detail-sheet", ":scope > header button[aria-label='Return to collection']"],
   [".profile-page", ":scope > header button:first-child"],
   [".category-page", ":scope > header button:first-child"],
@@ -16,7 +16,7 @@ const pages = [
   [".compare-sheet", ":scope > header button:first-child"],
   [".legal-document", ":scope > .document-header button"],
 ] as const
-const pageSelector = pages.map(([selector]) => selector).join(",")
+export const pageSelector = pages.map(([selector]) => selector).join(",")
 const visible = (el: HTMLElement) => el.getClientRects().length > 0 && getComputedStyle(el).visibility !== "hidden"
 type Target = { page: HTMLElement; back: HTMLButtonElement; left: number; bottom: number }
 
@@ -46,6 +46,13 @@ export default function ScrollBackButton() {
         }
         for (let parent = page.parentElement; parent; parent = parent.parentElement) scrollers.add(parent)
         if (document.scrollingElement) scrollers.add(document.scrollingElement as HTMLElement)
+      }
+      // A page mid-entrance carries a transform, which would anchor this fixed
+      // control to the moving page. Show it once the page has settled.
+      if (page.getAnimations?.().some(animation => animation.playState === "running")) {
+        setTarget(previous => previous ? null : previous)
+        page.addEventListener("animationend", schedule, { once: true })
+        return
       }
       const entry = pages.find(([selector]) => page.matches(selector))!
       const back = page.querySelector<HTMLButtonElement>(entry[1])

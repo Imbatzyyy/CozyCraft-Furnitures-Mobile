@@ -21,7 +21,7 @@ const fixtureAddress = {
   is_primary: true,
 }
 
-export const createClient = () => ({
+const fixtureClient = () => ({
   auth: {
     updateUser: async () => ({ error: null }),
     signUp: async () => ({ data: { user: { ...user, identities: [{ id: "fixture" }] }, session: null }, error: null }),
@@ -108,3 +108,53 @@ export const createClient = () => ({
     return { data: { status: "verified", phone: verifiedPhone, phoneVerifiedAt: verifiedAt }, error: null }
   } },
 })
+
+// `?shell` runs the complete storefront (launch, tabs, overlays) on sample
+// catalog rows. Every table read resolves locally; writes are accepted and discarded.
+const shellMode = new URLSearchParams(window.location.search).has("shell")
+const shellPhotos = ["photo-1599696848652-f0ff23bc911f", "photo-1540638349517-3abd5afc5847", "photo-1567016376408-0226e4d0c1ea", "photo-1600210492486-724fe5c67fb0", "photo-1617806118233-18e1de247200", "photo-1507473885765-e6ed057f782c", "photo-1637412816281-f80ec9948fea"]
+const shellCatalog = [
+  ["Ekolsund reclining armchair", "Living Room", "Sofas", 12999, 12, "Fabric, Oak", 4.8, 12],
+  ["Harbor three-seater sofa", "Living Room", "Sofas", 38990, 4, "Linen", 4.6, 8],
+  ["Alder round coffee table", "Living Room", "Coffee Tables", 8450, 20, "Solid wood", 4.9, 21],
+  ["Linden queen bed frame", "Bedroom", "Beds", 27500, 6, "Walnut veneer", 4.7, 5],
+  ["Maple six-seat dining table", "Dining Room", "Dining Tables", 31200, 3, "Maple", 5, 3],
+  ["Juniper side lamp table", "Bedroom", "Nightstands", 4990, 30, "Ash", 4.4, 9],
+  ["Cove accent chair", "Living Room", "Accent Chairs", 9990, 0, "Boucle", 0, 0],
+].map(([name, category, subcategory, price, stock, material, rating, reviews], index) => ({
+  id: `shell-product-${index + 1}`, name, category, subcategory, price, stock_quantity: stock, status: "active", material,
+  dimensions: "Width 85 cm, Depth 90 cm, Height 80 cm", description: `A considered ${String(name).toLowerCase()} for everyday comfort.`,
+  images: index === 0 ? [`/furniture/${shellPhotos[0]}.jpg`] : [`/furniture/${shellPhotos[index % 7]}.jpg`, `/furniture/${shellPhotos[(index + 3) % 7]}.jpg`],
+  main_image_index: 0, rating, review_count: reviews,
+}))
+const shellRows = (table: string) => table === "products" ? shellCatalog
+  : table === "cart_items" ? [{ product_id: "shell-product-1", quantity: 1, selected_for_checkout: true }, { product_id: "shell-product-3", quantity: 2, selected_for_checkout: true }]
+  : table === "wishlist_items" ? [{ product_id: "shell-product-2" }, { product_id: "shell-product-4" }]
+  : table === "addresses" ? [fixtureAddress]
+  : table === "reviews" ? [{ id: "qa-review", rating: 5, body: "The seat is comfortable and the finish looks beautiful in our home.", image_urls: [], created_at: "2026-09-01T09:00:00Z", approved: true, reviewer_display_name: "Alexandra Rivera Santos" }]
+  : []
+const shellSingle = (table: string) => table === "profiles" ? { id: user.id, role: "customer", full_name: "Alex Rivera", username: "alex", email: user.email, phone: "+639171234567", phone_verified_at: "2026-09-01T09:00:00Z", avatar_url: "" }
+  : table === "store_settings" ? { account_settings: { password_minimum_length: 10, username_required: true, google_auth_enabled: true }, fulfillment_settings: { return_window_days: 7 } }
+  : null
+const shellClient = () => {
+  const base = fixtureClient()
+  const from = (table: string) => {
+    const query: Record<string, unknown> = new Proxy({}, {
+      get(_target, key) {
+        if (key === "single" || key === "maybeSingle") return async () => ({ data: shellSingle(table), error: null })
+        if (key === "then") return (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) =>
+          Promise.resolve({ data: shellRows(table), error: null, count: shellRows(table).length }).then(resolve, reject)
+        return () => query
+      },
+    })
+    return query
+  }
+  return {
+    ...base,
+    from,
+    storage: { from: () => ({ createSignedUrl: async () => ({ data: { signedUrl: "" }, error: null }), upload: async () => ({ data: null, error: null }) }) },
+    rpc: async () => ({ data: null, error: null }),
+    functions: { invoke: async () => ({ data: null, error: null }) },
+  }
+}
+export const createClient = () => shellMode ? shellClient() : fixtureClient()

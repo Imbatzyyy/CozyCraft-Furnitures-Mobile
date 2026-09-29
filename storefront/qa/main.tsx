@@ -22,6 +22,7 @@ import "../src/index.css"
 import "../src/native-responsive.css"
 import "../src/design-system.css"
 import "../src/components/cozy-motion.css"
+import "../src/ui-polish.css"
 import CozyLaunchScreen from "../src/components/CozyLaunchScreen"
 import DialogAccessibility from "../src/components/DialogAccessibility"
 import HomeCirclePage from "../src/components/HomeCirclePage"
@@ -217,7 +218,11 @@ function CareFixture() {
 }
 
 const invoiceFixture = invoiceEmail({ id: "fixture", order_number: "CC-01131", status: "delivered", created_at: "2026-09-07T08:00:00Z", subtotal: 20000, delivery_fee: 650, reward_discount: 500, total: 20150, payment_method: "cod", payment_status: "paid", shipping_address: { name: "Ana Maria Rivera", line: "18 Narra Street", city: "Quezon City", province: "Metro Manila" }, order_items: [{ id: 1, product_name: "VIMLE two-seat sofa", quantity: 2, unit_price: 10000 }] })
-if (params.has("invoice-template")) {
+if (params.has("shell")) {
+  // The complete storefront, routed and animated, on the in-memory shell client.
+  void import("../src/App").then(({ default: App }) => createRoot(document.getElementById("root")!).render(<><DialogAccessibility /><App /></>))
+}
+else if (params.has("invoice-template")) {
   const previewHtml = invoiceFixture.html.replace(`cid:${invoiceLogoAttachment.content_id}`, `data:image/png;base64,${invoiceLogoAttachment.content}`)
   const email = new DOMParser().parseFromString(previewHtml, "text/html")
   document.head.querySelectorAll("style,link[rel=stylesheet]").forEach(element => element.remove())

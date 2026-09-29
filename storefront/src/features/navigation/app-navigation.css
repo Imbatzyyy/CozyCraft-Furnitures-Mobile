@@ -28,7 +28,8 @@
 .ccnav-group button[aria-current="page"] { background: #e4e9dc; border-color: #cfd7c3; font-weight: 700; color: #35452b; }
 .ccnav-group button[aria-current="page"] > .material-symbols-rounded { color: #35452b; }
 .ccnav-count { display: grid; place-items: center; flex-shrink: 0; min-width: 25px; min-height: 25px; padding: 2px 6px; border-radius: 8px; background: #e9e5dc; font-size: .61rem; font-variant-numeric: tabular-nums; }
-.ccnav-chevron { color: #96988a; font-size: .85rem; }
+.ccnav-group button > .ccnav-chevron { flex: 0 0 20px; color: #96988a; font-size: 20px; line-height: 1; transition: transform 180ms ease; }
+.ccnav-group button:hover .ccnav-chevron, .ccnav-group button:focus-visible .ccnav-chevron { transform: translateX(2px); }
 .ccnav-drawer-footer { padding: 25px 10px 5px; font-size: .62rem; line-height: 1.6; color: #727765; }
 .ccnav-drawer-footer > span { color: #7e8b69; margin-right: 6px; }
 .ccnav-overlay.is-closing .ccnav-backdrop { animation: ccnav-fade-out var(--ccnav-motion) ease both; }

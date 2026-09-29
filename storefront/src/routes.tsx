@@ -8,7 +8,7 @@ import useVisibleInterval from "./components/useVisibleInterval"
 import DocumentSections from "./components/DocumentSections"
 import CozyLaunchScreen from "./components/CozyLaunchScreen"
 import SofaLaunchSequence from "./components/SofaLaunchSequence"
-import { hasLaunchHandoff } from "./components/launch-handoff"
+import { hasLaunchHandoff, readLaunchPace } from "./components/launch-handoff"
 import { createHashRouter, Link, Navigate, useLocation, useNavigate } from "react-router"
 import CustomerSecurityGate from "./features/auth/CustomerSecurityGate"
 import { googleOAuthOptions } from "./features/auth/google-oauth"
@@ -376,33 +376,36 @@ function Splash() {
   const [destination, setDestination] = useState("/welcome")
   const [showSofa, setShowSofa] = useState(false)
   const [sessionReady, setSessionReady] = useState(false)
+  const [pace] = useState(readLaunchPace)
   useEffect(() => {
     let active = true
     let timer: number | undefined
     const startedAt = Date.now()
+    // The brand splash is a first-launch moment; returning customers pass through.
+    const splashHold = pace === "quick" ? 450 : 1850
 
     void supabase.auth.getSession().then(({ data }) => {
       if (!active) return
       const nextDestination = data.session?.user && !isGuestMode() ? "/shop" : "/welcome"
       setDestination(nextDestination)
       setSessionReady(true)
-      const remaining = Math.max(0, 1850 - (Date.now() - startedAt))
+      const remaining = Math.max(0, splashHold - (Date.now() - startedAt))
       timer = window.setTimeout(() => setShowSofa(true), remaining)
     }).catch(() => {
       if (!active) return
       setSessionReady(true)
-      timer = window.setTimeout(() => setShowSofa(true), Math.max(0, 1850 - (Date.now() - startedAt)))
+      timer = window.setTimeout(() => setShowSofa(true), Math.max(0, splashHold - (Date.now() - startedAt)))
     })
 
     return () => {
       active = false
       if (timer) window.clearTimeout(timer)
     }
-  }, [navigate])
+  }, [navigate, pace])
   const finishLaunch = () => navigate(destination, { replace: true })
   if (showSofa) {
     if (destination === "/shop") return <Navigate to="/shop" replace state={{ sofaLaunch: true }} />
-    return <SofaLaunchSequence onComplete={finishLaunch} />
+    return <SofaLaunchSequence onComplete={finishLaunch} pace={pace} />
   }
   return (
     <main className="auth-phone splash">
@@ -1184,6 +1187,7 @@ export function CustomerHomeRoute() {
   const [handoff] = useState(() => launching || hasLaunchHandoff())
   const [homeReady, setHomeReady] = useState(false)
   const [homeBlocked, setHomeBlocked] = useState(false)
+  const [pace] = useState(readLaunchPace)
   const finishLaunch = () => {
     setLaunching(false)
     // Same route and same component: discard the one-shot history flag without
@@ -1198,7 +1202,7 @@ export function CustomerHomeRoute() {
         </Suspense>
       </CustomerSecurityGate>
     </div>
-    {launching && <SofaLaunchSequence homeReady={homeReady || homeBlocked} onComplete={finishLaunch} />}
+    {launching && <SofaLaunchSequence homeReady={homeReady || homeBlocked} onComplete={finishLaunch} pace={pace} />}
   </div>
 }
 export const router = createHashRouter([

@@ -1,6 +1,7 @@
 import { AfterViewInit, Component, ElementRef, HostListener, ViewChild } from '@angular/core';
 import { App } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
+import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
 import type { OpenOptions } from '@capacitor/browser';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { PushNotifications } from '@capacitor/push-notifications';
@@ -438,6 +439,10 @@ export class HomePage implements AfterViewInit {
     // the same boundary to navigation/browser actions as to payment requests.
     const sender = this.storefront?.nativeElement.contentWindow;
     if (!sender || event.source !== sender) return;
+    if (event.data?.type === 'cozycraft-haptic') {
+      void this.playHaptic(String(event.data.kind || 'light'));
+      return;
+    }
     if (event.data?.type === 'cozycraft-notifications-ready') {
       this.deliverNotification();
       return;
@@ -591,6 +596,27 @@ export class HomePage implements AfterViewInit {
         iconColor: '#A65F43',
         extra: { notificationId: rawId },
       }] });
+    }
+  }
+
+  private lastHapticAt = 0;
+
+  /** Tactile confirmation for storefront actions. Purely an enhancement. */
+  private async playHaptic(kind: string) {
+    if (!Capacitor.isNativePlatform() || !Capacitor.isPluginAvailable('Haptics')) return;
+    const now = Date.now();
+    if (now - this.lastHapticAt < 60) return;
+    this.lastHapticAt = now;
+    try {
+      if (kind === 'success') await Haptics.notification({ type: NotificationType.Success });
+      else if (kind === 'warning') await Haptics.notification({ type: NotificationType.Warning });
+      else if (kind === 'selection') {
+        await Haptics.selectionStart();
+        await Haptics.selectionChanged();
+        await Haptics.selectionEnd();
+      } else await Haptics.impact({ style: kind === 'medium' ? ImpactStyle.Medium : ImpactStyle.Light });
+    } catch {
+      // A device without a haptic engine simply stays silent.
     }
   }
 }

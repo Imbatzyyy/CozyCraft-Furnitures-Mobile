@@ -18,7 +18,7 @@
 .mobile-security-dialog *, .mobile-security-dialog *::before, .mobile-security-dialog *::after { box-sizing: border-box; }
 .mobile-security-heading { display: grid; flex: 0 0 auto; grid-template-columns: 44px minmax(0, 1fr) 44px; gap: 12px; align-items: center; padding: 22px 20px; border-bottom: 1px solid #e5dfd5; }
 .mobile-security-heading > div { min-width: 0; }
-.mobile-security-heading p { margin: 0 0 5px; font-size: calc(9px * var(--cozy-font-scale, 1.15)); font-weight: 700; letter-spacing: .13em; color: #797165; }
+.mobile-security-heading p { margin: 0 0 5px; font-size: max(10px, calc(9px * var(--cozy-font-scale, 1.15))); font-weight: 700; letter-spacing: .13em; color: #797165; }
 .mobile-security-heading h2 { margin: 0; font: 400 clamp(calc(22px * var(--cozy-font-scale, 1.15)), 6vw, calc(28px * var(--cozy-font-scale, 1.15)))/1.1 "DM Serif Display", serif; letter-spacing: -.025em; overflow-wrap: anywhere; }
 .mobile-security-icon { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 15px; background: #ebe4d7; color: #685741; }
 .mobile-security-icon svg { display: block; width: 24px; height: 24px; }
@@ -51,6 +51,6 @@
 @media (prefers-reduced-motion: reduce) { .mobile-security-spinner { animation: none; } }
 .mobile-auth-check { display: grid; place-items: center; width: 100%; min-height: 100dvh; max-height: 100dvh; overflow: auto; box-sizing: border-box; padding: max(22px, env(safe-area-inset-top)) 18px max(22px, env(safe-area-inset-bottom)); background: #f1ede5; }
 .mobile-auth-check .mobile-security-icon { margin-bottom: 22px; }
-.mobile-auth-check .mobile-auth-eyebrow { margin-bottom: 10px; font-size: calc(9px * var(--cozy-font-scale, 1.15)); font-weight: 700; letter-spacing: .12em; }
+.mobile-auth-check .mobile-auth-eyebrow { margin-bottom: 10px; font-size: max(10px, calc(9px * var(--cozy-font-scale, 1.15))); font-weight: 700; letter-spacing: .12em; }
 .mobile-auth-check h1 { margin: 0 0 16px; font: 400 clamp(calc(30px * var(--cozy-font-scale, 1.15)), 8vw, calc(40px * var(--cozy-font-scale, 1.15)))/1.05 "DM Serif Display", serif; letter-spacing: -.025em; }
 .mobile-auth-check form > p { color: #777067; font-size: calc(14px * var(--cozy-font-scale, 1.15)); line-height: 1.6; }

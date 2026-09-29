@@ -123,7 +123,7 @@ export default function AppNavigation({ activeTab, displayName, savedCount, bagC
             <nav aria-label="App navigation">{APP_MENU_GROUPS.map(group => <div className="ccnav-group" key={group.label}><h3>{group.label}</h3>{group.items.map(item => {
               const count = item.id === "saved" ? savedCount : item.id === "bag" ? bagCount : 0
               return <button type="button" key={item.id} aria-current={activeSection === item.id ? "page" : undefined} onClick={() => select(item.id)}>
-                <span className="material-symbols-rounded" aria-hidden="true">{item.icon}</span><span>{item.label}</span>{count > 0 ? <span className="ccnav-count" aria-label={`${count} items`}>{count > 99 ? "99+" : count}</span> : <span className="ccnav-chevron" aria-hidden="true">↗</span>}
+                <span className="material-symbols-rounded" aria-hidden="true">{item.icon}</span><span>{item.label}</span>{count > 0 ? <span className="ccnav-count" aria-label={`${count} items`}>{count > 99 ? "99+" : count}</span> : <span className="ccnav-chevron material-symbols-rounded" aria-hidden="true">chevron_right</span>}
               </button>
             })}</div>)}</nav>
             <footer className="ccnav-drawer-footer"><span aria-hidden="true">✦</span> Furniture for a life well lived.</footer>

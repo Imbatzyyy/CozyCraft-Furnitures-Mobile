@@ -143,7 +143,7 @@ export default function WelcomeTour({ userId, blocked, newGoogleAccount = false,
   if (!open) return null
   const stop = stops[step]
   return createPortal(<div className="welcome-tour">
-    {rect ? <div className="welcome-tour-highlight" aria-hidden="true" style={{ left: rect.left - 6, top: rect.top - 6, width: rect.width + 12, height: rect.height + 12 }} /> : <div className="welcome-tour-shade" aria-hidden="true" />}
+    {rect ? <div className="welcome-tour-highlight" aria-hidden="true" style={{ transform: `translate3d(${rect.left - 6}px, ${rect.top - 6}px, 0)`, width: rect.width + 12, height: rect.height + 12 }} /> : <div className="welcome-tour-shade" aria-hidden="true" />}
     <section ref={dialog} role="dialog" aria-modal="true" data-cozy-focus-managed="true" aria-labelledby="tour-title" tabIndex={-1} className="welcome-tour-card">
       <button className="tour-skip" onClick={finish}>Skip tour</button>
       <div key={step} className="tour-content">

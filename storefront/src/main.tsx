@@ -5,6 +5,7 @@ import './index.css'
 import './native-responsive.css'
 import './design-system.css'
 import './components/cozy-motion.css'
+import './ui-polish.css'
 import DialogAccessibility from './components/DialogAccessibility'
 import { applyMobileTextSize, readMobileTextSize } from './lib/mobile-text-size'
 

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties, type RefObject } from "react"
 import CozyLoader from "./CozyLoader"
+import { haptic } from "../lib/haptics"
 
 export const PULL_TO_REFRESH_EVENT = "cozycraft-pull-refresh"
 
@@ -53,6 +54,8 @@ export function usePullToRefresh({ onRefresh, disabled = false }: PullToRefreshO
   const mountedRef = useRef(true)
   const [pullDistance, setPullDistance] = useState(0)
   const [armed, setArmed] = useState(false)
+  // A light tick as the pull crosses the refresh threshold, like native lists.
+  useEffect(() => { if (armed) haptic("light") }, [armed])
   const [refreshing, setRefreshing] = useState(false)
 
   onRefreshRef.current = onRefresh

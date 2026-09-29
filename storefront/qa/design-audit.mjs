@@ -18,6 +18,10 @@ try {
       await page.waitForTimeout(150)
       if (fixture === "account=orders") await page.getByRole("button", { name: "View complete order" }).click()
       if (fixture === "checkout") await page.getByRole("button", { name: "Continue →", exact: true }).click()
+      // Measure the settled layout, not a page mid-way through its entrance slide.
+      await page.evaluate(() => Promise.all(document.getAnimations()
+        .filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity)
+        .map((animation) => animation.finished.catch(() => undefined))))
       const overflow = await page.evaluate(() => {
         const rootOverflow = document.documentElement.scrollWidth > innerWidth
         const controls = [...document.querySelectorAll("button,input,h1,h2,p,small")].filter((element) => {

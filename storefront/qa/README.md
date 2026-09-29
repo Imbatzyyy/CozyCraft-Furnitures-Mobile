@@ -14,5 +14,6 @@ This uses the actual mobile profile components with an in-memory Supabase adapte
 - Add `?google-onboarding=username` to inspect and operate the required first-time Google username step.
 - Add `?google-onboarding=voucher` to inspect the database-backed ₱500 welcome voucher presentation.
 - Add `&text=extra-large` to any fixture URL to check the largest in-app accessibility text setting.
+- Add `?shell` to run the complete storefront (launch, tabs, overlays, bag and saved pieces) on sample catalog data. Reads resolve locally and writes are discarded.
 
 Check widths 320, 360, 390, 430 and 768 CSS pixels, a short landscape viewport, and enlarged text. The dialog must scroll vertically without horizontal clipping. The production build uses the normal Vite config and does not include these fixtures.

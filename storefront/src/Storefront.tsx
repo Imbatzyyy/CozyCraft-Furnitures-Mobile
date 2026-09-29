@@ -1,6 +1,6 @@
 import { localStore, storageKeys } from "./lib/browser-storage"
 import { readCachedValue } from "./lib/cached-value"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import ReviewPhotoViewer from "./components/ReviewPhotoViewer"
 import PriceRange, { PRICE_LIMIT } from "./components/PriceRange"
 import useVisibleInterval from "./components/useVisibleInterval"
@@ -15,7 +15,13 @@ import "./components/care-minimal.css"
 import ProfileHomeCircle from "./components/ProfileHomeCircle"
 import { homeCircleTier } from "./lib/home-circle"
 import CozyLaunchScreen from "./components/CozyLaunchScreen"
+import Presence from "./components/Presence"
+import CozyImage from "./components/CozyImage"
+import { SkeletonCards, SkeletonRows, useBoundedLoading } from "./components/Skeleton"
+import { customerInitials } from "./features/auth/GoogleCustomerOnboarding"
 import { clearLaunchHandoff } from "./components/launch-handoff"
+import { prefersReducedMotion } from "./lib/motion"
+import { haptic } from "./lib/haptics"
 import { PULL_TO_REFRESH_EVENT, PullToRefreshIndicator, usePullToRefresh } from "./components/PullToRefresh"
 import { MutationQueue, withDeadline } from "./lib/request-lifecycle"
 import { checkoutAttemptKey, completeCheckoutAttempt } from "./lib/checkout-attempt"
@@ -457,6 +463,24 @@ const glyph: Record<string, string> = {
   bag: "shopping_bag",
   account: "person",
 }
+const navLabel: Record<string, string> = {
+  home: "Home",
+  shop: "Shop",
+  saved: "Saved",
+  bag: "Bag",
+  account: "Account",
+}
+
+type ToastTone = "success" | "notice"
+type ToastAction = { label: string; run: () => void }
+type ToastMessage = { id: number; message: string; tone: ToastTone; action?: ToastAction }
+let toastSequence = 0
+/** Confirmations get a check; waits, limits and failures get an information mark. */
+function toastToneFor(message: string): ToastTone {
+  return /offline|could not|couldn|unable|failed|please|not available|unavailable|try again|still|only \d|maximum|sign in|reconnect|wait/i.test(message)
+    ? "notice"
+    : "success"
+}
 
 function flyProductTo(event: React.MouseEvent<HTMLElement>, target: "saved" | "bag", product: Product) {
   const origin = event.currentTarget.getBoundingClientRect()
@@ -682,7 +706,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
   const welcomeRequestRevision = useRef(0)
   const [search, setSearch] = useState(false)
   const [query, setQuery] = useState("")
-  const [toast, setToast] = useState("")
+  const [toast, setToast] = useState<ToastMessage | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current) }, [])
   const [detail, setDetail] = useState<Product | null>(null)
@@ -1634,10 +1658,15 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
       void supabase.removeChannel(channel)
     }
   }, [userId])
-  const flash = (x: string) => {
+  const dismissToast = () => {
     if (toastTimer.current) clearTimeout(toastTimer.current)
-    setToast(x)
-    toastTimer.current = setTimeout(() => setToast(""), 2300)
+    setToast(null)
+  }
+  const flash = (message: string, options: { tone?: ToastTone; action?: ToastAction } = {}) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current)
+    setToast({ id: ++toastSequence, message, tone: options.tone || toastToneFor(message), action: options.action })
+    // Give an undo long enough to be reached; plain confirmations stay brief.
+    toastTimer.current = setTimeout(() => setToast(null), options.action ? 5000 : 2300)
   }
   const refreshVisibleData = async () => {
     if (!online) {
@@ -1770,6 +1799,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
       setSaved(savedRef.current)
     }
     apply(!active)
+    haptic("light")
     void cartWrites.current.run(async () => {
       if (!current()) return
       await toggleWishlist(owner, id, active)
@@ -1782,9 +1812,11 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
     }).finally(() => {
       if (revision === mutation.revision) wishlistMutations.current.delete(key)
     })
-    flash(
-      active ? "Removed from your saved pieces" : "Saved to your collection",
-    )
+    if (active) {
+      flash("Removed from your saved pieces", {
+        action: { label: "Undo", run: () => { if (!savedRef.current.includes(id)) save(id) } },
+      })
+    } else flash("Saved to your collection")
   }
   const openProduct = (product: Product) => {
     setDetail(product)
@@ -1847,6 +1879,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
       flash(`${p.name} is at the maximum available stock (${stock.availableStock}).`)
       return
     }
+    haptic("medium")
     persistCartLine(p.id, { product: p, quantity: Math.min((existing?.quantity || 0) + 1, p.stock ?? 99), selected: true }, "Added to your bag")
   }
   const moveSavedToBag = async (p: Product) => {
@@ -1922,10 +1955,32 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
     }
     persistCartLine(id, { ...line, ...patch })
   }
+  const restoreCartLines = (lines: Array<{ line: CartLine; index: number }>) => {
+    const missing = lines.filter(({ line }) => !bagRef.current.some((item) => item.product.id === line.product.id))
+    if (!missing.length || !requireConnection()) return
+    missing.forEach(({ line }) => persistCartLine(line.product.id, line))
+    // Put each piece back where it was rather than at the end of the bag.
+    const next = [...bagRef.current]
+    for (const { line, index } of [...missing].sort((a, b) => a.index - b.index)) {
+      const at = next.findIndex((item) => item.product.id === line.product.id)
+      if (at < 0) continue
+      const [restored] = next.splice(at, 1)
+      next.splice(Math.min(index, next.length), 0, restored)
+    }
+    bagRef.current = next
+    setBag(next)
+  }
   const removeLine = (id: string) => {
     if (!requireConnection()) return
+    const index = bagRef.current.findIndex((item) => item.product.id === id)
+    const line = bagRef.current[index]
     persistCartLine(id, undefined)
+    if (line) flash(`${line.product.name} removed from your bag`, {
+      action: { label: "Undo", run: () => restoreCartLines([{ line, index }]) },
+    })
   }
+  // A signed-in customer's own lists are still arriving: show their shape, not an empty state.
+  const accountListsLoading = useBoundedLoading(Boolean(userId) && online && accountSnapshotUserId !== userId)
   const bagCount = bag.reduce((sum, line) => sum + line.quantity, 0)
   const bagQuantities = useMemo(
     () => Object.fromEntries(bag.map((line) => [line.product.id, line.quantity])),
@@ -1944,10 +1999,41 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
   )
   // Home is deliberately centered so the primary destination is always
   // reachable with either thumb and remains the visual anchor of the dock.
+  // Each tab keeps its own reading position. Restoring before paint avoids the
+  // new tab visibly scrolling from wherever the previous tab was left.
+  const tabScroll = useRef(new Map<string, number>())
+  const tabRef = useRef(tab)
+  tabRef.current = tab
+  const trackTabScroll = useCallback((scroller: HTMLElement | null) => {
+    if (!scroller) return
+    const shell = scroller.closest<HTMLElement>(".lux-shell")
+    let settledTop = scroller.scrollTop
+    const remember = () => {
+      const top = scroller.scrollTop
+      tabScroll.current.set(tabRef.current, top)
+      // Floating helpers step aside while reading downward and return on the way up.
+      if (Math.abs(top - settledTop) < 8) return
+      shell?.toggleAttribute("data-scrolled-down", top > settledTop && top > 140)
+      settledTop = top
+    }
+    scroller.addEventListener("scroll", remember, { passive: true })
+    return () => {
+      scroller.removeEventListener("scroll", remember)
+      shell?.removeAttribute("data-scrolled-down")
+    }
+  }, [])
   const nav = ["shop", "saved", "home", "bag", "account"]
   const isIOS26Glass = () => document.documentElement.classList.contains("cozy-platform-ios26")
   const navigateTo = (destination: string) => {
     if (checkoutBusy.current) { flash("Please wait while your checkout is being saved"); return }
+    // Tapping the tab you are already reading returns it to the top, as native tab bars do.
+    const reselected = destination === tab && !search && !detail && !checkoutOpen && !placedOrder
+      && !profileOpen && categoryOpen === null && !notificationsOpen && !membershipOpen
+    if (destination !== tab) haptic("selection")
+    if (reselected) {
+      tabScroll.current.set(tab, 0)
+      document.querySelector<HTMLElement>(".lux-body")?.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "auto" : "smooth" })
+    }
     setSearch(false)
     setDetail(null)
     setCheckoutOpen(false)
@@ -2105,7 +2191,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
   }
 
   const returnScrollRestored = useRef(false)
-  useEffect(() => {
+  useLayoutEffect(() => {
     const scroller = document.querySelector<HTMLElement>(".lux-body")
     if (!scroller) return
     if (!returnScrollRestored.current && returnState?.tab === tab) {
@@ -2116,7 +2202,8 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
       })
       return () => window.cancelAnimationFrame(frame)
     }
-    scroller.scrollTo({ top: 0, behavior: "smooth" })
+    scroller.scrollTop = tabScroll.current.get(tab) ?? 0
+    scroller.closest(".lux-shell")?.removeAttribute("data-scrolled-down")
   }, [returnState, tab])
 
   const visibleGoogleOnboarding = userId
@@ -2285,13 +2372,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
                   }}
                 />
               ) : (
-                <span>
-                  {profile.name
-                    .split(" ")
-                    .map((part) => part[0])
-                    .slice(0, 2)
-                    .join("")}
-                </span>
+                <span>{customerInitials(`${profile.firstName} ${profile.lastName}`.trim() || profile.name)}</span>
               )}
             </button>
           </div>
@@ -2324,7 +2405,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
             </span>
           </>}
         </aside>
-        <section className="lux-body">
+        <section className="lux-body" ref={trackTabScroll}>
           {tab === "home" && (
             <>
               <section className="home-intro">
@@ -2392,7 +2473,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
                     key={category.id}
                     onClick={() => setCategoryOpen(category)}
                   >
-                    <img src={category.image} alt="" loading="lazy" decoding="async" />
+                    <CozyImage src={category.image} alt="" loading="lazy" decoding="async" />
                     <span>
                       {category.title}
                       <small>{category.note}</small>
@@ -2579,6 +2660,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
               add={moveSavedToBag}
               movingIds={movingSaved}
               open={openProduct}
+              loading={accountListsLoading}
             />
           )}
           {tab === "bag" && (
@@ -2589,10 +2671,13 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
               open={openProduct}
               clear={() => {
                 if (!requireConnection()) return
-                [...bagRef.current].forEach((line) => persistCartLine(line.product.id, undefined))
+                const cleared = bagRef.current.map((line, index) => ({ line, index }))
+                cleared.forEach(({ line }) => persistCartLine(line.product.id, undefined))
+                if (cleared.length) flash("Your bag is clear", { action: { label: "Undo", run: () => restoreCartLines(cleared) } })
               }}
               remove={removeLine}
               update={updateLine}
+              loading={accountListsLoading}
               checkout={() => {
                 if (cartWrites.current.pending) { flash("Your bag is still being saved. Please try checkout in a moment."); return }
                 if (requireConnection()) setCheckoutOpen(true)
@@ -2605,6 +2690,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
               userId={userId}
               flash={flash}
               name={profile.name}
+              fullName={`${profile.firstName} ${profile.lastName}`.trim()}
               email={profile.email}
               image={profile.image}
               orders={orders}
@@ -2659,11 +2745,14 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
             setNavGlassPosition(10 + (activeIndex >= 0 ? activeIndex : 2) * 20)
           }}
         >
-          <span
-            className="lux-nav-lens"
-            style={{ left: `${navGlassPosition}%` }}
-            aria-hidden="true"
-          />
+          {/* One indicator slides between the five equal columns with a transform,
+              following a scrub continuously on iOS 26 and settling on the active tab. */}
+          <span className="lux-nav-track" aria-hidden="true">
+            <span
+              className="lux-nav-lens"
+              style={{ "--nav-lens": Math.max(0, Math.min(nav.length - 1, navGlassPosition / (100 / nav.length) - 0.5)) } as React.CSSProperties}
+            />
+          </span>
           {nav.map((id, index) => (
             <button
               key={id}
@@ -2697,16 +2786,17 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
               <span className="material-symbols-rounded" aria-hidden="true">
                 {glyph[id]}
                 {id === "saved" && saved.length > 0 ? (
-                  <i aria-hidden="true">
+                  <i aria-hidden="true" key={`saved-${saved.length}`}>
                     {saved.length > 99 ? "99+" : saved.length}
                   </i>
                 ) : null}
                 {id === "bag" && bagCount > 0 ? (
-                  <i aria-hidden="true">
+                  <i aria-hidden="true" key={`bag-${bagCount}`}>
                     {bagCount > 99 ? "99+" : bagCount}
                   </i>
                 ) : null}
               </span>
+              <small aria-hidden="true">{navLabel[id]}</small>
             </button>
           ))}
         </nav>}
@@ -2731,7 +2821,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
           openProduct={(product) => openProduct(product)}
           openDestination={openAssistantDestination}
         />
-        {notificationsOpen && (
+        <Presence show={notificationsOpen} selector=".notifications-page">{notificationsOpen && (
           <NotificationsPage
             items={notifications}
             userId={userId}
@@ -2739,8 +2829,8 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
             refresh={async () => userId && applyNotifications(await loadNotifications(userId))}
             openItem={(id) => { setNotificationsOpen(false); setShoppingNotificationId(id) }}
           />
-        )}
-        {membershipOpen && (
+        )}</Presence>
+        <Presence show={membershipOpen} selector=".membership-page">{membershipOpen && (
           <MembershipPage
             ready={Boolean(loyalty) && !loyaltyError}
             loadError={loyaltyError}
@@ -2770,8 +2860,8 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
             close={() => setMembershipOpen(false)}
             shop={() => { setMembershipOpen(false); setTab("shop") }}
           />
-        )}
-        {categoryOpen && (
+        )}</Presence>
+        <Presence show={categoryOpen !== null} selector=".category-page">{categoryOpen !== null && (
           <CategoryPage
             category={categoryOpen}
             close={() => setCategoryOpen(null)}
@@ -2782,8 +2872,8 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
               setTab("shop")
             }}
           />
-        )}
-        {profileOpen && (
+        )}</Presence>
+        <Presence show={profileOpen} selector=".profile-page">{profileOpen && (
             <ProfilePage
             name={profile.name}
             email={profile.email}
@@ -2815,8 +2905,8 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
               flash("Profile updated successfully")
             }}
           />
-        )}
-        {detail && (
+        )}</Presence>
+        <Presence show={Boolean(detail)} selector=".detail-sheet">{detail && (
           <ProductDetail
             p={detail}
             saved={saved.includes(detail.id)}
@@ -2831,7 +2921,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
               setDetail(null)
             }}
           />
-        )}
+        )}</Presence>
         {compareIds.length > 0 && !compareOpen && !checkoutOpen && !placedOrder && !detail && !search && (
           <aside className="compare-tray" aria-label={`${compareIds.length} products selected for comparison`}>
             <span><b>{compareIds.length}</b><small>piece{compareIds.length === 1 ? "" : "s"} to compare</small></span>
@@ -2839,15 +2929,15 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
             <button type="button" className="compare-tray-close" aria-label="Clear comparison" onClick={() => setCompareIds([])}>×</button>
           </aside>
         )}
-        {compareOpen && (
+        <Presence show={compareOpen} selector=".compare-sheet">{compareOpen && (
           <CompareSheet
             products={compareIds.map((id) => products.find((product) => product.id === id)).filter(Boolean) as Product[]}
             close={() => setCompareOpen(false)}
             remove={toggleCompare}
             open={(product) => { setCompareOpen(false); openProduct(product) }}
           />
-        )}
-        {checkoutOpen && (
+        )}</Presence>
+        <Presence show={checkoutOpen} selector=".checkout-page">{checkoutOpen && (
           <CheckoutPage
             onBusyChange={(busy) => { checkoutBusy.current = busy }}
             userId={userId}
@@ -2864,8 +2954,8 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
               setPlacedOrder(order)
             }}
           />
-        )}
-        {placedOrder && (
+        )}</Presence>
+        <Presence show={Boolean(placedOrder)} selector=".order-complete">{placedOrder && (
           <OrderComplete
             order={placedOrder}
             viewOrder={() => {
@@ -2882,13 +2972,13 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
               setTab("home")
             }}
           />
-        )}
+        )}</Presence>
         {paymentReturning && !placedOrder && (
           <section className="payment-returning" role="status" aria-live="polite">
             <div><span className="material-symbols-rounded">verified_user</span><p className="hello">SECURE PAYMENT</p><h2>Confirming your order…</h2><p>Keep CozyCraft open while PayMongo and the store securely confirm your payment.</p><CozyLoader /></div>
           </section>
         )}
-        {search && (
+        <Presence show={search} selector=".search-overlay">{search && (
           <div className="search-overlay" role="dialog" aria-modal="true" aria-label="Search CozyCraft furniture">
             <header className="search-premium-header">
               <button className="dismiss" onClick={() => setSearch(false)} aria-label="Close search">
@@ -2946,7 +3036,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
                     openProduct(p)
                   }}
                 >
-                  <img src={p.image} alt="" loading="lazy" decoding="async" />
+                  <CozyImage src={p.image} alt="" loading="lazy" decoding="async" />
                   <span>
                     {p.name}
                     <small>{p.category}</small>
@@ -2965,14 +3055,15 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
               )}
             </div>
           </div>
-        )}
-        {toast && (
-          <aside className="lux-toast" role="status">
-            <span>✓</span>
-            {toast}
-            <button onClick={() => setToast("")}>×</button>
+        )}</Presence>
+        <Presence show={Boolean(toast)} selector=".lux-toast">{toast && (
+          <aside className={`lux-toast lux-toast--${toast.tone}${toast.action ? " has-action" : ""}`} role="status" key={toast.id}>
+            <span className="material-symbols-rounded" aria-hidden="true">{toast.tone === "notice" ? "info" : "check"}</span>
+            <p>{toast.message}</p>
+            {toast.action && <button type="button" className="lux-toast-action" onClick={() => { const run = toast.action!.run; dismissToast(); haptic("light"); run() }}>{toast.action.label}</button>}
+            <button type="button" className="lux-toast-close" onClick={dismissToast} aria-label="Dismiss message">×</button>
           </aside>
-        )}
+        )}</Presence>
       </section>
     </main>
   )
@@ -3324,6 +3415,7 @@ function Card({
   addBusy?: boolean
 }) {
   const [isolatedImage, setIsolatedImage] = useState(() => readImageAnalysis(p.image) ?? false)
+  const [loadedImage, setLoadedImage] = useState("")
   useEffect(() => { setIsolatedImage(readImageAnalysis(p.image) ?? false) }, [p.image])
   return (
     <article className="lux-card">
@@ -3339,8 +3431,10 @@ function Card({
             alt={p.alt}
             loading="lazy"
             decoding="async"
-            className={isolatedImage ? "is-isolated-product" : ""}
+            className={`${isolatedImage ? "is-isolated-product " : ""}cozy-image${loadedImage === p.image ? " is-loaded" : ""}`}
+            ref={(image) => { if (image?.complete && image.naturalWidth > 0 && loadedImage !== p.image) setLoadedImage(p.image) }}
             onLoad={(event) => {
+              setLoadedImage(p.image)
               const image = event.currentTarget
               const source = image.getAttribute("src") || image.src
               const cached = readImageAnalysis(source)
@@ -3443,12 +3537,14 @@ function Collection({
   add,
   movingIds = [],
   open,
+  loading = false,
 }: {
   title: string
   kicker: string
   icon: string
   items: Product[]
   empty: string
+  loading?: boolean
   saved: string[]
   bagQuantities: Record<string, number>
   save: (id: string) => void
@@ -3477,7 +3573,7 @@ function Collection({
               if (e.key === "Enter") open(items[0])
             }}
           >
-            <img src={items[0].image} alt={items[0].alt} />
+            <CozyImage src={items[0].image} alt={items[0].alt} />
             <div>
               <p>YOUR NEXT FAVOURITE</p>
               <h2>{items[0].name}</h2>
@@ -3506,6 +3602,8 @@ function Collection({
             ))}
           </div>
         </>
+      ) : loading ? (
+        <SkeletonCards count={4} label="Loading your saved pieces" />
       ) : (
         <div className="saved-empty">
           <CozyCompanion pose="heart" />
@@ -3526,6 +3624,7 @@ function Bag({
   deliveryAreas,
   open,
   clear,
+  loading = false,
   remove,
   update,
   checkout,
@@ -3535,6 +3634,7 @@ function Bag({
   deliveryAreas: MobileDeliveryServiceArea[]
   open: (product: Product) => void
   clear: () => void
+  loading?: boolean
   remove: (id: string) => void
   update: (id: string, patch: Partial<CartLine>) => void
   checkout: () => void
@@ -3621,7 +3721,7 @@ function Bag({
           </section>
           {freeDeliveryRemaining > 0 && selected.length > 0 && <section className="bag-free-delivery-progress" aria-label={`Add ₱${freeDeliveryRemaining.toLocaleString()} more for free delivery`}>
             <div><span>Free-delivery progress</span><b>Add ₱{freeDeliveryRemaining.toLocaleString()}</b></div>
-            <i><span style={{ width: `${Math.min(100, Math.max(4, subtotal / Number(deliveryArea?.free_delivery_minimum || 1) * 100))}%` }}/></i>
+            <i><span style={{ transform: `translate3d(${Math.min(100, Math.max(4, subtotal / Number(deliveryArea?.free_delivery_minimum || 1) * 100)) - 100}%, 0, 0)` }}/></i>
             <small>Free delivery to {deliveryArea?.name} starts at ₱{Number(deliveryArea?.free_delivery_minimum || 0).toLocaleString()}.</small>
           </section>}
           <section className="bag-selection">
@@ -3669,7 +3769,7 @@ function Bag({
                     }
                   />
                 </label>
-                <img
+                <CozyImage
                   src={p.image}
                   alt={p.alt}
                   role="button"
@@ -3758,6 +3858,8 @@ function Bag({
             <b>₱{total.toLocaleString()} →</b>
           </button>
         </>
+      ) : loading ? (
+        <SkeletonRows count={2} label="Loading your bag" />
       ) : (
         <div className="bag-empty premium-empty">
           <CozyCompanion pose="pillow" />
@@ -3776,6 +3878,7 @@ export function Account({
   userId,
   flash,
   name,
+  fullName = "",
   email,
   image,
   orders,
@@ -3803,6 +3906,7 @@ export function Account({
   userId: string
   flash: (s: string) => void
   name: string
+  fullName?: string
   email: string
   image: string
   orders: CustomerOrder[]
@@ -4170,11 +4274,7 @@ export function Account({
           {image ? (
             <img src={image} alt="" />
           ) : (
-            name
-              .split(" ")
-              .map((part) => part[0])
-              .slice(0, 2)
-              .join("")
+            customerInitials(fullName || name)
           )}
         </div>
         <div>
@@ -4402,7 +4502,7 @@ export function Account({
                   </p>
                   <div className="order-thumbs">
                     {order.items.slice(0, 3).map((line) => (
-                      <img
+                      <CozyImage
                         key={line.product.id}
                         src={line.product.image}
                         alt=""
@@ -4469,7 +4569,7 @@ export function Account({
                     <div className="order-detail-products">
                     {selectedOrder.items.map((line) => (
                       <article className={selectedOrder.status === "Delivered" ? "reviewable" : ""} key={`${line.orderItemId || line.product.id}`}>
-                        <img src={line.product.image} alt="" loading="lazy" decoding="async"/>
+                        <CozyImage src={line.product.image} alt="" loading="lazy" decoding="async"/>
                         <div>
                           <b>{line.product.name}</b>
                           <small>Quantity {line.quantity}</small>
@@ -4860,16 +4960,26 @@ function TextSizePreference({
   )
 }
 function ReviewerAvatar({ name, src }: { name: string; src: string }) {
-  const [imageFailed, setImageFailed] = useState(false)
+  // Initials sit underneath; the photo fades over them once it has actually
+  // loaded, so a slow or missing photo never shows an empty or broken frame.
+  const [photo, setPhoto] = useState<"loading" | "loaded" | "failed">(src ? "loading" : "failed")
   const safeName = name?.trim() || "CozyCraft customer"
 
-  useEffect(() => setImageFailed(false), [src])
+  useEffect(() => setPhoto(src ? "loading" : "failed"), [src])
 
   return (
-    <span className={`reviewer-avatar${!imageFailed ? " has-photo" : ""}`} aria-hidden="true">
-      {!imageFailed
-        ? <img src={src} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setImageFailed(true)}/>
-        : safeName.charAt(0).toUpperCase()}
+    <span className={`reviewer-avatar${photo === "loaded" ? " has-photo" : ""}`} aria-hidden="true">
+      <span className="reviewer-avatar-initials">{customerInitials(safeName)}</span>
+      {photo !== "failed" && <img
+        src={src}
+        alt=""
+        loading="lazy"
+        referrerPolicy="no-referrer"
+        className={photo === "loaded" ? "is-loaded" : undefined}
+        ref={(image) => { if (image?.complete && image.naturalWidth > 0 && photo === "loading") setPhoto("loaded") }}
+        onLoad={() => setPhoto("loaded")}
+        onError={() => setPhoto("failed")}
+      />}
     </span>
   )
 }
@@ -4893,7 +5003,7 @@ function CompareSheet({ products, close, remove, open }: {
           {products.map((product) => <article key={product.id}>
             <button className="compare-remove" type="button" onClick={() => remove(product.id)} aria-label={`Remove ${product.name}`}>×</button>
             <button className="compare-product" type="button" onClick={() => open(product)}>
-              <img src={product.image} alt="" loading="lazy" decoding="async"/>
+              <CozyImage src={product.image} alt="" loading="lazy" decoding="async"/>
               <span><small>{product.category}</small><b>{product.name}</b><strong>{product.price}</strong></span>
             </button>
             <dl>
@@ -4946,16 +5056,24 @@ export function ProductDetail({
     reviewer_avatar_url: string
   }>>([])
   const [reviewFilter, setReviewFilter] = useState<number | null>(null)
-  const [reviewPhoto, setReviewPhoto] = useState<{ photos: string[]; index: number; description: string } | null>(null)
+  const [reviewPhoto, setReviewPhoto] = useState<{ photos: string[]; index: number; description: string; label?: string } | null>(null)
   const [deliveryAddress, setDeliveryAddress] = useState<MobileAddress | null>(null)
+  const [reviewsLoaded, setReviewsLoaded] = useState(false)
+  const reviewsLoading = useBoundedLoading(!reviewsLoaded)
   useEffect(() => {
-    const refresh = () => void loadReviews(p.id).then((data) => setCustomerReviews(data as typeof customerReviews)).catch(console.error)
+    let active = true
+    setReviewsLoaded(false)
+    const refresh = () => void loadReviews(p.id)
+      .then((data) => { if (active) setCustomerReviews(data as typeof customerReviews) })
+      .catch(console.error)
+      .finally(() => { if (active) setReviewsLoaded(true) })
     refresh()
     window.addEventListener(PULL_TO_REFRESH_EVENT, refresh)
     const channel = supabase.channel(`mobile-reviews-${p.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "reviews", filter: `product_id=eq.${p.id}` }, refresh)
       .subscribe()
     return () => {
+      active = false
       window.removeEventListener(PULL_TO_REFRESH_EVENT, refresh)
       void supabase.removeChannel(channel)
     }
@@ -5054,9 +5172,10 @@ export function ProductDetail({
         <div
           className="atelier-track"
           style={{ transform: `translateX(-${slide * 100}%)` }}
+          onClick={() => setReviewPhoto({ photos: gallery, index: slide, description: p.name, label: "Product photos" })}
         >
           {gallery.map((src, i) => (
-            <img
+            <CozyImage
               src={src}
               key={`${src}-${i}`}
               alt={i === 0 ? p.alt : `${p.name}, gallery view ${i + 1}`}
@@ -5065,19 +5184,27 @@ export function ProductDetail({
             />
           ))}
         </div>
-        <div className="atelier-gallery-controls">
-          <button onClick={() => move(-1)} aria-label="Previous image" disabled={gallery.length < 2}>
+        <button
+          type="button"
+          className="atelier-zoom"
+          onClick={() => setReviewPhoto({ photos: gallery, index: slide, description: p.name, label: "Product photos" })}
+          aria-label="View product photos full screen"
+        >
+          <span className="material-symbols-rounded" aria-hidden="true">zoom_in</span>
+        </button>
+        {gallery.length > 1 && <div className="atelier-gallery-controls">
+          <button onClick={() => move(-1)} aria-label="Previous image">
             ←
           </button>
           <span>
             {String(slide + 1).padStart(2, "0")} <i /> {String(gallery.length).padStart(2, "0")}
           </span>
-          <button onClick={() => move(1)} aria-label="Next image" disabled={gallery.length < 2}>
+          <button onClick={() => move(1)} aria-label="Next image">
             →
           </button>
-        </div>
+        </div>}
       </section>
-      <section className="atelier-thumbs">
+      {gallery.length > 1 && <section className="atelier-thumbs">
         {gallery.map((src, i) => (
           <button
             onClick={() => setSlide(i)}
@@ -5085,10 +5212,10 @@ export function ProductDetail({
             aria-label={`Select image ${i + 1}`}
             key={`${src}-${i}`}
           >
-            <img src={src} alt="" loading="lazy" decoding="async" />
+            <CozyImage src={src} alt="" loading="lazy" decoding="async" />
           </button>
         ))}
-      </section>
+      </section>}
       <article className="atelier-content">
         <p className="atelier-kicker">{p.category} · made to order</p>
         <div className="atelier-title">
@@ -5157,7 +5284,7 @@ export function ProductDetail({
           <nav className="review-filters" aria-label="Filter reviews by star rating">
             <button type="button" className={reviewFilter === null ? "active" : ""} aria-pressed={reviewFilter === null} onClick={() => setReviewFilter(null)}>All <span>{customerReviews.length}</span></button>
             {reviewCounts.map(({ rating, count }) => (
-              <button type="button" key={rating} className={reviewFilter === rating ? "active" : ""} aria-pressed={reviewFilter === rating} onClick={() => setReviewFilter(rating)}>{rating} star <span>{count}</span></button>
+              <button type="button" key={rating} className={reviewFilter === rating ? "active" : ""} aria-pressed={reviewFilter === rating} disabled={count === 0 && reviewFilter !== rating} onClick={() => setReviewFilter(rating)}>{rating} star <span>{count}</span></button>
             ))}
           </nav>
           <div className="review-list">
@@ -5185,7 +5312,8 @@ export function ProductDetail({
                 ))}</div>}
               </article>
             ))}
-            {filteredReviews.length === 0 && <section className="review-empty"><span className="material-symbols-rounded" aria-hidden="true">reviews</span><h3>{reviewFilter ? `No ${reviewFilter}-star reviews yet` : "No reviews yet"}</h3><p>{reviewFilter ? "Try another rating or view all customer reviews." : "The first real-home story for this piece could be yours."}</p>{reviewFilter && <button type="button" onClick={() => setReviewFilter(null)}>View all reviews</button>}</section>}
+            {filteredReviews.length === 0 && reviewsLoading && <SkeletonRows count={2} media={false} label="Loading customer reviews" />}
+            {filteredReviews.length === 0 && !reviewsLoading && <section className="review-empty"><span className="material-symbols-rounded" aria-hidden="true">reviews</span><h3>{reviewFilter ? `No ${reviewFilter}-star reviews yet` : "No reviews yet"}</h3><p>{reviewFilter ? "Try another rating or view all customer reviews." : "The first real-home story for this piece could be yours."}</p>{reviewFilter && <button type="button" onClick={() => setReviewFilter(null)}>View all reviews</button>}</section>}
           </div>
         </section>
         <section className="atelier-note">
@@ -5202,7 +5330,7 @@ export function ProductDetail({
           </p>
         </section>
       </article>
-      {reviewPhoto && <ReviewPhotoViewer photos={reviewPhoto.photos} initialIndex={reviewPhoto.index} description={reviewPhoto.description} close={() => setReviewPhoto(null)}/>}
+      {reviewPhoto && <ReviewPhotoViewer photos={reviewPhoto.photos} initialIndex={reviewPhoto.index} description={reviewPhoto.description} label={reviewPhoto.label} close={() => setReviewPhoto(null)}/>}
     </section>
   )
 }
@@ -5423,6 +5551,20 @@ export function CheckoutPage({
   complete: (order: CustomerOrder) => void
 }) {
   const [step, setStep] = useState(0)
+  // Steps slide in the direction the customer is travelling, and each step starts at its top.
+  const [stepDirection, setStepDirection] = useState<"forward" | "back">("forward")
+  const checkoutRef = useRef<HTMLElement | null>(null)
+  const goToStep = (next: number) => {
+    setStepDirection(next < step ? "back" : "forward")
+    setStep(next)
+  }
+  useLayoutEffect(() => {
+    const page = checkoutRef.current
+    if (!page) return
+    page.scrollTop = 0
+    const main = page.querySelector<HTMLElement>(":scope > main")
+    if (main) main.scrollTop = 0
+  }, [step])
   const [address, setAddress] = useState(
     "",
   )
@@ -5689,14 +5831,16 @@ export function CheckoutPage({
   }
   return (
     <section
+      ref={checkoutRef}
       className="checkout-page"
+      data-step-direction={stepDirection}
       role="dialog"
       aria-modal="true"
       aria-label="Checkout"
     >
       <header className="checkout-header">
-        <button disabled={placing} onClick={() => { if (!submitting.current) close() }} aria-label="Close checkout">
-          ←
+        <button type="button" className="cozy-back-button" disabled={placing} onClick={() => { if (!submitting.current) close() }} aria-label="Close checkout">
+          <span className="material-symbols-rounded" aria-hidden="true">arrow_back</span>
         </button>
         <div>
           <small>SECURE CHECKOUT</small>
@@ -5707,7 +5851,7 @@ export function CheckoutPage({
       <main>
         <ol className="checkout-progress">
           {steps.map((label, index) => (
-            <li key={label} className={index <= step ? "active" : ""}>
+            <li key={label} className={`${index <= step ? "active" : ""}${index < step ? " done" : ""}${index === step ? " current" : ""}`.trim() || undefined} aria-current={index === step ? "step" : undefined}>
               <span>{index < step ? "✓" : index + 1}</span>
               <small>{label}</small>
             </li>
@@ -5871,7 +6015,7 @@ export function CheckoutPage({
             <div className="checkout-items">
               {lines.map((line) => (
                 <article key={line.product.id}>
-                  <img src={line.product.image} alt="" loading="lazy" decoding="async" />
+                  <CozyImage src={line.product.image} alt="" loading="lazy" decoding="async" />
                   <div>
                     <b>{line.product.name}</b>
                     <small>
@@ -5930,7 +6074,7 @@ export function CheckoutPage({
           <strong>₱{grandTotal.toLocaleString()}</strong>
         </div>
         {step > 0 && (
-          <button className="checkout-back" onClick={() => setStep(step - 1)}>
+          <button className="checkout-back" onClick={() => goToStep(step - 1)}>
             Back
           </button>
         )}
@@ -5947,7 +6091,7 @@ export function CheckoutPage({
               return
             }
             setError("")
-            if (step < 2) setStep(step + 1)
+            if (step < 2) goToStep(step + 1)
             else void place()
           }}
         >
@@ -5990,6 +6134,7 @@ export function OrderComplete({
   close: () => void
   goHome: () => void
 }) {
+  useEffect(() => { haptic("success") }, [order.id])
   return (
     <section
       className="order-complete"
@@ -5998,7 +6143,18 @@ export function OrderComplete({
       aria-label="Order placed"
     >
       <div>
-        <span>✓</span>
+        <div className="order-complete-hero">
+          <CozyCompanion pose="celebrate" compact />
+          <svg className="order-complete-check" viewBox="0 0 52 52" aria-hidden="true">
+            <circle cx="26" cy="26" r="23" pathLength="1" />
+            <path d="M16 27.5l6.5 6.5L37 19.5" pathLength="1" />
+          </svg>
+          <div className="order-confetti" aria-hidden="true">
+            {Array.from({ length: 16 }, (_, index) => (
+              <i key={index} style={{ "--a": `${index * 22.5 + (index % 2 ? 7 : -5)}deg`, "--d": `${96 + (index % 3) * 26}px`, "--delay": `${90 + (index % 4) * 35}ms` } as React.CSSProperties} />
+            ))}
+          </div>
+        </div>
         <p className="hello">ORDER CONFIRMED</p>
         <h2>
           Your home is
@@ -6453,8 +6609,8 @@ export function ProfilePage({
       aria-label="Edit profile"
     >
       <header>
-        <button onClick={close} disabled={saving || Boolean(phoneVerification.busy)}>
-          ← <span>Account</span>
+        <button type="button" className="cozy-back-button" onClick={close} disabled={saving || Boolean(phoneVerification.busy)} aria-label="Back to account">
+          <span className="material-symbols-rounded" aria-hidden="true">arrow_back</span>
         </button>
         <p>MY PROFILE</p>
         {editing ? (
@@ -6648,13 +6804,13 @@ function CategoryPage({
       aria-label={`${category.title} categories`}
     >
       <header>
-        <button onClick={close}>
-          ← <span>Back</span>
+        <button type="button" className="cozy-back-button" onClick={close} aria-label="Back">
+          <span className="material-symbols-rounded" aria-hidden="true">arrow_back</span>
         </button>
         <span>COZYCRAFT / ROOMS</span>
       </header>
       <section className="category-cover">
-        <img
+        <CozyImage
           src={category.image}
           alt={`${category.title} furniture interior`}
         />
@@ -6722,8 +6878,8 @@ export function NotificationsPage({ close, items, userId, refresh, openItem }: {
       aria-label="Notifications"
     >
       <header>
-        <button onClick={close}>
-          ← <span>Back</span>
+        <button type="button" className="cozy-back-button" onClick={close} aria-label="Back">
+          <span className="material-symbols-rounded" aria-hidden="true">arrow_back</span>
         </button>
         <div>
           <p>NOTIFICATIONS</p>
@@ -6888,7 +7044,7 @@ export function ShopPage({
         ))}
       </div>
       <section className="room-banner">
-        <img src={room.image} alt={`${room.title} furniture`} />
+        <CozyImage src={room.image} alt={`${room.title} furniture`} />
         <div>
           <p>THE {room.title.toUpperCase()} EDIT</p>
           <h2>{room.note}</h2>

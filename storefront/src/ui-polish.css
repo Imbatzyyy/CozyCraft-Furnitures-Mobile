@@ -1,0 +1,439 @@
+/* Interface polish layer. Loaded after every other stylesheet, so it settles
+   the few places where earlier layers disagree. Motion here only animates
+   transform and opacity; layout properties never transition. */
+
+/* ---------------------------------------------------------------------------
+   Bottom dock: five labelled tabs and one indicator that slides between them.
+   The indicator lives in a track that matches the dock's content box, so a
+   whole-column transform lands exactly on each tab at every width.
+   ------------------------------------------------------------------------ */
+.lux-nav { --nav-pad-x: clamp(5px, 2vw, 10px); --nav-pad-y: 6px; }
+html.cozy-platform-ios26 .lux-nav { --nav-pad-x: 0px; --nav-pad-y: 5px; }
+@media (max-width: 359px) {
+  .lux-nav { --nav-pad-x: 3px; --nav-pad-y: 5px; }
+  html.cozy-platform-ios26 .lux-nav { --nav-pad-x: 0px; }
+}
+
+.lux-nav > .lux-nav-track {
+  position: absolute;
+  z-index: 0;
+  inset: var(--nav-pad-y) var(--nav-pad-x);
+  pointer-events: none;
+}
+html .lux-nav-track > .lux-nav-lens {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  display: block;
+  width: 20%;
+  height: auto;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  transform: translate3d(calc(var(--nav-lens, 2) * 100%), 0, 0);
+  transition: transform 420ms cubic-bezier(.22, .9, .22, 1);
+  will-change: transform;
+}
+html .lux-nav-track > .lux-nav-lens::before {
+  content: "";
+  position: absolute;
+  inset: 0 3px;
+  border-radius: 999px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(243, 239, 232, 0.62));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.96), 0 6px 16px rgba(49, 42, 35, 0.14);
+  transition: transform 180ms cubic-bezier(.2, .9, .2, 1);
+}
+html.cozy-platform-ios26 .lux-nav-track > .lux-nav-lens::before {
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  background:
+    radial-gradient(circle at 29% 18%, rgba(255, 255, 255, 0.52), transparent 44%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.28), rgba(222, 235, 241, 0.12));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -1px 0 rgba(49, 58, 64, 0.1),
+    0 4px 13px rgba(25, 29, 31, 0.14);
+  -webkit-backdrop-filter: blur(14px) saturate(165%) brightness(1.1);
+  backdrop-filter: blur(14px) saturate(165%) brightness(1.1);
+}
+/* A finger scrub (iOS 26) follows the finger closely and enlarges the lens. */
+html.cozy-platform-ios26 .lux-nav.is-glass-scrubbing .lux-nav-track > .lux-nav-lens {
+  transform: translate3d(calc(var(--nav-lens, 2) * 100%), 0, 0);
+  transition: transform 90ms linear;
+  box-shadow: none;
+}
+html.cozy-platform-ios26 .lux-nav.is-glass-scrubbing .lux-nav-track > .lux-nav-lens::before { transform: scale(1.06); }
+
+html .lux-nav > button[data-nav],
+html .lux-nav > button[data-nav].active,
+html.cozy-platform-ios26 .lux-nav > button[data-nav],
+html.cozy-platform-ios26 .lux-nav > button[data-nav].active {
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 100%;
+  min-width: 44px;
+  height: 100%;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 200ms ease;
+}
+html .lux-nav > button[data-nav] > span {
+  width: 28px;
+  height: 26px;
+  font-size: 25px;
+  line-height: 26px;
+  transition: transform 160ms cubic-bezier(.2, .9, .2, 1), font-variation-settings 200ms ease;
+}
+html .lux-nav > button[data-nav] > small {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  color: inherit;
+  font-family: "DM Sans", system-ui, sans-serif;
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 12px;
+  letter-spacing: .01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html .lux-nav > button[data-nav].active > small { font-weight: 700; }
+html .lux-nav > button[data-nav]:active > span { transform: scale(.88); }
+html.cozy-platform-ios26 .lux-nav > button[data-nav] > span { width: 26px; height: 24px; font-size: 23px; line-height: 24px; }
+@media (max-width: 359px) {
+  html .lux-nav > button[data-nav] > span { width: 24px; height: 22px; font-size: 22px; line-height: 22px; }
+  html .lux-nav > button[data-nav] > small { font-size: 10px; }
+}
+
+/* Count badges pop when their number changes (each count remounts the badge). */
+.lux-nav > button[data-nav] > span > i { animation: cozy-badge-pop 420ms cubic-bezier(.2, .9, .25, 1.2); }
+@keyframes cozy-badge-pop { 0% { transform: scale(.4); opacity: 0; } 60% { transform: scale(1.15); opacity: 1; } 100% { transform: scale(1); } }
+
+/* ---------------------------------------------------------------------------
+   Care launcher: steps aside while the customer scrolls down, returns on the
+   way back up, so it never sits on top of the content being read.
+   ------------------------------------------------------------------------ */
+.lux-phone > .mobile-ai-launcher {
+  transition: opacity 200ms ease, transform 260ms cubic-bezier(.2, .8, .2, 1), visibility 0s linear 0s;
+}
+.lux-shell[data-scrolled-down] .lux-phone > .mobile-ai-launcher {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translate3d(0, 18px, 0) scale(.7);
+  transition: opacity 180ms ease, transform 220ms ease, visibility 0s linear 220ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html .lux-nav-track > .lux-nav-lens,
+  .lux-phone > .mobile-ai-launcher { transition: none; }
+}
+
+/* ---------------------------------------------------------------------------
+   Progress fills slide a full-width bar inside their clipped track instead of
+   animating width, so the fill moves on the compositor and keeps its shape.
+   ------------------------------------------------------------------------ */
+.bag-free-delivery-progress > i { overflow: hidden; }
+.bag-free-delivery-progress > i span {
+  width: 100%;
+  transform-origin: left center;
+  transition: transform 520ms cubic-bezier(.2, .8, .2, 1);
+}
+.hc-progress { overflow: hidden; }
+.hc-progress i {
+  width: 100%;
+  transform: translate3d(-100%, 0, 0);
+  transition: transform 700ms cubic-bezier(.2, .8, .2, 1);
+}
+@starting-style {
+  .hc-progress i,
+  .bag-free-delivery-progress > i span { transform: translate3d(-100%, 0, 0); }
+}
+
+/* ---------------------------------------------------------------------------
+   Photos arrive softly. Frames keep a warm placeholder tone, and a photo
+   fades in only once it has loaded (see CozyImage and ReviewerAvatar).
+   ------------------------------------------------------------------------ */
+.reviewer-avatar { position: relative; }
+.reviewer-avatar > .reviewer-avatar-initials { font-size: .82em; letter-spacing: .02em; }
+html .reviewer-avatar > img {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 260ms ease;
+}
+html .reviewer-avatar > img.is-loaded { opacity: 1; }
+.cozy-image { opacity: 0; transition: opacity 320ms ease; }
+.cozy-image.is-loaded { opacity: 1; }
+:is(.lux-card .card-image, .atelier-gallery, .atelier-thumbs button, .search-list > button, .bag-item-image, .home-rooms button, .category-hero) { background-color: #e9e4dc; }
+
+/* Product gallery: a clear way into the full-screen, zoomable viewer. */
+.atelier-gallery .atelier-track { cursor: zoom-in; }
+.atelier-gallery > .atelier-zoom {
+  position: absolute;
+  z-index: 3;
+  top: 14px;
+  right: 14px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, .6);
+  border-radius: 50%;
+  background: rgba(250, 248, 244, .82);
+  color: #2c2925;
+  box-shadow: 0 6px 18px rgba(34, 29, 24, .16);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  transition: transform 160ms ease;
+}
+.atelier-gallery > .atelier-zoom:active { transform: scale(.92); }
+.atelier-gallery > .atelier-zoom .material-symbols-rounded { font-size: 22px; }
+.review-photo-viewer { animation: cozy-viewer-in 220ms ease-out; }
+@keyframes cozy-viewer-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* Review filters with no reviews stay visible for context but cannot be chosen. */
+.product-reviews .review-filters button:disabled { opacity: .45; cursor: default; }
+
+/* ---------------------------------------------------------------------------
+   One back control across every pushed page: a 44px round icon button.
+   ------------------------------------------------------------------------ */
+html :is(.category-page, .notifications-page, .profile-page) > header > button.cozy-back-button,
+html .checkout-page > .checkout-header > button.cozy-back-button {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 1px solid var(--cozy-line, #ddd6cc);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.88);
+  color: #2c2925;
+  box-shadow: 0 4px 12px rgba(40, 34, 28, 0.06);
+  text-decoration: none;
+  transition: transform 140ms ease, background-color 160ms ease;
+}
+html :is(.category-page, .notifications-page, .profile-page, .checkout-page) > header > button.cozy-back-button > span.material-symbols-rounded {
+  display: block;
+  font-size: 22px;
+  line-height: 1;
+}
+html :is(.category-page, .notifications-page, .profile-page, .checkout-page) > header > button.cozy-back-button:active { transform: scale(.93); }
+html :is(.category-page, .notifications-page, .profile-page, .checkout-page) > header > button.cozy-back-button:disabled { opacity: .5; }
+
+/* ---------------------------------------------------------------------------
+   Toasts: a check for confirmations, an information mark for waits and
+   limits, and an optional Undo that stays reachable for five seconds.
+   ------------------------------------------------------------------------ */
+.lux-toast > p {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+html .lux-toast > .material-symbols-rounded {
+  display: grid;
+  place-items: center;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #759171;
+  color: #fff;
+  font-size: 16px;
+  font-variation-settings: "FILL" 0, "wght" 650, "GRAD" 0, "opsz" 20;
+}
+html .lux-toast--notice > .material-symbols-rounded { background: #a9855b; }
+html .lux-toast > .lux-toast-action {
+  flex: 0 0 auto;
+  width: auto;
+  height: auto;
+  min-height: 36px;
+  margin: -6px 0 -6px auto;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, .2);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .12);
+  color: #f2dcc0;
+  font: inherit;
+  font-weight: 700;
+  letter-spacing: .02em;
+  white-space: nowrap;
+  transition: background-color 160ms ease, transform 140ms ease;
+}
+html .lux-toast > .lux-toast-action:active { transform: scale(.95); background: rgba(255, 255, 255, .2); }
+html .lux-toast.has-action > .lux-toast-close { margin-left: 0; }
+
+/* ---------------------------------------------------------------------------
+   Skeletons. The shimmer is a translated highlight, not an animated
+   background, and it stops entirely for reduced motion.
+   ------------------------------------------------------------------------ */
+.cozy-skeleton {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #e7e1d7;
+}
+.cozy-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, .55) 50%, transparent 80%);
+  transform: translate3d(-100%, 0, 0);
+  animation: cozy-shimmer 1.5s ease-in-out infinite;
+}
+@keyframes cozy-shimmer { to { transform: translate3d(100%, 0, 0); } }
+.cozy-skeleton--line { height: 12px; width: 82%; }
+.cozy-skeleton--line.is-short { width: 48%; }
+.cozy-skeleton--line.is-tiny { width: 30%; }
+.cozy-skeleton--media { aspect-ratio: 4 / 5; width: 100%; border-radius: 22px; }
+.cozy-skeleton--thumb { width: 84px; height: 84px; flex: 0 0 84px; border-radius: 18px; }
+.cozy-skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  padding: 4px 0 24px;
+}
+.cozy-skeleton-card { display: grid; gap: 9px; min-width: 0; }
+@media (min-width: 600px) { .cozy-skeleton-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.cozy-skeleton-rows { display: grid; gap: 12px; padding: 4px 0 24px; }
+.cozy-skeleton-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid rgba(216, 210, 200, .7);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, .5);
+}
+.cozy-skeleton-row-copy { display: grid; flex: 1 1 auto; gap: 9px; min-width: 0; }
+.saved-page > .cozy-skeleton-grid, .atelier-bag > .cozy-skeleton-rows { padding-inline: clamp(16px, 5vw, 24px); }
+html[data-cozy-motion="economy"] .cozy-skeleton::after { animation-duration: 2.2s; }
+
+/* ---------------------------------------------------------------------------
+   Order confirmed: the celebrating companion, a check that draws itself and a
+   single burst of confetti. Everything is one-shot and transform-only.
+   ------------------------------------------------------------------------ */
+.order-complete-hero {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 150px;
+  height: 128px;
+  margin: 0 auto 14px;
+}
+.order-complete-hero > .cozy-companion { margin: 0; animation: cozy-companion-pop 620ms cubic-bezier(.2, .9, .25, 1.15) both; }
+@keyframes cozy-companion-pop { from { opacity: 0; transform: translate3d(0, 14px, 0) scale(.86); } to { opacity: 1; transform: none; } }
+.order-complete-check {
+  position: absolute;
+  right: 4px;
+  bottom: 2px;
+  z-index: 2;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #eef4ec;
+  box-shadow: 0 8px 18px rgba(64, 91, 60, .22);
+  fill: none;
+  stroke: #52724f;
+  stroke-width: 3.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  animation: cozy-check-pop 420ms cubic-bezier(.2, .9, .25, 1.2) 260ms both;
+}
+.order-complete-check circle { stroke-width: 2; stroke-dasharray: 1; stroke-dashoffset: 1; animation: cozy-check-draw 520ms ease-out 320ms forwards; }
+.order-complete-check path { stroke-dasharray: 1; stroke-dashoffset: 1; animation: cozy-check-draw 360ms ease-out 620ms forwards; }
+@keyframes cozy-check-pop { from { opacity: 0; transform: scale(.4); } to { opacity: 1; transform: scale(1); } }
+@keyframes cozy-check-draw { to { stroke-dashoffset: 0; } }
+.order-confetti { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+.order-confetti > i {
+  position: absolute;
+  top: 46%;
+  left: 50%;
+  width: 7px;
+  height: 11px;
+  margin: -5px 0 0 -3px;
+  border-radius: 2px;
+  background: #759171;
+  opacity: 0;
+  animation: cozy-confetti 1150ms cubic-bezier(.12, .7, .3, 1) var(--delay, 100ms) forwards;
+}
+.order-confetti > i:nth-child(5n + 2) { background: #d9a870; }
+.order-confetti > i:nth-child(5n + 3) { background: #c98672; width: 6px; height: 6px; border-radius: 50%; }
+.order-confetti > i:nth-child(5n + 4) { background: #8fa7b8; }
+.order-confetti > i:nth-child(5n) { background: #e1c89e; height: 8px; }
+@keyframes cozy-confetti {
+  0% { opacity: 1; transform: rotate(var(--a)) translate3d(0, 0, 0) rotate(0deg) scale(.5); }
+  65% { opacity: 1; }
+  100% { opacity: 0; transform: rotate(var(--a)) translate3d(0, calc(var(--d) * -1), 0) rotate(300deg) scale(1); }
+}
+html[data-cozy-motion="economy"] .order-confetti { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .order-confetti { display: none; }
+  .order-complete-check circle, .order-complete-check path { stroke-dashoffset: 0; }
+}
+
+/* ---------------------------------------------------------------------------
+   Benefit bar: messages that do not fit wrap out of view instead of being cut
+   mid-word, so every width shows only whole messages, centred.
+   ------------------------------------------------------------------------ */
+html .mobile-benefit-bar:not(.is-announcement) {
+  flex-wrap: wrap;
+  align-content: flex-start;
+  row-gap: 14px;
+}
+html .mobile-benefit-bar:not(.is-announcement) > span { height: 30px; max-width: 100%; }
+@media (max-width: 360px) {
+  html .mobile-benefit-bar:not(.is-announcement) > span { letter-spacing: .01em; }
+}
+
+/* Horizontal chip rows fade at the trailing edge so it is clear they scroll. */
+.discovery-chips, .sort-chips {
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 16px, #000 calc(100% - 30px), transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 16px, #000 calc(100% - 30px), transparent 100%);
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: 18px;
+}
+.discovery-chips > *, .sort-chips > * { scroll-snap-align: start; }
+
+/* Bag controls keep their words together at the narrowest phone widths. */
+.bag-selection { flex-wrap: wrap; gap: 6px 12px; }
+.bag-selection small { margin-left: auto; text-align: right; }
+.atelier-bag .bag-hero button { flex: 0 0 auto; white-space: nowrap; }
+html .atelier-bag .bag-delivery b { white-space: normal; overflow-wrap: anywhere; }
+
+/* On short or narrow phones the care launcher takes less of the reading area. */
+@media (max-width: 360px), (max-height: 700px) {
+  html .lux-phone > .mobile-ai-launcher { width: 48px; height: 48px; min-width: 48px; }
+  html .lux-phone > .mobile-ai-launcher span { font-size: 23px; }
+}
+
+/* ---------------------------------------------------------------------------
+   iPhone edge-swipe back: the page follows the finger with a soft leading
+   shadow; once released past the threshold it stays off-screen while it
+   unmounts instead of replaying its exit animation.
+   ------------------------------------------------------------------------ */
+.is-edge-swiping {
+  box-shadow: -14px 0 36px rgba(30, 26, 22, .2);
+  will-change: transform;
+}
+.is-edge-dismissed.is-leaving { animation: none !important; }
+:is(.is-edge-swiping, .is-edge-dismissed) .cozy-scroll-back { visibility: hidden; }

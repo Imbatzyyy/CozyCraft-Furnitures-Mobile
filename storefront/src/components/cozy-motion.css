@@ -51,24 +51,73 @@
 .cozy-launch-screen--exiting::before { animation: cozy-launch-bloom 800ms cubic-bezier(.22,.8,.24,1) forwards; will-change: opacity, transform; }
 .cozy-launch-screen--exiting::after { animation: cozy-launch-ripple 800ms cubic-bezier(.2,.65,.25,1) forwards; will-change: opacity, transform; }
 .cozy-launch-screen--exiting > .cozy-loader { animation: cozy-sofa-exit 800ms cubic-bezier(.22,.8,.24,1) forwards; }
+/* Returning launches: the same drawing, compressed. Keyframes are cycle-relative. */
+.cozy-launch-screen--quick .cozy-loader.cozy-loader { --cozy-sofa-cycle: 1100ms; }
+.cozy-launch-screen--quick.cozy-launch-screen--exiting::before,
+.cozy-launch-screen--quick.cozy-launch-screen--exiting::after,
+.cozy-launch-screen--quick.cozy-launch-screen--exiting > .cozy-loader,
+.launch-home-stage > .cozy-launch-screen--quick.cozy-launch-screen--exiting { animation-duration: 420ms; }
 /* The already-mounted Home stays still; only these decorative layers move. */
 @keyframes cozy-launch-reveal { 0%, 12% { opacity: 1; } 40% { opacity: .8; } 65% { opacity: .42; } 85% { opacity: .12; } 100% { opacity: 0; } }
 @keyframes cozy-launch-bloom { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.12); } 28% { opacity: .85; } 65% { opacity: .55; } 100% { opacity: 0; transform: translate(-50%, -50%) scale(3.1); } }
 @keyframes cozy-launch-ripple { 0%, 10% { opacity: 0; transform: translate(-50%, -50%) scale(.18); } 35% { opacity: .65; } 100% { opacity: 0; transform: translate(-50%, -50%) scale(3.3); } }
 @keyframes cozy-sofa-exit { 0% { opacity: 1; transform: translateY(0) scale(1); } 35% { opacity: .85; transform: translateY(-4px) scale(1.045); } 75%, 100% { opacity: 0; transform: translateY(-18px) scale(1.09); } }
 
-/* Opacity on page containers avoids changing the containing block of fixed dialogs. */
-.lux-phone :is(.search-overlay,.detail-sheet,.profile-page,.notifications-page,.category-page,.checkout-page,.account-sheet,.membership-page,.compare-sheet,.order-detail-view),
-.checkout-panel,.auth-phone:not(.splash),.document-page {
-  animation: cozy-page-enter var(--cozy-motion-duration) var(--cozy-motion-ease);
+/* Page motion. Pages push in from the trailing edge and leave the same way;
+   sheets rise. None of these use a fill-mode, so once a page settles no
+   transform remains on it and fixed dialogs opened later still position
+   against the viewport. Presence marks closing pages `.is-leaving`. */
+:root {
+  --cozy-page-enter: 280ms; --cozy-page-exit: 200ms; --cozy-page-shift: 32px;
+  --cozy-enter-ease: cubic-bezier(.16,.84,.24,1); --cozy-exit-ease: cubic-bezier(.4,0,.9,.5);
 }
+.lux-phone :is(.detail-sheet,.profile-page,.notifications-page,.category-page,.checkout-page,.membership-page),
+.atelier-account :is(.account-sheet,.order-detail-view),
+.document-page {
+  animation: cozy-push-enter var(--cozy-page-enter) var(--cozy-enter-ease);
+}
+.lux-phone :is(.search-overlay,.compare-sheet) { animation: cozy-rise-enter var(--cozy-page-enter) var(--cozy-enter-ease); }
+.lux-phone .order-complete { animation: cozy-bloom-enter calc(var(--cozy-page-enter) + 80ms) var(--cozy-enter-ease); }
+.auth-phone:not(.splash) { animation: cozy-page-enter var(--cozy-motion-duration) var(--cozy-motion-ease); }
+.lux-phone :is(.detail-sheet,.profile-page,.notifications-page,.category-page,.checkout-page,.membership-page).is-leaving {
+  animation: cozy-push-exit var(--cozy-page-exit) var(--cozy-exit-ease) forwards;
+}
+.lux-phone :is(.search-overlay,.compare-sheet).is-leaving { animation: cozy-rise-exit var(--cozy-page-exit) var(--cozy-exit-ease) forwards; }
+.lux-phone .order-complete.is-leaving { animation: cozy-fade-exit var(--cozy-page-exit) ease forwards; }
+.lux-phone .is-leaving { pointer-events: none; }
+@keyframes cozy-push-enter { from { opacity: .4; transform: translate3d(var(--cozy-page-shift), 0, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
+@keyframes cozy-push-exit { from { opacity: 1; transform: translate3d(0, 0, 0); } to { opacity: 0; transform: translate3d(calc(var(--cozy-page-shift) * 1.25), 0, 0); } }
+@keyframes cozy-rise-enter { from { opacity: 0; transform: translate3d(0, calc(var(--cozy-page-shift) * .75), 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
+@keyframes cozy-rise-exit { from { opacity: 1; transform: translate3d(0, 0, 0); } to { opacity: 0; transform: translate3d(0, calc(var(--cozy-page-shift) * .75), 0); } }
+@keyframes cozy-bloom-enter { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: scale(1); } }
+@keyframes cozy-fade-exit { to { opacity: 0; } }
+
+/* Checkout steps travel with the customer: forward from the right, back from the left. */
+.checkout-page .checkout-panel { animation: cozy-step-forward var(--cozy-page-enter) var(--cozy-enter-ease); }
+.checkout-page[data-step-direction="back"] .checkout-panel { animation-name: cozy-step-back; }
+@keyframes cozy-step-forward { from { opacity: 0; transform: translate3d(calc(var(--cozy-page-shift) * .75), 0, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
+@keyframes cozy-step-back { from { opacity: 0; transform: translate3d(calc(var(--cozy-page-shift) * -.75), 0, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
+.checkout-progress li:not(:last-child)::before {
+  content: ""; position: absolute; z-index: -1; top: 14px; left: 50%; width: 100%; height: 2px; margin-top: -.5px;
+  background: var(--cozy-ink, #24231f); border-radius: 2px; transform: scaleX(0); transform-origin: left center;
+  transition: transform 420ms var(--cozy-enter-ease);
+}
+.checkout-progress li.done::before { transform: scaleX(1); }
+.checkout-progress span { transition: background-color 220ms ease, border-color 220ms ease, color 220ms ease, transform 220ms ease; }
+.checkout-progress li.current span { animation: cozy-step-pop 360ms var(--cozy-enter-ease); }
+.checkout-progress small { font-size: max(10px, calc(8px * var(--cozy-font-scale, 1.15))); }
+@keyframes cozy-step-pop { 0% { transform: scale(.82); } 60% { transform: scale(1.08); } 100% { transform: scale(1); } }
+
+/* Toasts leave as gently as they arrive. */
+.lux-toast.is-leaving { animation: cozy-toast-exit 180ms var(--cozy-exit-ease) forwards; }
+@keyframes cozy-toast-exit { from { opacity: 1; transform: translate(-50%, 0) scale(1); } to { opacity: 0; transform: translate(-50%, 10px) scale(.97); } }
 .lux-body { animation: cozy-tab-enter var(--cozy-motion-duration) var(--cozy-motion-ease); }
 .lux-shell--handoff .lux-body { animation: none; opacity: 1; }
 @keyframes cozy-page-enter { from { opacity: .4; } to { opacity: 1; } }
 @keyframes cozy-tab-enter { from { opacity: .65; } to { opacity: 1; } }
 .lux-phone :is(.round-icon,.checkout-next,.auth-primary) { transition: opacity 120ms ease; }
 .lux-phone :is(.round-icon,.checkout-next,.auth-primary):active { opacity: .75; }
-html[data-cozy-motion="economy"] { --cozy-motion-duration: 100ms; }
+html[data-cozy-motion="economy"] { --cozy-motion-duration: 100ms; --cozy-page-enter: 170ms; --cozy-page-exit: 120ms; --cozy-page-shift: 16px; }
 /* Keep the defining outline/backrest motion even on economy devices. */
 html[data-cozy-motion="economy"] :is(.cozy-loader__body,.cozy-loader__shadow) { animation: none; }
 html[data-cozy-motion="economy"] .cozy-launch-screen::after { display: none; }
@@ -84,3 +133,5 @@ html[data-cozy-motion="paused"] *, html[data-cozy-motion="paused"] *::before, ht
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
   .cozy-loader :is(.cozy-loader__trace,.cozy-loader__cushions,.cozy-loader__pillow,.cozy-loader__body,.cozy-loader__shadow) { animation: none !important; }
 }
+/* A sliding step never makes its scroller horizontally pannable mid-slide. */
+.checkout-page, .checkout-page > main { overflow-x: clip; }

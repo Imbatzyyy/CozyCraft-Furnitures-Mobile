@@ -2,6 +2,7 @@ import { Component, useEffect, type ErrorInfo, type ReactNode } from "react"
 import { RouterProvider } from "react-router"
 import useAppMotion from "./components/useAppMotion"
 import ScrollBackButton from "./components/ScrollBackButton"
+import EdgeSwipeBack from "./components/EdgeSwipeBack"
 import { router } from "./routes"
 import { reportMobileClientError } from "./lib/mobile-data"
 import { hasStorefrontReturnState, mobileShellBackAction } from "./lib/mobile-navigation"
@@ -64,5 +65,5 @@ export default function App() {
       window.removeEventListener("unhandledrejection", reportPromiseError)
     }
   }, [])
-  return <MobileErrorBoundary><RouterProvider router={router} /><ScrollBackButton /></MobileErrorBoundary>
+  return <MobileErrorBoundary><RouterProvider router={router} /><ScrollBackButton /><EdgeSwipeBack /></MobileErrorBoundary>
 }

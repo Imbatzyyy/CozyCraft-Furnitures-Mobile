@@ -1,11 +1,12 @@
 import { StrictMode } from "react"
 import { act, render, screen } from "@testing-library/react"
 import { afterEach, expect, it, vi } from "vitest"
-import SofaLaunchSequence, { SOFA_LAUNCH_DURATION_MS, SOFA_TRANSITION_DURATION_MS } from "./SofaLaunchSequence"
+import SofaLaunchSequence, { QUICK_SOFA_LAUNCH_DURATION_MS, QUICK_SOFA_TRANSITION_DURATION_MS, SOFA_LAUNCH_DURATION_MS, SOFA_TRANSITION_DURATION_MS } from "./SofaLaunchSequence"
 import CozyLaunchScreen from "./CozyLaunchScreen"
-import { clearLaunchHandoff, hasLaunchHandoff } from "./launch-handoff"
+import { clearLaunchHandoff, hasLaunchHandoff, LAUNCH_SEEN_KEY, readLaunchPace } from "./launch-handoff"
+import { localStore } from "../lib/browser-storage"
 
-afterEach(() => { vi.useRealTimers(); clearLaunchHandoff() })
+afterEach(() => { vi.useRealTimers(); clearLaunchHandoff(); localStore.removeItem(LAUNCH_SEEN_KEY) })
 
 it("runs once, holds the finished sofa for one second, then completes", () => {
   vi.useFakeTimers()
@@ -56,4 +57,25 @@ it("cancels navigation when the launch screen is unmounted", () => {
   view.unmount()
   act(() => vi.advanceTimersByTime(SOFA_LAUNCH_DURATION_MS + SOFA_TRANSITION_DURATION_MS))
   expect(complete).not.toHaveBeenCalled()
+})
+
+it("plays in full once, then gives returning launches the compressed drawing", () => {
+  vi.useFakeTimers()
+  expect(readLaunchPace()).toBe("full")
+  const first = vi.fn()
+  const view = render(<SofaLaunchSequence onComplete={first} />)
+  act(() => vi.advanceTimersByTime(SOFA_LAUNCH_DURATION_MS))
+  expect(readLaunchPace()).toBe("full")
+  act(() => vi.advanceTimersByTime(SOFA_TRANSITION_DURATION_MS))
+  expect(first).toHaveBeenCalledTimes(1)
+  expect(readLaunchPace()).toBe("quick")
+  view.unmount()
+
+  const again = vi.fn()
+  render(<SofaLaunchSequence onComplete={again} pace="quick" />)
+  expect(document.querySelector(".cozy-launch-screen--quick")).toBeTruthy()
+  act(() => vi.advanceTimersByTime(QUICK_SOFA_LAUNCH_DURATION_MS))
+  expect(document.querySelector(".cozy-launch-screen--exiting")).toBeTruthy()
+  act(() => vi.advanceTimersByTime(QUICK_SOFA_TRANSITION_DURATION_MS))
+  expect(again).toHaveBeenCalledTimes(1)
 })
