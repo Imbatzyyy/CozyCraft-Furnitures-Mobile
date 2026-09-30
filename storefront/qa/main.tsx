@@ -10,7 +10,7 @@ import { invoiceLogoAttachment } from "../../supabase/functions/_shared/invoice-
 import ScrollBackButton from "../src/components/ScrollBackButton"
 import SearchDiscoveries from "../src/components/SearchDiscoveries"
 import { createRoot } from "react-dom/client"
-import { Account, CheckoutPage, ProductDetail, ProfilePage, NotificationsPage, MobileCareChat, ShopPage } from "../src/Storefront"
+import Storefront, { Account, CheckoutPage, ProductDetail, ProfilePage, NotificationsPage, MobileCareChat, ShopPage } from "../src/Storefront"
 import { readMobileTextSize, saveMobileTextSize } from "../src/lib/mobile-text-size"
 import CustomerSecurityGate from "../src/features/auth/CustomerSecurityGate"
 import PaymentEmailVerificationDialog from "../src/features/checkout/PaymentEmailVerificationDialog"
@@ -238,7 +238,10 @@ function CareFixture() {
 }
 
 const invoiceFixture = invoiceEmail({ id: "fixture", order_number: "CC-01131", status: "delivered", created_at: "2026-09-07T08:00:00Z", subtotal: 20000, delivery_fee: 650, reward_discount: 500, total: 20150, payment_method: "cod", payment_status: "paid", shipping_address: { name: "Ana Maria Rivera", line: "18 Narra Street", city: "Quezon City", province: "Metro Manila" }, order_items: [{ id: 1, product_name: "VIMLE two-seat sofa", quantity: 2, unit_price: 10000 }] })
-if (params.has("shell")) {
+if (params.has("payment-return-qa")) {
+  createRoot(document.getElementById("root")!).render(<><DialogAccessibility /><Storefront /></>)
+}
+else if (params.has("shell")) {
   // The complete storefront, routed and animated, on the in-memory shell client.
   void import("../src/App").then(({ default: App }) => createRoot(document.getElementById("root")!).render(<><DialogAccessibility /><App /></>))
 }

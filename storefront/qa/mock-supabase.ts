@@ -116,6 +116,16 @@ const fixtureClient = () => ({
 // `?shell` runs the complete storefront (launch, tabs, overlays) on sample
 // catalog rows. Every table read resolves locally; writes are accepted and discarded.
 const shellMode = new URLSearchParams(window.location.search).has("shell")
+const paymentReturnQA = new URLSearchParams(window.location.search).has("payment-return-qa")
+const paymentOrder = {
+  id: "11111111-1111-4111-8111-111111111111", order_number: "CC-01999", user_id: user.id,
+  status: "processing", payment_method: "gcash", payment_status: "pending",
+  payment_expires_at: new Date(Date.now() + 900_000).toISOString(), created_at: new Date().toISOString(),
+  total: 26648, subtotal: 25998, delivery_fee: 650,
+  shipping_address: { line: "18 Narra Street", city: "Quezon City", province: "Metro Manila" },
+  order_items: [{ id: 901, product_id: "shell-product-1", product_name: "Ekolsund reclining armchair", unit_price: 12999, quantity: 2 }],
+  order_status_history: [],
+}
 const shellPhotos = ["photo-1599696848652-f0ff23bc911f", "photo-1540638349517-3abd5afc5847", "photo-1567016376408-0226e4d0c1ea", "photo-1600210492486-724fe5c67fb0", "photo-1617806118233-18e1de247200", "photo-1507473885765-e6ed057f782c", "photo-1637412816281-f80ec9948fea"]
 const shellCatalog = [
   ["Ekolsund reclining armchair", "Living Room", "Sofas", 12999, 12, "Fabric, Oak", 4.8, 12],
@@ -132,6 +142,7 @@ const shellCatalog = [
   main_image_index: 0, rating, review_count: reviews,
 }))
 const shellRows = (table: string) => table === "products" ? shellCatalog
+  : table === "orders" && paymentReturnQA ? [paymentOrder]
   : table === "cart_items" ? [{ product_id: "shell-product-1", quantity: 1, selected_for_checkout: true }, { product_id: "shell-product-3", quantity: 2, selected_for_checkout: true }]
   : table === "wishlist_items" ? [{ product_id: "shell-product-2" }, { product_id: "shell-product-4" }]
   : table === "addresses" ? [fixtureAddress]
@@ -158,7 +169,18 @@ const shellClient = () => {
     from,
     storage: { from: () => ({ createSignedUrl: async () => ({ data: { signedUrl: "" }, error: null }), upload: async () => ({ data: null, error: null }) }) },
     rpc: async () => ({ data: null, error: null }),
-    functions: { invoke: async () => ({ data: null, error: null }) },
+    functions: { invoke: async (name: string) => {
+      if (paymentReturnQA && name === "resume-paymongo-checkout") return { data: {
+        paid: false, orderId: paymentOrder.id, checkoutUrl: "https://checkout.paymongo.com/qa-existing",
+        expiresAt: paymentOrder.payment_expires_at,
+      }, error: null }
+      if (paymentReturnQA && name === "sync-paymongo-payments") {
+        // Keep reconciliation pending long enough to verify immediate UI handoff.
+        await new Promise(resolve => window.setTimeout(resolve, 1000))
+        paymentOrder.payment_status = "paid"
+      }
+      return { data: null, error: null }
+    } },
   }
 }
 export const createClient = () => shellMode ? shellClient() : fixtureClient()

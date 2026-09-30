@@ -999,7 +999,10 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
       }
       if (event.data?.type === "cozycraft-paymongo-dismissed") {
         const pending = readPendingPayment()
-        if (pending.orderId) refreshPaymentOrder(pending.orderId)
+        // Closing the native browser can arrive after its successful callback.
+        // A consumed payment must not queue Orders over the confirmation again.
+        if (!pending.orderId) return
+        refreshPaymentOrder(pending.orderId)
         setCheckoutOpen(false)
         setTab("account")
         setAssistantAccountView("orders")
@@ -1031,6 +1034,8 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
           if (payment === "success") {
             const cachedOrder = orders.find((order) => order.databaseId === orderId)
             setCheckoutOpen(false)
+            setAssistantAccountView(null)
+            setOrderToView(null)
             setPlacedOrder(cachedOrder || pendingPaymentOrder(storedPayment, orderId))
             // Presentation is a one-time UI event. Later webhook/realtime
             // updates may replace this order's data, but must never reopen it.
@@ -1210,6 +1215,8 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
           }
 
           setCheckoutOpen(false)
+          setAssistantAccountView(null)
+          setOrderToView(null)
           setPlacedOrder(returnedOrder)
           localStore.setItem(LAST_PRESENTED_PAYMENT_ORDER_KEY, pending.orderId!)
           localStore.removeItem("cozycraft-pending-payment")
@@ -2717,7 +2724,10 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
               }}
             />
           )}
-          {tab === "account" && (
+          {/* Account owns body-level Orders/detail portals. Unmount it in the
+              same render as confirmation, rather than stacking success beneath
+              those portals or waiting for a customer to close them manually. */}
+          {tab === "account" && !placedOrder && (
             <Account
               key={`account:${userId || "guest"}`}
               userId={userId}
