@@ -6,6 +6,7 @@ import type { OpenOptions } from '@capacitor/browser';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { nativeNotificationId } from './notification-handoff';
+import { nativePaymentBrowserUrl } from './payment-browser-handoff';
 import { Capacitor, CapacitorHttp } from '@capacitor/core';
 
 // These values also live on the shell instance. Optional disk caching must
@@ -573,8 +574,8 @@ export class HomePage implements AfterViewInit {
       return;
     }
     if (event.data?.type === 'cozycraft-open-paymongo') {
-      const url = String(event.data.url || '');
-      if (!url.startsWith('https://')) {
+      const url = nativePaymentBrowserUrl(String(event.data.url || ''), String(event.data.orderId || this.pendingPaymongoOrderId));
+      if (!url) {
         this.storefront?.nativeElement.contentWindow?.postMessage({
           type: 'cozycraft-paymongo-error',
           message: 'PayMongo did not provide a valid secure payment link.',

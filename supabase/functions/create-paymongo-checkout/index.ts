@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { paymentReturnUrls } from "../_shared/payment-return.ts";
 import {
   createClient,
   type SupabaseClient,
@@ -418,10 +419,7 @@ Deno.serve(async (request) => {
             attributes: {
               line_items: lineItems,
               payment_method_types: [paymentMethod],
-              success_url:
-                `${canonicalOrigin}/payment-return?payment=success&order=${order.id}`,
-              cancel_url:
-                `${canonicalOrigin}/payment-return?payment=cancelled&order=${order.id}`,
+              ...paymentReturnUrls(order.id, payload.mobileReturn === true),
               reference_number: order.order_number,
               description: `CozyCraft order ${order.order_number}`,
               send_email_receipt: true,

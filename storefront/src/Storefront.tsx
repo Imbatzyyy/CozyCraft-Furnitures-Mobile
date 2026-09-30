@@ -1075,8 +1075,8 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
             12_000,
           )),
         ]) as CustomerOrder[]
-          // The server return handler now verifies and settles before opening
-          // the app. If that provider check is still pending, Realtime will
+          // The webhook and authenticated reconciliation settle the payment;
+          // a browser return URL alone is never proof. If still pending, Realtime will
           // deliver the eventual update; repeated foreground polling only
           // duplicated requests and could reopen stale UI minutes later.
 
@@ -4012,7 +4012,7 @@ export function Account({
         address: order.address, payment: order.payment, items: order.items,
       }))
       localStore.removeItem("cozycraft-last-payment-callback")
-      if (window.parent !== window) window.parent.postMessage({ type: "cozycraft-open-paymongo", url: result.checkoutUrl }, "*")
+      if (window.parent !== window) window.parent.postMessage({ type: "cozycraft-open-paymongo", url: result.checkoutUrl, orderId }, "*")
       else window.location.assign(result.checkoutUrl)
     } catch (error) {
       if (paymentOwner.current !== owner) return
@@ -5829,7 +5829,7 @@ export function CheckoutPage({
     if (result.order?.id) refreshPaymentOrder(result.order.id)
     setPaymentChallenge(null)
     if (window.parent !== window) {
-      window.parent.postMessage({ type: "cozycraft-open-paymongo", url: result.checkoutUrl }, "*")
+      window.parent.postMessage({ type: "cozycraft-open-paymongo", url: result.checkoutUrl, orderId: result.order?.id }, "*")
     } else {
       window.location.assign(result.checkoutUrl)
     }

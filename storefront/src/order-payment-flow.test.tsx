@@ -70,7 +70,7 @@ it("saves the original order/deadline and opens the authenticated session throug
   try {
     render(<Account {...props} />)
     fireEvent.click(await screen.findByRole("button", { name: /Continue payment/ }))
-    await waitFor(() => expect(postMessage).toHaveBeenCalledWith({ type: "cozycraft-open-paymongo", url: "https://checkout.paymongo.com/existing" }, "*"))
+    await waitFor(() => expect(postMessage).toHaveBeenCalledWith({ type: "cozycraft-open-paymongo", url: "https://checkout.paymongo.com/existing", orderId: order.databaseId }, "*"))
     expect(JSON.parse(localStore.getItem("cozycraft-pending-payment")!)).toMatchObject({ orderId: "order-a", orderNumber: "CC-01999", expiresAt: order.paymentExpiresAt, startedAt: order.createdAt, total: 26000 })
   } finally { Object.defineProperty(window, "parent", { configurable: true, value: originalParent }) }
 })
