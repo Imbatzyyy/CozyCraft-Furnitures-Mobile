@@ -15,5 +15,6 @@ This uses the actual mobile profile components with an in-memory Supabase adapte
 - Add `?google-onboarding=voucher` to inspect the database-backed ₱500 welcome voucher presentation.
 - Add `&text=extra-large` to any fixture URL to check the largest in-app accessibility text setting.
 - Add `?shell` to run the complete storefront (launch, tabs, overlays, bag and saved pieces) on sample catalog data. Reads resolve locally and writes are discarded.
+- Add `?order-payments` for the actual Orders countdown/resume interface. `&near-expiry` expires after three seconds; `&expired` starts elapsed. The simulated resume request returns a recoverable error without contacting PayMongo. Run `order-payments-audit.mjs` for Chromium/WebKit responsive and state-transition checks.
 
 Check widths 320, 360, 390, 430 and 768 CSS pixels, a short landscape viewport, and enlarged text. The dialog must scroll vertically without horizontal clipping. The production build uses the normal Vite config and does not include these fixtures.

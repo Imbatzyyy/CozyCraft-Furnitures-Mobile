@@ -7,6 +7,7 @@
   const allowedFunctions = new Set([
     'verify-mobile-payment',
     'create-paymongo-checkout',
+    'resume-paymongo-checkout',
     'cancel-paymongo-checkout',
     'sync-paymongo-payments',
   ]);

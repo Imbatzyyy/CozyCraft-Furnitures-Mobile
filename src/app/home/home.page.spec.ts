@@ -12,6 +12,7 @@ import {
   nativePaymentOrderState,
   nativePaymentReturnUrl,
   paymongoBrowserOptions,
+  paymentMonitorDelay,
 } from './home.page';
 
 describe('HomePage', () => {
@@ -165,6 +166,7 @@ describe('HomePage', () => {
   it('only proxies the payment functions required by the native checkout lifecycle', () => {
     expect(isAllowedNativePaymentFunction('verify-mobile-payment')).toBeTrue();
     expect(isAllowedNativePaymentFunction('create-paymongo-checkout')).toBeTrue();
+    expect(isAllowedNativePaymentFunction('resume-paymongo-checkout')).toBeTrue();
     expect(isAllowedNativePaymentFunction('cancel-paymongo-checkout')).toBeTrue();
     expect(isAllowedNativePaymentFunction('sync-paymongo-payments')).toBeTrue();
     expect(isAllowedNativePaymentFunction('cozycraft-assistant')).toBeFalse();
@@ -176,6 +178,36 @@ describe('HomePage', () => {
     expect(isAllowedNativePaymentHeader('x-cozycraft-platform')).toBeTrue();
     expect(isAllowedNativePaymentHeader('cookie')).toBeFalse();
     expect(isAllowedNativePaymentHeader('x-forwarded-host')).toBeFalse();
+  });
+
+  it('paces native fallback reads instead of polling payment providers every two seconds', () => {
+    expect([0, 1, 2, 3, 10].map(paymentMonitorDelay)).toEqual([5000, 10000, 20000, 30000, 30000]);
+  });
+
+  it('remembers resumed sessions but never monitors an already-paid response', () => {
+    const bridge = component as unknown as {
+      pendingPaymongoOrderId: string;
+      rememberPendingPaymongoRequest(name: string, status: number, data: unknown, headers: Record<string, string>): void;
+    };
+    bridge.rememberPendingPaymongoRequest('resume-paymongo-checkout', 200, { paid: false, orderId: 'ORDER-A' }, { authorization: 'fixture' });
+    expect(bridge.pendingPaymongoOrderId).toBe('ORDER-A');
+    bridge.rememberPendingPaymongoRequest('resume-paymongo-checkout', 200, { paid: true, orderId: 'ORDER-B' }, {});
+    expect(bridge.pendingPaymongoOrderId).toBe('ORDER-A');
+  });
+
+  it('only wakes the verifier for the active order from the storefront sender', async () => {
+    const iframe = document.createElement('iframe');
+    document.body.appendChild(iframe);
+    component.storefront = new ElementRef<HTMLIFrameElement>(iframe);
+    const bridge = component as unknown as { pendingPaymongoOrderId: string; schedulePaymentMonitor(delay: number): void };
+    bridge.pendingPaymongoOrderId = 'ORDER-A';
+    const schedule = spyOn(bridge, 'schedulePaymentMonitor');
+    await component.onMessage(new MessageEvent('message', { source: iframe.contentWindow!, data: { type: 'cozycraft-payment-state-changed', orderId: 'ORDER-B' } }));
+    await component.onMessage(new MessageEvent('message', { source: window, data: { type: 'cozycraft-payment-state-changed', orderId: 'ORDER-A' } }));
+    expect(schedule).not.toHaveBeenCalled();
+    await component.onMessage(new MessageEvent('message', { source: iframe.contentWindow!, data: { type: 'cozycraft-payment-state-changed', orderId: 'ORDER-A' } }));
+    expect(schedule).toHaveBeenCalledOnceWith(0);
+    iframe.remove();
   });
 
   it('builds the fixed Supabase endpoint for an approved payment function', () => {

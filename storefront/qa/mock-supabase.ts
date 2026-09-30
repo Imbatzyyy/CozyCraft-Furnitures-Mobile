@@ -81,6 +81,10 @@ const fixtureClient = () => ({
     return { data: null, error: null }
   },
   functions: { invoke: async (name: string, { body }: { body: Record<string, unknown> }) => {
+    if (name === "resume-paymongo-checkout") {
+      await new Promise(resolve => setTimeout(resolve, 300))
+      return { data: null, error: { context: new Response(JSON.stringify({ error: "Secure payment is temporarily unavailable. Please try again." }), { status: 503 }) } }
+    }
     if (name === "request-order-invoice") return { data: { accepted: true, email: "alex.rivera@example.test", orderNumber: "CC-1041" }, error: null }
     if (name === "verify-mobile-payment") {
       if (body.action === "request") {

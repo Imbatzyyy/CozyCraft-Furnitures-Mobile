@@ -50,6 +50,7 @@ describe("mobile checkout request", () => {
         orderId: "4c4df87d-5bc1-491f-8db7-2f88f91ea490",
         orderNumber: "CC-01042",
         checkoutUrl: "https://checkout.paymongo.com/example-session",
+        expiresAt: "2026-09-30T03:15:00Z",
       },
       error: null,
     })
@@ -65,6 +66,7 @@ describe("mobile checkout request", () => {
       paymentAuthorizationId: authorizationId,
     })).resolves.toMatchObject({
       checkoutUrl: "https://checkout.paymongo.com/example-session",
+      expiresAt: "2026-09-30T03:15:00Z",
       order: { id: "4c4df87d-5bc1-491f-8db7-2f88f91ea490", order_number: "CC-01042" },
     })
 

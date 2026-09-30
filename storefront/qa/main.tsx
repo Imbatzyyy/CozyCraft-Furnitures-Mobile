@@ -201,6 +201,26 @@ function DesignFixture() {
   </div></div>
 }
 
+function PaymentOrdersFixture() {
+  const [size, setSize] = useState(readMobileTextSize())
+  const [orders, setOrders] = useState([{
+    id: "CC-01999", databaseId: "order-a", status: "Processing" as "Processing" | "Cancelled", payment: "gcash", paymentStatus: "pending",
+    paymentExpiresAt: new Date(Date.now() + (params.has("expired") ? -10_000 : params.has("near-expiry") ? 3000 : 900_000)).toISOString(),
+    cancellationReason: "", total: 26648, subtotal: 25998, deliveryFee: 650, deliveryAreaName: "Metro Manila",
+    address: "18 Narra Street, Bagong Pag-asa, Quezon City, Metro Manila 1105", createdAt: new Date().toISOString(),
+    items: [{ product: fixtureProduct, quantity: 2, selected: true }],
+  }])
+  useEffect(() => {
+    const change = (event: Event) => {
+      const state = (event as CustomEvent).detail
+      setOrders(current => current.map(order => ({ ...order, paymentStatus: state === "expired" ? "failed" : state, status: state === "expired" ? "Cancelled" : "Processing", cancellationReason: state === "expired" ? "Payment window expired" : "" })))
+    }
+    window.addEventListener("qa-payment-state", change)
+    return () => window.removeEventListener("qa-payment-state", change)
+  }, [])
+  return <div className="lux-shell"><div className="lux-phone"><Account userId="8150a7d9-8f0c-49fd-8816-35b18a399a6a" flash={() => {}} name="Alex Rivera" email="alex@example.test" image="" orders={orders} points={8115} tier="Cozy Elite" lifetimeSpend={140000} completedOrders={2} savedCount={3} bagCount={2} unreadNotificationCount={1} textSize={size} changeTextSize={next => { saveMobileTextSize(next); setSize(next) }} pushPermission="granted" enableNotifications={() => {}} edit={() => {}} shop={() => {}} openMembership={() => {}} reviewPublished={() => {}} initialView="orders" onInitialViewHandled={() => {}} /></div></div>
+}
+
 function HomeCircleFixture() {
   const [points, setPoints] = useState(650)
   return <div className="lux-shell"><div className="lux-phone"><HomeCirclePage points={points} tier="member" lifetimeSpend={12400} orderCount={2} activity={Array.from({ length: 12 }, (_, i) => ({ id: `earned-${i}`, description: `Points earned from delivered order ${i + 1}`, points: 124, created_at: "2026-09-01" }))} redemptions={[{ id: "welcome", points_cost: 0, discount_amount: 500, reward_source: "welcome", minimum_order_amount: 5000, status: "available", code: "QA", created_at: "2026-09-01", expires_at: "2030-10-04", used_at: null }]} close={() => {}} shop={() => {}} redeem={async cost => { setPoints(value => value - cost) }}/></div></div>
@@ -239,7 +259,7 @@ else createRoot(document.getElementById("root")!).render(<React.StrictMode>
   <ScrollBackButton />
   {params.has("range") && <div style={{position:"fixed",inset:0,zIndex:10000,overflowY:"auto",background:"#f7f5ef"}}><RangeFixture /></div>}
   {params.has("invoice") && <div style={{position:"fixed",inset:0,zIndex:10000,background:"#f7f5ef",padding:24}}><RequestOrderInvoice orderId="11111111-1111-4111-8111-111111111111" /></div>}
-  {params.has("care") ? <CareFixture /> : params.has("discoveries") ? <DiscoveryFixture /> : params.has("membership") ? <HomeCircleFixture /> : params.has("motion") ? <CozyLaunchScreen animated /> : params.has("account") || params.has("product") || params.has("notifications") ? <DesignFixture /> : params.has("google-onboarding")
+  {params.has("order-payments") ? <PaymentOrdersFixture /> : params.has("care") ? <CareFixture /> : params.has("discoveries") ? <DiscoveryFixture /> : params.has("membership") ? <HomeCircleFixture /> : params.has("motion") ? <CozyLaunchScreen animated /> : params.has("account") || params.has("product") || params.has("notifications") ? <DesignFixture /> : params.has("google-onboarding")
     ? <GoogleOnboardingFixture />
     : params.has("checkout")
       ? <CheckoutFixture />

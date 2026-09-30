@@ -487,6 +487,7 @@ export async function placeOrder(input: {
   return {
     order: data?.order || { id: data?.orderId, order_number: data?.orderNumber },
     checkoutUrl,
+    expiresAt: typeof data?.expiresAt === "string" ? data.expiresAt : data?.order?.payment_expires_at || null,
   }
 }
 
@@ -523,6 +524,7 @@ export async function loadOrders(userId: string, catalog: MobileProduct[], ids?:
     status: normalizedStatus(order.status),
     payment: order.payment_method || "cod",
     paymentStatus: order.payment_status || (order.payment_method === "cod" ? "pay_on_delivery" : "pending"),
+    paymentExpiresAt: order.payment_expires_at || null,
     refundStatus: order.refund_status || null,
     refundedAt: order.refunded_at || null,
     cancellationReason: order.cancellation_reason || null,

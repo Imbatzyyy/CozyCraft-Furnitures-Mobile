@@ -4,6 +4,9 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import ReviewPhotoViewer from "./components/ReviewPhotoViewer"
 import PriceRange, { PRICE_LIMIT } from "./components/PriceRange"
 import useVisibleInterval from "./components/useVisibleInterval"
+import OrderPaymentWindow from "./components/OrderPaymentWindow"
+import { isAwaitingPayment, orderPaymentLabel, ORDER_PAYMENT_REFRESH_EVENT, refreshPaymentOrder } from "./lib/order-payment"
+import { resumeOrderPayment } from "./lib/resume-payment"
 import CozyCompanion from "./components/CozyCompanion"
 import { readImageAnalysis, saveImageAnalysis } from "./lib/image-analysis-cache"
 import RequestOrderInvoice from "./components/RequestOrderInvoice"
@@ -199,6 +202,7 @@ type CustomerOrder = {
   status: "Processing" | "Packed" | "Shipped" | "Delivered" | "Cancelled"
   payment: string
   paymentStatus?: string
+  paymentExpiresAt?: string | null
   refundStatus?: string | null
   refundedAt?: string | null
   cancellationReason?: string | null
@@ -220,6 +224,7 @@ type PendingPayment = {
   orderId?: string
   orderNumber?: string
   startedAt?: string
+  expiresAt?: string | null
   total?: number
   subtotal?: number
   deliveryFee?: number
@@ -692,6 +697,8 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
     "cozycraft-orders",
     [],
   )
+  const ordersRef = useRef(orders)
+  ordersRef.current = orders
   const [recentlyViewed, setRecentlyViewed] = useStoredState<string[]>(
     "cozycraft-recently-viewed",
     [],
@@ -979,18 +986,23 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
         )
         const pendingPayment = readPendingPayment()
 
-        localStore.removeItem("cozycraft-pending-payment")
         paymentReturnInFlight.current = ""
         setPaymentReturning(false)
-        if (pendingPayment.orderId) {
-          void supabase.functions
-            .invoke("cancel-paymongo-checkout", { body: { orderId: pendingPayment.orderId } })
-            .then(({ error }) => {
-              if (error) console.error("Unable to release failed PayMongo checkout", error)
-            })
-            .catch((error) => console.error("Unable to release failed PayMongo checkout", error))
-        }
+        // A browser-open failure is not a cancellation. Keep the existing
+        // reservation recoverable from Orders until its server deadline.
+        if (pendingPayment.orderId) refreshPaymentOrder(pendingPayment.orderId)
+        setCheckoutOpen(false)
+        setTab("account")
+        setAssistantAccountView("orders")
         flash(message)
+        return
+      }
+      if (event.data?.type === "cozycraft-paymongo-dismissed") {
+        const pending = readPendingPayment()
+        if (pending.orderId) refreshPaymentOrder(pending.orderId)
+        setCheckoutOpen(false)
+        setTab("account")
+        setAssistantAccountView("orders")
         return
       }
       if (event.data?.type !== "cozycraft-payment-callback") return
@@ -1054,9 +1066,6 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
             return null
           })
           if (sync?.error) console.warn("Immediate PayMongo reconciliation is still pending", sync.error)
-          } else {
-            const cancellation = await supabase.functions.invoke("cancel-paymongo-checkout", { body: { orderId } })
-            if (cancellation.error) throw cancellation.error
           }
 
         let nextOrders = await Promise.race([
@@ -1084,8 +1093,12 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
           }
           flash(returnedOrder?.paymentStatus === "paid" ? "Payment confirmed" : "Payment received and being verified")
         } else {
-          localStore.removeItem("cozycraft-pending-payment")
-          flash("Checkout cancelled. No payment was completed.")
+          const returnedOrder = nextOrders.find((order) => order.databaseId === orderId)
+          if (returnedOrder && !isAwaitingPayment(returnedOrder)) localStore.removeItem("cozycraft-pending-payment")
+          setTab("account")
+          setAssistantAccountView("orders")
+          if (returnedOrder) setOrderToView(returnedOrder)
+          flash(returnedOrder?.paymentStatus === "paid" ? "Payment confirmed" : "You can check your payment status in Orders.")
         }
         const cartReadRevision = shoppingRevision.current
         void loadCart(activeUserId, catalog)
@@ -1158,16 +1171,8 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
           // delayed recovery timer was waiting. Never let the stale closure
           // reconcile and present that same order a second time.
           if (readPendingPayment().orderId !== pending.orderId) return
-          const age = pending.startedAt ? Date.now() - new Date(pending.startedAt).getTime() : 0
-          if (age > 30 * 60 * 1000) {
-            await Promise.race([
-              supabase.functions.invoke("cancel-paymongo-checkout", { body: { orderId: pending.orderId } }),
-              new Promise((resolve) => window.setTimeout(resolve, 8000)),
-            ])
-            localStore.removeItem("cozycraft-pending-payment")
-            flash("The unfinished checkout expired safely. You can try again.")
-            return
-          }
+          // Only the server/provider may expire an order. Local cache age must
+          // never cancel a payment that completed on another device.
 
           // PayMongo redirects back before its webhook and Supabase can finish on
           // slower mobile connections. Reconcile once here, but never leave the
@@ -1179,24 +1184,15 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
 
           if (readPendingPayment().orderId !== pending.orderId) return
 
-          const catalog = products.length ? products : await loadProducts() as Product[]
-          let nextOrders = await Promise.race([
-            loadOrders(userId, catalog),
+          const catalog = catalogRef.current
+          const nextOrders = await Promise.race([
+            loadOrders(userId, catalog, [pending.orderId!]),
             new Promise<never>((_, reject) => window.setTimeout(() => reject(new Error("Order refresh timed out")), 12000)),
           ]) as CustomerOrder[]
-          let returnedOrder = nextOrders.find((order) => order.databaseId === pending.orderId)
-
-          // Give the webhook a short bounded window to publish the final state.
-          for (let attempt = 0; !returnedOrder && attempt < 2; attempt += 1) {
-            await new Promise((resolve) => window.setTimeout(resolve, 1200))
-            nextOrders = await Promise.race([
-              loadOrders(userId, catalog),
-              new Promise<never>((_, reject) => window.setTimeout(() => reject(new Error("Order refresh timed out")), 8000)),
-            ]) as CustomerOrder[]
-            returnedOrder = nextOrders.find((order) => order.databaseId === pending.orderId)
-          }
+          const returnedOrder = nextOrders.find((order) => order.databaseId === pending.orderId)
 
           if (disposed) return
+          if (returnedOrder) setOrders((current) => [...current.filter(order => order.databaseId !== returnedOrder.databaseId), returnedOrder].sort((a, b) => b.createdAt.localeCompare(a.createdAt)))
           if (returnedOrder?.status === "Cancelled" || ["failed", "cancelled", "canceled"].includes(String(returnedOrder?.paymentStatus))) {
             localStore.removeItem("cozycraft-pending-payment")
             flash("The payment was not completed. Your bag is unchanged.")
@@ -1213,7 +1209,6 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
             return
           }
 
-          setOrders(nextOrders)
           setCheckoutOpen(false)
           setPlacedOrder(returnedOrder)
           localStore.setItem(LAST_PRESENTED_PAYMENT_ORDER_KEY, pending.orderId!)
@@ -1232,7 +1227,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
       disposed = true
       window.clearTimeout(timer)
     }
-  }, [userId, products])
+  }, [userId])
   const catalogSearch = useMemo(
     () => searchMobileCatalog(products, query, searchSynonyms),
     [products, query, searchSynonyms],
@@ -1532,6 +1527,8 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
     const current = () => active && identityRef.current === userId
     const revisions = { cart: 0, wishlist: 0, orders: 0, notifications: 0 }
     const changedOrderIds = new Set<string>()
+    let lastPaymentRefresh = 0
+    const paymentRefreshTimes = new Map<string, number>()
     let refreshingProfile: Promise<void> | null = null
     let lastProfileRefresh = 0
     let profileRevision = 0
@@ -1591,6 +1588,12 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
         const nextOrders = await loadOrders(userId, catalogRef.current, ids.length ? ids : undefined) as CustomerOrder[]
         if (!current() || revision !== revisions.orders) return
         setOrders((existing) => ids.length ? [...existing.filter((order) => !ids.includes(order.databaseId || "")), ...nextOrders].sort((a, b) => b.createdAt.localeCompare(a.createdAt)) : nextOrders)
+        const pendingId = readPendingPayment().orderId
+        if (pendingId && window.parent !== window && nextOrders.some(order => order.databaseId === pendingId && (order.paymentStatus === "paid" || order.status === "Cancelled"))) {
+          // Wake the native verifier from the existing realtime update instead
+          // of making customers wait for a periodic fallback check to return.
+          window.parent.postMessage({ type: "cozycraft-payment-state-changed", orderId: pendingId }, "*")
+        }
         // Realtime is state synchronization, not navigation. Refresh an order
         // confirmation only while it is still visibly open; a dismissed dialog
         // stays dismissed when PayMongo settles seconds or minutes later.
@@ -1624,6 +1627,27 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
     const cartRefresh = coalescedRefresh(refreshCart)
     const wishlistRefresh = coalescedRefresh(refreshWishlist)
     const orderRefresh = coalescedRefresh(refreshOrders)
+    const requestPaymentRefresh = (event: Event) => {
+      const id = (event as CustomEvent<{ orderId?: string }>).detail?.orderId
+      if (!id || !current() || navigator.onLine === false) return
+      // List/detail expiry and resume events can arrive together. Fetch one
+      // affected order, not the catalog or the customer's entire history.
+      if (Date.now() - (paymentRefreshTimes.get(id) || 0) < 1500) return
+      paymentRefreshTimes.set(id, Date.now())
+      changedOrderIds.add(id)
+      orderRefresh.request()
+    }
+    const refreshPendingPayments = () => {
+      if (!current() || document.hidden || navigator.onLine === false || Date.now() - lastPaymentRefresh < 5000) return
+      const ids = ordersRef.current.filter(isAwaitingPayment).map(order => order.databaseId).filter(Boolean) as string[]
+      const pending = readPendingPayment()
+      if (pending.orderId) ids.push(pending.orderId)
+      if (!ids.length) return
+      lastPaymentRefresh = Date.now()
+      ids.forEach(id => changedOrderIds.add(id))
+      orderRefresh.request()
+    }
+    let commerceSubscribed = false
     const channel = supabase.channel(`mobile-commerce-${userId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "cart_items", filter: `user_id=eq.${userId}` }, cartRefresh.request)
       .on("postgres_changes", { event: "*", schema: "public", table: "wishlist_items", filter: `user_id=eq.${userId}` }, wishlistRefresh.request)
@@ -1635,9 +1659,16 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
       .on("postgres_changes", { event: "*", schema: "public", table: "reviews", filter: `user_id=eq.${userId}` }, orderRefresh.request)
       .on("postgres_changes", { event: "*", schema: "public", table: "customer_notifications", filter: `user_id=eq.${userId}` }, refreshNotifications)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${userId}` }, refreshProfile)
-      .subscribe((status) => { if (status === "SUBSCRIBED") void refreshProfile() })
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          void refreshProfile()
+          if (commerceSubscribed) refreshPendingPayments()
+          commerceSubscribed = true
+        }
+      })
     const refreshOnReturn = () => {
       if (document.visibilityState === "visible" && Date.now() - lastProfileRefresh >= 5_000) void refreshProfile()
+      refreshPendingPayments()
     }
     const refreshOnNativeReturn = (event: MessageEvent) => {
       if (event.source === window.parent && event.data?.type === "cozycraft-native-app-active") refreshOnReturn()
@@ -1646,6 +1677,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
     window.addEventListener("online", refreshOnReturn)
     document.addEventListener("visibilitychange", refreshOnReturn)
     window.addEventListener("message", refreshOnNativeReturn)
+    window.addEventListener(ORDER_PAYMENT_REFRESH_EVENT, requestPaymentRefresh)
     return () => {
       active = false
       cartRefresh.dispose()
@@ -1655,6 +1687,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
       window.removeEventListener("online", refreshOnReturn)
       document.removeEventListener("visibilitychange", refreshOnReturn)
       window.removeEventListener("message", refreshOnNativeReturn)
+      window.removeEventListener(ORDER_PAYMENT_REFRESH_EVENT, requestPaymentRefresh)
       void supabase.removeChannel(channel)
     }
   }, [userId])
@@ -3945,6 +3978,51 @@ export function Account({
   const [paymentPreference, setPaymentPreference] = useState("cod")
   const [paymentPreferenceSaving, setPaymentPreferenceSaving] = useState<string | null>(null)
   const [selectedOrder, setSelectedOrder] = useState<CustomerOrder | null>(null)
+  const [resumingOrderId, setResumingOrderId] = useState("")
+  const [paymentResumeError, setPaymentResumeError] = useState({ orderId: "", message: "" })
+  const resumeLock = useRef(false)
+  const paymentOwner = useRef<string | null>(userId)
+  useEffect(() => {
+    paymentOwner.current = userId
+    return () => { paymentOwner.current = null }
+  }, [userId])
+  const continueOrderPayment = async (order: CustomerOrder) => {
+    if (!order.databaseId || resumeLock.current) return
+    const owner = userId
+    const orderId = order.databaseId
+    resumeLock.current = true
+    setResumingOrderId(orderId)
+    setPaymentResumeError({ orderId, message: "" })
+    try {
+      const result = await resumeOrderPayment(orderId)
+      if (paymentOwner.current !== owner) return
+      // Check identity again after the network wait before persisting/opening.
+      const { data } = await supabase.auth.getSession()
+      if (paymentOwner.current !== owner || data.session?.user.id !== owner) return
+      refreshPaymentOrder(orderId)
+      if (result.paid) {
+        if (readPendingPayment().orderId === orderId) localStore.removeItem("cozycraft-pending-payment")
+        flash("Payment is already confirmed. Your order is being updated.")
+        return
+      }
+      localStore.setItem("cozycraft-pending-payment", JSON.stringify({
+        orderId, orderNumber: order.id, startedAt: order.createdAt, expiresAt: result.expiresAt,
+        total: order.total, subtotal: order.subtotal, deliveryFee: order.deliveryFee,
+        deliveryAreaName: order.deliveryAreaName, rewardDiscount: order.rewardDiscount,
+        address: order.address, payment: order.payment, items: order.items,
+      }))
+      localStore.removeItem("cozycraft-last-payment-callback")
+      if (window.parent !== window) window.parent.postMessage({ type: "cozycraft-open-paymongo", url: result.checkoutUrl }, "*")
+      else window.location.assign(result.checkoutUrl)
+    } catch (error) {
+      if (paymentOwner.current !== owner) return
+      setPaymentResumeError({ orderId, message: error instanceof Error ? error.message : "Unable to continue payment. Please try again." })
+      refreshPaymentOrder(orderId)
+    } finally {
+      resumeLock.current = false
+      if (paymentOwner.current === owner) setResumingOrderId("")
+    }
+  }
   useEffect(() => {
     if (!initialOrder) return
     setView("orders")
@@ -4491,7 +4569,7 @@ export function Account({
                       <small>ORDER</small>
                       <b>#{order.id}</b>
                     </div>
-                    <span>{order.status}</span>
+                    <span>{orderPaymentLabel(order)}</span>
                   </header>
                   {order.cancellationStatus && <p className={`order-cancellation-chip ${order.cancellationStatus}`}><span className="material-symbols-rounded" aria-hidden="true">{order.cancellationStatus === "pending" ? "schedule" : order.cancellationStatus === "approved" ? "check_circle" : "info"}</span>Cancellation {order.cancellationStatus}</p>}
                   <p>
@@ -4512,7 +4590,8 @@ export function Account({
                   <strong>₱{order.total.toLocaleString()}</strong>
                   {Number(order.rewardDiscount) > 0 && <small className="order-reward-line">Home Circle saved ₱{Number(order.rewardDiscount).toLocaleString()}</small>}
                   {Number(order.pointsEarned) > 0 && <small className="order-points-line">+{order.pointsEarned} Home Circle points earned</small>}
-                  <ol className="mini-tracking">
+                  {!selectedOrder && isAwaitingPayment(order) && <OrderPaymentWindow order={order} compact busy={Boolean(resumingOrderId)} error={paymentResumeError.orderId === order.databaseId ? paymentResumeError.message : ""} onResume={() => void continueOrderPayment(order)} />}
+                  {!isAwaitingPayment(order) && <ol className="mini-tracking">
                     {["Processing", "Packed", "Shipped", "Delivered"].map(
                       (step) => (
                         <li
@@ -4539,8 +4618,8 @@ export function Account({
                         </li>
                       ),
                     )}
-                  </ol>
-                  <button type="button">View complete order <b>→</b></button>
+                  </ol>}
+                  <button type="button" onClick={(event) => { event.stopPropagation(); setSelectedOrder(order) }}>View complete order <b>→</b></button>
                 </article>
               ))}
               {selectedOrder && createPortal(
@@ -4551,16 +4630,17 @@ export function Account({
                       <span className="material-symbols-rounded" aria-hidden="true">arrow_back</span>
                       All orders
                     </button>
-                    <span className={`order-detail-status status-${selectedOrder.status.toLowerCase()}`}>{selectedOrder.status}</span>
+                    <span className={`order-detail-status status-${isAwaitingPayment(selectedOrder) ? "awaiting" : selectedOrder.status.toLowerCase()}`}>{orderPaymentLabel(selectedOrder)}</span>
                   </header>
                   <section className="order-detail-hero">
                     <span className="order-detail-hero-icon material-symbols-rounded" aria-hidden="true">{selectedOrder.status === "Delivered" ? "where_to_vote" : selectedOrder.status === "Shipped" ? "local_shipping" : selectedOrder.status === "Packed" ? "inventory_2" : selectedOrder.status === "Cancelled" ? "cancel" : "package_2"}</span>
                     <div>
                       <p className="hello">ORDER #{selectedOrder.id}</p>
-                      <h2>{selectedOrder.status === "Delivered" ? "Delivered with care." : selectedOrder.status}</h2>
+                      <h2>{selectedOrder.status === "Delivered" ? "Delivered with care." : orderPaymentLabel(selectedOrder)}</h2>
                       <p>Placed {new Date(selectedOrder.createdAt).toLocaleString("en-PH", { dateStyle: "long", timeStyle: "short" })}</p>
                     </div>
                   </section>
+                  <OrderPaymentWindow order={selectedOrder} busy={Boolean(resumingOrderId)} error={paymentResumeError.orderId === selectedOrder.databaseId ? paymentResumeError.message : ""} onResume={() => void continueOrderPayment(selectedOrder)} />
                   {selectedOrder.refundStatus && <aside className="mobile-refund-status"><span className="material-symbols-rounded">currency_exchange</span><div><b>Refund {String(selectedOrder.refundStatus).split("_").join(" ")}</b><small>{selectedOrder.refundedAt ? `Updated ${new Date(selectedOrder.refundedAt).toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" })}` : "We’ll keep this status updated in real time."}</small></div></aside>}
                   {selectedOrder.cancellationStatus && <aside className={`mobile-cancellation-status ${selectedOrder.cancellationStatus}`}><span className="material-symbols-rounded" aria-hidden="true">{selectedOrder.cancellationStatus === "pending" ? "pending_actions" : selectedOrder.cancellationStatus === "approved" ? "task_alt" : "info"}</span><div><b>{selectedOrder.cancellationStatus === "pending" ? "Cancellation pending approval" : selectedOrder.cancellationStatus === "approved" ? "Cancellation approved" : "Cancellation request not approved"}</b><small>{selectedOrder.cancellationStatus === "pending" ? "Your order is paused before shipment while our team reviews your request." : selectedOrder.cancellationDecisionNote || (selectedOrder.cancellationStatus === "approved" ? "Cancellation and payment updates are shown here in real time." : "This order will continue through fulfillment.")}</small>{selectedOrder.cancellationRequestedAt && <time>Requested {new Date(selectedOrder.cancellationRequestedAt).toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" })}</time>}</div></aside>}
                   {selectedOrder.cancellationReason && <p className="mobile-cancellation-reason"><b>Cancellation reason</b>{selectedOrder.cancellationReason}</p>}
@@ -4597,10 +4677,10 @@ export function Account({
                     <p className="order-detail-delivery-fee"><span className="material-symbols-rounded" aria-hidden="true">local_shipping</span><small>DELIVERY FEE</small><strong>{Number(selectedOrder.deliveryFee || 0) > 0 ? `₱${Number(selectedOrder.deliveryFee).toLocaleString()}` : "Free"}</strong>{selectedOrder.deliveryAreaName && <em>{selectedOrder.deliveryAreaName}</em>}</p>
                     <p><span className="material-symbols-rounded" aria-hidden="true">receipt_long</span><small>ORDER TOTAL</small><strong>₱{selectedOrder.total.toLocaleString()}</strong></p>
                   </section>
-                  <section className="order-detail-section order-journey">
+                  {!isAwaitingPayment(selectedOrder) && <section className="order-detail-section order-journey">
                     <header><div><small>ORDER JOURNEY</small><b>From our studio to your home</b></div></header>
                     <ol className="full-order-timeline">{visibleOrderTimeline(selectedOrder).map((event, index, events) => <li className={index === events.length - 1 ? "current" : "complete"} key={`${event.status}-${event.changedAt}-${index}`}><i><span className="material-symbols-rounded" aria-hidden="true">check</span></i><div><b>{event.status}</b><time>{new Date(event.changedAt).toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" })}</time></div></li>)}</ol>
-                  </section>
+                  </section>}
                   {selectedOrder.status === "Delivered" && selectedOrder.databaseId && <RequestOrderInvoice key={selectedOrder.databaseId} orderId={selectedOrder.databaseId} />}
                   {selectedOrder.status === "Delivered" && selectedOrder.databaseId && (selectedReturn
                     ? <aside className={`mobile-return-status status-${selectedReturn.status}`}><span className="material-symbols-rounded" aria-hidden="true">assignment_return</span><div><small>RETURN {selectedReturn.return_number}</small><b>{selectedReturn.status.split("_").join(" ")}</b><p>{selectedReturn.admin_note || "Your request is safely recorded. Updates appear here in real time."}</p></div></aside>
@@ -5735,6 +5815,7 @@ export function CheckoutPage({
       orderId: result.order?.id,
       orderNumber: result.order?.order_number,
       startedAt: new Date().toISOString(),
+      expiresAt: "expiresAt" in result ? result.expiresAt : null,
       total: grandTotal,
       subtotal: total,
       deliveryFee,
@@ -5744,6 +5825,8 @@ export function CheckoutPage({
       payment,
       items: lines,
     }))
+    localStore.removeItem("cozycraft-last-payment-callback")
+    if (result.order?.id) refreshPaymentOrder(result.order.id)
     setPaymentChallenge(null)
     if (window.parent !== window) {
       window.parent.postMessage({ type: "cozycraft-open-paymongo", url: result.checkoutUrl }, "*")

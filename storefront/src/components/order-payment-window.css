@@ -1,0 +1,27 @@
+/* Deliberately scoped: do not inherit the account sheet's generic buttons/cards. */
+.atelier-account .order-payment-window {
+  min-width: 0; margin: 20px 0; padding: clamp(16px, 4vw, 24px);
+  border: 1px solid #d6dece; border-radius: 24px; background: #edf1e8; color: #343c2d;
+  text-align: left; overflow-wrap: anywhere;
+}
+.atelier-account .order-payment-window__heading { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.atelier-account .order-payment-window__heading > div { flex: 1; min-width: 125px; }
+.atelier-account .order-payment-window__heading small { display: block; color: #59644f; font-size: calc(10px * var(--cozy-font-scale, 1.15)); font-weight: 700; letter-spacing: .12em; }
+.atelier-account .order-payment-window__heading h3 { margin: 5px 0 0; font-family: inherit; font-size: calc(14px * var(--cozy-font-scale, 1.15)); line-height: 1.4; font-weight: 600; }
+.atelier-account .order-payment-window__icon { display: grid; place-items: center; flex: 0 0 38px; height: 38px; background: #dce5d3; border-radius: 50%; font-size: 22px; }
+.atelier-account .order-payment-window__clock { display: block; margin-left: auto; padding: 8px 12px; border: 1px solid #cdd8c3; border-radius: 14px; background: #f8faf5; font: 650 calc(21px * var(--cozy-font-scale, 1.15))/1.2 system-ui, sans-serif; font-variant-numeric: tabular-nums; letter-spacing: .03em; white-space: nowrap; }
+.atelier-account .order-payment-window > p { margin: 14px 0; color: #536049; font-size: calc(12px * var(--cozy-font-scale, 1.15)); line-height: 1.65; }
+.atelier-account .order-payment-window .order-payment-window__action { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 48px; height: auto; padding: 14px 18px; margin: 16px 0 0; border: 0; border-radius: 16px; background: #303b2a; color: #fff; font-size: calc(13px * var(--cozy-font-scale, 1.15)); font-weight: 600; line-height: 1.4; font-family: inherit; text-align: left; cursor: pointer; transition: background 160ms ease; }
+.atelier-account .order-payment-window__action > span:first-child { flex: 1; }
+.atelier-account .order-payment-window__action .material-symbols-rounded { flex: 0 0 auto; font-size: 22px; }
+.atelier-account .order-payment-window__action:disabled { opacity: .65; cursor: default; }
+.atelier-account .order-payment-window__action:focus-visible { outline: 3px solid #758e60; outline-offset: 3px; }
+.atelier-account .order-payment-window__security { display: flex; align-items: center; gap: 6px; margin-top: 12px; font-size: calc(10px * var(--cozy-font-scale, 1.15)); color: #536049; line-height: 1.5; }
+.atelier-account .order-payment-window__security .material-symbols-rounded { font-size: 15px; }
+.atelier-account .order-payment-window > .order-payment-window__error { color: #8b3427; background: #fff8f3; border-radius: 10px; padding: 10px 12px; }
+.atelier-account .order-payment-window.is-ended { background: #f0ece5; border-color: #dfd6c8; }
+.atelier-account .order-payment-window.is-ended .order-payment-window__clock { background: #faf8f4; border-color: #dfd6c8; }
+.atelier-account .order-payment-window--compact { margin: 16px 0 0; padding: 16px; border-radius: 18px; }
+.atelier-account .order-payment-window--compact .order-payment-window__icon { display: none; }
+.atelier-account .order-detail-status.status-awaiting { background: #e5eddb; color: #3e5030; }
+@media (prefers-reduced-motion: reduce) { .atelier-account .order-payment-window__action { transition: none; } }

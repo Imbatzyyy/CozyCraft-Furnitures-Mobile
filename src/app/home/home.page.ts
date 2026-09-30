@@ -29,6 +29,7 @@ export const paymongoBrowserOptions = (url: string, platform: string): OpenOptio
 const nativePaymentFunctions = new Set([
   'verify-mobile-payment',
   'create-paymongo-checkout',
+  'resume-paymongo-checkout',
   'cancel-paymongo-checkout',
   'sync-paymongo-payments',
 ]);
@@ -67,6 +68,10 @@ export const nativePaymentOrderState = (value: unknown): NativePaymentOrderState
 
 export const nativePaymentReturnUrl = (orderId: string, result: 'success' | 'cancelled') =>
   `com.cozycraft.furniture://payment/return?payment=${result}&order=${encodeURIComponent(orderId)}`;
+
+// Webhooks and deep links do the normal work. The native fallback uses narrow
+// database reads with backoff, not repeated provider reconciliation every 2 s.
+export const paymentMonitorDelay = (attempt: number) => Math.min(30_000, 5000 * 2 ** Math.min(attempt, 3));
 
 export const nativeIOSMajorVersion = (userAgent: string) => {
   const match = userAgent.match(/(?:CPU(?: iPhone)? OS|iPhone OS) (\d+)[._]/i);
@@ -180,6 +185,8 @@ export class HomePage implements AfterViewInit {
   private paymentMonitorDeadline = 0;
   private paymentMonitorRunning = false;
   private paymentMonitorGeneration = 0;
+  private paymentMonitorAttempt = 0;
+  private paymentMonitorUrgent = false;
 
   private deliverAppUrl(url: string) {
     if (!url) return;
@@ -253,8 +260,9 @@ export class HomePage implements AfterViewInit {
     responseData: unknown,
     headers: Record<string, string>,
   ) {
-    if (functionName !== 'create-paymongo-checkout' || responseStatus < 200 || responseStatus >= 300) return;
+    if (!['create-paymongo-checkout', 'resume-paymongo-checkout'].includes(functionName) || responseStatus < 200 || responseStatus >= 300) return;
     if (!responseData || typeof responseData !== 'object') return;
+    if ((responseData as Record<string, unknown>)['paid'] === true) return;
     const orderId = String((responseData as Record<string, unknown>)['orderId'] || '').trim();
     if (!orderId) return;
     this.stopPaymentMonitor();
@@ -268,6 +276,8 @@ export class HomePage implements AfterViewInit {
     this.paymentMonitorTimer = undefined;
     this.paymentMonitorRunning = false;
     this.paymentMonitorDeadline = 0;
+    this.paymentMonitorAttempt = 0;
+    this.paymentMonitorUrgent = false;
     if (clearRequest) {
       this.pendingPaymongoOrderId = '';
       this.pendingPaymongoHeaders = {};
@@ -276,17 +286,19 @@ export class HomePage implements AfterViewInit {
 
   private schedulePaymentMonitor(delay = 0) {
     if (!this.pendingPaymongoOrderId || !Object.keys(this.pendingPaymongoHeaders).length) return;
-    if (!this.paymentMonitorDeadline) this.paymentMonitorDeadline = Date.now() + 2 * 60_000;
+    if (!this.paymentMonitorDeadline || (delay === 0 && Date.now() >= this.paymentMonitorDeadline)) {
+      this.paymentMonitorDeadline = Date.now() + 2 * 60_000;
+    }
     if (this.paymentMonitorTimer !== undefined) window.clearTimeout(this.paymentMonitorTimer);
     this.paymentMonitorTimer = window.setTimeout(() => void this.checkPendingPaymongoOrder(), delay);
   }
 
-  private async readPendingPaymongoOrder(orderId: string, headers: Record<string, string>): Promise<NativePaymentOrderState> {
+  private async readPendingPaymongoOrder(orderId: string, headers: Record<string, string>, reconcile = false): Promise<NativePaymentOrderState> {
     if (!orderId || !Object.keys(headers).length) return 'unknown';
 
     // The webhook is normally enough, while this explicit reconciliation makes
     // the app return immediately even if webhook delivery is a little late.
-    await CapacitorHttp.request({
+    if (reconcile) await CapacitorHttp.request({
       url: nativePaymentFunctionUrl('sync-paymongo-payments'),
       method: 'POST',
       headers,
@@ -316,20 +328,26 @@ export class HomePage implements AfterViewInit {
   private async checkPendingPaymongoOrder() {
     if (this.paymentMonitorRunning || !this.pendingPaymongoOrderId) return;
     if (this.paymentMonitorDeadline && Date.now() >= this.paymentMonitorDeadline) {
-      this.stopPaymentMonitor(true);
+      // Stop network work, but retain the session until browser dismissal or
+      // a deep link so closing a longer checkout still returns to Orders.
+      this.stopPaymentMonitor();
       return;
     }
     this.paymentMonitorRunning = true;
+    this.paymentMonitorUrgent = false;
     const orderId = this.pendingPaymongoOrderId;
     const generation = this.paymentMonitorGeneration;
     const isCurrent = () => generation === this.paymentMonitorGeneration && orderId === this.pendingPaymongoOrderId;
     try {
-      const state = await this.readPendingPaymongoOrder(orderId, { ...this.pendingPaymongoHeaders });
+      const state = await this.readPendingPaymongoOrder(orderId, { ...this.pendingPaymongoHeaders }, this.paymentMonitorAttempt === 0);
       if (!isCurrent()) return;
       if (state === 'paid' || state === 'failed') {
-        await Browser.close().catch(() => undefined);
-        if (!isCurrent()) return;
+        // Clear first so browserFinished cannot mistake settlement for a user
+        // dismissal and send the customer back to Orders mid-confirmation.
         this.stopPaymentMonitor(true);
+        const closingGeneration = this.paymentMonitorGeneration;
+        await Browser.close().catch(() => undefined);
+        if (closingGeneration !== this.paymentMonitorGeneration) return;
         this.deliverAppUrl(nativePaymentReturnUrl(orderId, state === 'paid' ? 'success' : 'cancelled'));
         return;
       }
@@ -339,7 +357,7 @@ export class HomePage implements AfterViewInit {
     } finally {
       if (isCurrent()) this.paymentMonitorRunning = false;
     }
-    if (isCurrent()) this.schedulePaymentMonitor(2_000);
+    if (isCurrent()) this.schedulePaymentMonitor(this.paymentMonitorUrgent ? 0 : paymentMonitorDelay(this.paymentMonitorAttempt++));
   }
 
   private async registerForPushNotifications() {
@@ -418,7 +436,10 @@ export class HomePage implements AfterViewInit {
     void Browser.addListener('browserFinished', () => {
       // Ignore the defensive close immediately before presenting a fresh
       // checkout. A genuine user dismissal happens after opening completes.
-      if (!this.paymongoBrowserOpening) this.stopPaymentMonitor(true);
+      if (!this.paymongoBrowserOpening && this.pendingPaymongoOrderId) {
+        this.stopPaymentMonitor(true);
+        this.storefront?.nativeElement.contentWindow?.postMessage({ type: 'cozycraft-paymongo-dismissed' }, '*');
+      }
     });
     void App.addListener('backButton', () => {
       this.storefront?.nativeElement.contentWindow?.postMessage(
@@ -542,6 +563,15 @@ export class HomePage implements AfterViewInit {
       await Browser.open({ url, presentationStyle: 'popover' });
       return;
     }
+    if (event.data?.type === 'cozycraft-payment-state-changed') {
+      if (event.data.orderId === this.pendingPaymongoOrderId && this.pendingPaymongoOrderId) {
+        // This is a hint, never proof of payment. Verify the persisted row with
+        // the original authenticated headers before closing the browser.
+        this.paymentMonitorUrgent = true;
+        this.schedulePaymentMonitor(0);
+      }
+      return;
+    }
     if (event.data?.type === 'cozycraft-open-paymongo') {
       const url = String(event.data.url || '');
       if (!url.startsWith('https://')) {
@@ -569,6 +599,7 @@ export class HomePage implements AfterViewInit {
         }, '*');
       } catch (error) {
         console.error('Unable to open PayMongo checkout', error);
+        this.stopPaymentMonitor(true);
         this.storefront?.nativeElement.contentWindow?.postMessage({
           type: 'cozycraft-paymongo-error',
           message: 'The secure PayMongo page could not be opened. Please try again.',
