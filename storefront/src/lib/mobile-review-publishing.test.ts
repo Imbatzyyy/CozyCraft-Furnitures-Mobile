@@ -71,10 +71,10 @@ describe("automatic review publishing", () => {
   })
 
   it("loads only storefront-visible reviews for the public product feed", async () => {
+    mocks.rpc.mockResolvedValue({ data: { reviews: [], total: 0, matched: 0, counts: {}, average: 0 }, error: null })
     await loadReviews("product-a")
 
-    expect(mocks.from).toHaveBeenCalledWith("reviews")
-    expect(mocks.eq).toHaveBeenNthCalledWith(1, "product_id", "product-a")
-    expect(mocks.eq).toHaveBeenNthCalledWith(2, "approved", true)
+    expect(mocks.rpc).toHaveBeenCalledWith("mobile_product_review_page", { p_product_id: "product-a", p_page: 1, p_rating: null })
+    expect(mocks.from).not.toHaveBeenCalled()
   })
 })

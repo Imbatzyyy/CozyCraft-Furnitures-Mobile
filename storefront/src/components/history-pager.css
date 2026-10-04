@@ -1,0 +1,6 @@
+.history-pager{display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap;margin:1rem 0;padding:.75rem;border:1px solid #ddd8cf;border-radius:18px;background:#faf8f4;color:#28251f;font-size:.875rem}
+.history-pager button{min-height:44px;padding:.6rem .85rem;border:1px solid #d9d4ca;border-radius:12px;background:#fff;color:inherit;font:inherit;cursor:pointer}
+.history-pager button:disabled{opacity:.45;cursor:default}
+.history-pager button:focus-visible{outline:2px solid #607350;outline-offset:3px}
+.history-pager span{flex:1;text-align:center}
+@media(max-width:350px){.history-pager span{order:-1;flex-basis:100%}}

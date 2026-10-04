@@ -3,12 +3,16 @@ import useVisibleInterval from "./useVisibleInterval"
 import CozyCompanion from "./CozyCompanion"
 import { HOME_CIRCLE_REWARDS, HOME_CIRCLE_TIERS, homeCircleTier, rewardState } from "../lib/home-circle"
 import type { MobileRedemption } from "../lib/mobile-data"
+import { loadMobileRewardHistory } from "../lib/mobile-data"
+import HistoryPager from "./HistoryPager"
+import { watchVisibleRecovery } from "../lib/visible-recovery"
 import "./home-circle.css"
 
 const amount = (value: number) => `₱${Number(value).toLocaleString("en-PH")}`
 const date = (value: string) => new Date(value).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })
 
-export default function HomeCirclePage({ points, tier, lifetimeSpend, orderCount, activity, redemptions, close, shop, redeem, ready = true, loadError = "" }: {
+export default function HomeCirclePage({ userId = "", points, tier, lifetimeSpend, orderCount, activity, redemptions, close, shop, redeem, ready = true, loadError = "" }: {
+  userId?: string
   points: number; tier: string; lifetimeSpend: number; orderCount: number
   activity: Array<Record<string, any>>; redemptions: MobileRedemption[]
   close: () => void; shop: () => void; redeem: (points: 100 | 250 | 500) => Promise<void>
@@ -29,6 +33,27 @@ export default function HomeCirclePage({ points, tier, lifetimeSpend, orderCount
   }, [tier, ready, loadError])
   const [error, setError] = useState("")
   const [history, setHistory] = useState(false)
+  const [rewardPage, setRewardPage] = useState(1)
+  const [rewardHistory, setRewardHistory] = useState<MobileRedemption[]>([])
+  const [rewardTotal, setRewardTotal] = useState(0)
+  const [historyBusy, setHistoryBusy] = useState(false)
+  const [historyError, setHistoryError] = useState("")
+  const [historyRetry, setHistoryRetry] = useState(0)
+  useEffect(() => {
+    if (!history || !userId) return
+    let active = true
+    const refresh = async () => {
+      setHistoryBusy(true)
+      try {
+        const page = await loadMobileRewardHistory(userId, rewardPage)
+        if (active) { setRewardHistory(page.rewards); setRewardTotal(page.total); setHistoryError("") }
+      } catch { if (active) setHistoryError("Reward history could not be loaded. Please retry.") }
+      finally { if (active) setHistoryBusy(false) }
+    }
+    void refresh()
+    const recovery = watchVisibleRecovery(() => void refresh())
+    return () => { active = false; recovery.dispose() }
+  }, [history, userId, rewardPage, redemptions, historyRetry])
   const [activityPage, setActivityPage] = useState(0)
   const activityPages = Math.max(1, Math.ceil(activity.length / 5))
   const currentActivityPage = Math.min(activityPage, activityPages - 1)
@@ -40,7 +65,7 @@ export default function HomeCirclePage({ points, tier, lifetimeSpend, orderCount
   const next = HOME_CIRCLE_TIERS[index + 1]
   const progress = next ? Math.max(0, Math.min(100, (lifetimeSpend - current.target) / (next.target - current.target) * 100)) : 100
   const available = redemptions.filter(reward => rewardState(reward, now) === "available")
-  const past = redemptions.filter(reward => rewardState(reward, now) !== "available")
+  const past = userId ? rewardHistory : redemptions.filter(reward => rewardState(reward, now) !== "available")
   const chosen = HOME_CIRCLE_REWARDS.find(reward => reward.cost === selected)
   const confirm = async () => {
     if (!chosen || pending.current || points < chosen.cost || !ready) return
@@ -76,7 +101,7 @@ export default function HomeCirclePage({ points, tier, lifetimeSpend, orderCount
       <dl className="hc-summary"><div><dt>Eligible spend</dt><dd>{ready ? amount(lifetimeSpend) : "—"}</dd></div><div><dt>Delivered orders</dt><dd>{orderCount.toLocaleString()}</dd></div></dl>
       <section className="hc-section" aria-labelledby="hc-wallet"><div className="hc-section-title"><div><span className="hc-eyebrow">Yours to enjoy</span><h2 id="hc-wallet">Your rewards</h2></div><span className="hc-count">{available.length} available</span></div>
         {available.length ? <><div className="hc-vouchers">{available.map(rewardRow)}</div><p className="hc-note">Choose an available reward in the payment step at checkout.</p></> : <p className="hc-empty">{ready ? "Your next reward starts here. Exchange points below, then use your reward at checkout." : "Loading your rewards…"}</p>}
-        {past.length > 0 && <><button className="hc-text-button" onClick={() => setHistory(!history)} aria-expanded={history}>{history ? "Hide reward history" : `View reward history (${past.length})`}</button>{history && <div className="hc-vouchers">{past.map(rewardRow)}</div>}</>}
+        {(userId || past.length > 0) && <><button className="hc-text-button" onClick={() => setHistory(!history)} aria-expanded={history}>{history ? "Hide reward history" : "View reward history"}</button>{history && <div className="hc-vouchers" aria-busy={historyBusy}>{historyError && <p role="alert">{historyError} <button onClick={() => setHistoryRetry(value => value + 1)}>Retry</button></p>}{past.map(rewardRow)}{!historyBusy && !historyError && !past.length && <p className="hc-empty">Your past rewards will appear here.</p>}<HistoryPager page={rewardPage} total={rewardTotal} busy={historyBusy} change={setRewardPage}/></div>}</>}
       </section>
       <section className="hc-section" aria-labelledby="hc-exchange"><div className="hc-section-title"><div><span className="hc-eyebrow">A thoughtful return</span><h2 id="hc-exchange">Put points to use.</h2></div></div>
         <div className="hc-exchange">{HOME_CIRCLE_REWARDS.map(reward => <button key={reward.cost} disabled={!ready || points < reward.cost || busy} onClick={() => { setSelected(reward.cost); setError(""); setNotice("") }} aria-label={`Exchange ${reward.cost} points for ${amount(reward.value)} reward`}>

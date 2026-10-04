@@ -74,6 +74,7 @@ const fixtureClient = () => ({
   channel: () => { const channel = { on: () => channel, subscribe: () => channel }; return channel },
   removeChannel() {},
   rpc: async (name: string, args: { p_address?: Partial<typeof fixtureAddress>; p_primary_only?: boolean }) => {
+    if (name === "mobile_product_review_page") return { data: { reviews: shellRows("reviews"), total: 1, matched: 1, average: 5, counts: { "5": 1 } }, error: null }
     if (name === "save_mobile_delivery_address") {
       Object.assign(fixtureAddress, args.p_address, args.p_primary_only ? { is_primary: true } : {})
       return { data: { ...fixtureAddress }, error: null }
@@ -168,7 +169,11 @@ const shellClient = () => {
     ...base,
     from,
     storage: { from: () => ({ createSignedUrl: async () => ({ data: { signedUrl: "" }, error: null }), upload: async () => ({ data: null, error: null }) }) },
-    rpc: async () => ({ data: null, error: null }),
+    rpc: async (name: string) => {
+      if (name === "customer_order_page") return { data: { orders: shellRows("orders"), total: shellRows("orders").length, counts: { delivered: 0 } }, error: null }
+      if (name === "mobile_product_review_page") return { data: { reviews: shellRows("reviews"), total: 1, matched: 1, average: 5, counts: { "5": 1 } }, error: null }
+      return { data: null, error: null }
+    },
     functions: { invoke: async (name: string) => {
       if (paymentReturnQA && name === "resume-paymongo-checkout") return { data: {
         paid: false, orderId: paymentOrder.id, checkoutUrl: "https://checkout.paymongo.com/qa-existing",

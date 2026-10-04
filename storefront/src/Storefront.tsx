@@ -2,6 +2,10 @@ import { localStore, storageKeys } from "./lib/browser-storage"
 import { readCachedValue } from "./lib/cached-value"
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import ReviewPhotoViewer from "./components/ReviewPhotoViewer"
+import HistoryPager from "./components/HistoryPager"
+import { watchVisibleRecovery, recoverOnRejoin } from "./lib/visible-recovery"
+import { productImageSources } from "./lib/responsive-image"
+import { scheduleSnapshot } from "./lib/snapshot-write"
 import PriceRange, { PRICE_LIMIT } from "./components/PriceRange"
 import useVisibleInterval from "./components/useVisibleInterval"
 import OrderPaymentWindow from "./components/OrderPaymentWindow"
@@ -63,12 +67,14 @@ import {
   isMobileRewardEligible,
   mobileRewardMinimumOrder,
   loadOrders,
+  loadOrderPage,
+  loadReviewPage,
+  loadSupportTicketPage,
   loadProducts,
   loadProfile,
   loadPaymentPreference,
   loadPhilippineBarangays,
   loadPhilippineLocations,
-  loadReviews,
   loadWishlist,
   moveWishlistItemToCart,
   loadSupportTickets,
@@ -270,7 +276,8 @@ function useStoredState<T>(key: string, initial: T) {
   const [value, setValue] = useState<T>(() => readCachedValue(key, initial))
 
   useEffect(() => {
-    localStore.setItem(key, JSON.stringify(value))
+    const owner = mobileCustomerCacheOwner()
+    return scheduleSnapshot(key, value, () => mobileCustomerCacheOwner() === owner)
   }, [key, value])
 
   return [value, setValue] as const
@@ -671,6 +678,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
   const [online, setOnline] = useState(() => navigator.onLine)
   const [reconnected, setReconnected] = useState(false)
   const [resourceRevision, setResourceRevision] = useState(0)
+  const [orderCounts, setOrderCounts] = useState({ total: 0, delivered: 0 })
   const [userId, setUserId] = useState("")
   const identityRef = useRef(userId)
   identityRef.current = userId
@@ -824,13 +832,18 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
     void loadMobileSearchSynonyms()
       .then((rows) => { if (active) setSearchSynonyms(rows) })
       .catch((error) => console.warn("Unable to load mobile search synonyms", error))
+    const recovery = watchVisibleRecovery(() => {
+      refreshBanners()
+      void loadMobileSearchSynonyms().then(rows => { if (active) setSearchSynonyms(rows) }).catch(console.warn)
+    }, 5 * 60_000)
     const channel = supabase.channel("mobile-home-content")
       .on("postgres_changes", { event: "*", schema: "public", table: "homepage_banners" }, refreshBanners)
-      .subscribe()
+      .subscribe(recoverOnRejoin(recovery.invalidate))
     const timer = window.setInterval(() => { if (!document.hidden && navigator.onLine) refreshBanners() }, 15 * 60 * 1000)
     return () => {
       active = false
       window.clearInterval(timer)
+      recovery.dispose()
       void supabase.removeChannel(channel)
     }
   }, [])
@@ -874,61 +887,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
   }, [])
 
   useEffect(() => {
-    if (!resourceRevision || !online) return
-    let active = true
-    void (async () => {
-      try {
-        const { data } = await supabase.auth.getSession()
-        const session = data.session
-        const [catalog, settings] = await Promise.all([
-          loadProducts(),
-          loadMobileStoreSettings(),
-        ])
-        if (!active) return
-        setProducts(catalog as Product[])
-        setStoreSettings(settings)
-        cacheOfflineValue(OFFLINE_CATALOG_KEY, catalog)
-        cacheOfflineValue(OFFLINE_SETTINGS_KEY, settings)
-
-        if (session?.user && !isGuestMode()) {
-          const reconnectUserId = session.user.id
-          const mutationRevision = shoppingRevision.current
-          const onboardingRevision = welcomeRequestRevision.current
-          const [nextProfile, nextSaved, nextCart, nextOrders, nextNotifications, loadedOnboarding] = await Promise.all([
-            loadProfile(session.user),
-            loadWishlist(reconnectUserId),
-            loadCart(reconnectUserId, catalog),
-            loadOrders(reconnectUserId, catalog),
-            loadNotifications(reconnectUserId),
-            loadMobileGoogleOnboarding(session.user).catch((error) => {
-              console.warn("Google onboarding refresh will retry", error)
-              return null
-            }),
-          ])
-          const { data: latestAuth } = await supabase.auth.getSession()
-          if (!active || latestAuth.session?.user.id !== reconnectUserId) return
-          const nextOnboarding = loadedOnboarding || {
-            ...emptyGoogleOnboardingStatus(reconnectUserId),
-            isGoogle: isGoogleCustomer(session.user),
-            needsUsername: isGoogleCustomer(session.user) && !nextProfile.username.trim(),
-          }
-          setProfile(nextProfile)
-          if (mutationRevision === shoppingRevision.current && !cartWrites.current.pending) {
-            setSaved(nextSaved)
-            setBag(preserveBagOrder(nextCart as CartLine[]))
-          }
-          setOrders(nextOrders as CustomerOrder[])
-          applyNotifications(nextNotifications)
-          setGoogleIdentityUserId(isGoogleCustomer(session.user) ? reconnectUserId : "")
-          if (onboardingRevision === welcomeRequestRevision.current) setGoogleOnboarding((current) => mergeGoogleOnboarding(current, nextOnboarding))
-          setAccountSnapshotUserId(reconnectUserId)
-        }
-        retryVisibleRemoteImages(resourceRevision)
-      } catch (error) {
-        console.error("Reconnect refresh failed", error)
-      }
-    })()
-    return () => { active = false }
+    if (resourceRevision && online) retryVisibleRemoteImages(resourceRevision)
   }, [online, resourceRevision])
   useVisibleInterval(() => {
     if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) setHeroIndex((current) => (current + 1) % heroShowcases.length)
@@ -1074,7 +1033,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
           }
 
         let nextOrders = await Promise.race([
-          loadOrders(activeUserId, catalog),
+          loadOrders(activeUserId, catalog, [orderId]),
           new Promise<never>((_, reject) => window.setTimeout(
             () => reject(new Error("Your order is taking longer than expected to synchronize.")),
             12_000,
@@ -1086,7 +1045,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
           // duplicated requests and could reopen stale UI minutes later.
 
         if (!currentCallback()) return
-        setOrders(nextOrders)
+        setOrders(existing => [...nextOrders, ...existing.filter(order => order.databaseId !== orderId)].slice(0, 6))
         setCheckoutOpen(false)
         if (payment === "success") {
           const returnedOrder = nextOrders.find((order) => order.databaseId === orderId)
@@ -1252,10 +1211,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
   }, [query, search, shown.length, userId])
   const memberPoints = loyalty?.points_balance || 0
   const lifetimeSpend = Number(loyalty?.lifetime_eligible_spend || 0)
-  const completedOrderCount = useMemo(
-    () => orders.filter((order) => order.status === "Delivered").length,
-    [orders],
-  )
+  const completedOrderCount = orderCounts.delivered
   const memberTier = loyalty?.tier_display_name || homeCircleTier(loyalty?.tier).name
   useEffect(() => {
     if (!userId) {
@@ -1285,14 +1241,19 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
     }
     void refresh(true)
     const loyaltyRefresh = coalescedRefresh(() => refresh())
+    const recovery = watchVisibleRecovery(loyaltyRefresh.request)
+    let subscribed = false
     const channel = supabase.channel(`mobile-loyalty-${userId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "mobile_loyalty_accounts", filter: `user_id=eq.${userId}` }, loyaltyRefresh.request)
       .on("postgres_changes", { event: "*", schema: "public", table: "mobile_loyalty_transactions", filter: `user_id=eq.${userId}` }, loyaltyRefresh.request)
       .on("postgres_changes", { event: "*", schema: "public", table: "mobile_loyalty_redemptions", filter: `user_id=eq.${userId}` }, loyaltyRefresh.request)
-      .subscribe()
+      .subscribe(status => {
+        if (status === "SUBSCRIBED") { if (subscribed) recovery.invalidate(); subscribed = true }
+      })
     return () => {
       live = false
       loyaltyRefresh.dispose()
+      recovery.dispose()
       void supabase.removeChannel(channel)
     }
   }, [userId])
@@ -1325,6 +1286,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
       setSaved([])
       setBag([])
       setOrders([])
+      setOrderCounts({ total: 0, delivered: 0 })
       setRecentlyViewed([])
       applyNotifications([])
       setLoyalty(null)
@@ -1343,9 +1305,9 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
       clearAccountState()
     }
     const changedProductIds = new Set<string>()
-    const refreshCatalog = async (ids?: string[]) => {
+    const refreshCatalog = async (ids?: string[], force = false) => {
       try {
-        const next = await loadProducts(ids)
+        const next = await loadProducts(ids, force)
         if (live) {
           const merged = ids ? [...catalogRef.current.filter((product) => !ids.includes(product.id)), ...next] as Product[] : next as Product[]
           catalogRef.current = merged
@@ -1364,7 +1326,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
                 changed = true
                 return { ...line, product: latest }
               }
-              if (ids?.includes(line.product.id)) {
+              if (!ids || ids.includes(line.product.id)) {
                 changed = true
                 return {
                   ...line,
@@ -1400,16 +1362,23 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
       changedProductIds.clear()
       await refreshCatalog(ids.length ? ids : undefined)
     })
+    const catalogRecovery = watchVisibleRecovery(() => { void refreshCatalog(undefined, true); void refreshSettings(); void refreshDeliveryAreas() })
+    let catalogSubscribed = false
     const catalogChannel = supabase.channel("mobile-catalog")
-      .on("postgres_changes", { event: "*", schema: "public", table: "products" }, (event) => {
-        const id = (event.new as { id?: string })?.id || (event.old as { id?: string })?.id
+      .on("postgres_changes", { event: "*", schema: "public", table: "product_availability" }, (event) => {
+        const id = (event.new as { product_id?: string })?.product_id || (event.old as { product_id?: string })?.product_id
         if (id) changedProductIds.add(String(id))
         catalogRefresh.request()
       })
-      .subscribe()
+      .subscribe(status => {
+        if (status === "SUBSCRIBED") {
+          if (catalogSubscribed) catalogRecovery.invalidate()
+          catalogSubscribed = true
+        }
+      })
     const settingsChannel = supabase.channel("mobile-store-settings")
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "store_settings" }, refreshSettings)
-      .subscribe()
+      .subscribe(recoverOnRejoin(catalogRecovery.invalidate))
     const refreshDeliveryAreas = async () => {
       try {
         const areas = await loadMobileDeliveryServiceAreas()
@@ -1423,8 +1392,8 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
     }
     void refreshDeliveryAreas()
     const deliveryAreasChannel = supabase.channel("mobile-delivery-areas")
-      .on("postgres_changes", { event: "*", schema: "public", table: "delivery_service_areas" }, refreshDeliveryAreas)
-      .subscribe()
+      .on("postgres_changes", { event: "*", schema: "public", table: "mobile_storefront_signals", filter: "topic=eq.delivery-areas" }, refreshDeliveryAreas)
+      .subscribe(recoverOnRejoin(catalogRecovery.invalidate))
 
     const hydrateCustomer = (session: Session) => {
       if (hydration?.userId === session.user.id) return hydration.promise
@@ -1468,11 +1437,12 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
           const cartReadRevision = shoppingRevision.current
           const [nextCart, nextOrders] = await Promise.all([
             loadCart(userIdToHydrate, catalog),
-            loadOrders(userIdToHydrate, catalog),
+            loadOrderPage(userIdToHydrate, catalog),
           ])
           if (!live || activeAuthUserId !== userIdToHydrate) return
           if (!cartWrites.current.pending && cartReadRevision === shoppingRevision.current) setBag(preserveBagOrder(nextCart as CartLine[]))
-          setOrders(nextOrders as CustomerOrder[])
+          setOrders(nextOrders.orders as CustomerOrder[])
+          setOrderCounts({ total: nextOrders.total, delivered: nextOrders.delivered })
           setAccountSnapshotUserId(userIdToHydrate)
           hydratedIdentity = userIdToHydrate
         } catch (error) {
@@ -1517,10 +1487,23 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
       if (hydratedIdentity !== nextUserId) void hydrateCustomer(session)
     }
 
+    // A transient initial read failure must not leave onboarding/readiness
+    // blocked for the entire session. Retry only failed hydration on recovery;
+    // successfully hydrated customers continue using narrow resource refreshes.
+    const hydrationRecovery = watchVisibleRecovery(() => {
+      if (!live || !activeAuthUserId || hydratedIdentity === activeAuthUserId || hydration) return
+      void supabase.auth.getSession().then(({ data }) => {
+        if (live && data.session?.user.id === activeAuthUserId) void hydrateCustomer(data.session)
+      }).catch(error => console.error("Unable to recover account setup", error))
+    })
+    window.addEventListener(PULL_TO_REFRESH_EVENT, hydrationRecovery.invalidate)
     const stopObservingSession = observeCustomerSession(supabase.auth, useSession)
     return () => {
       live = false
       catalogRefresh.dispose()
+      catalogRecovery.dispose()
+      hydrationRecovery.dispose()
+      window.removeEventListener(PULL_TO_REFRESH_EVENT, hydrationRecovery.invalidate)
       void supabase.removeChannel(catalogChannel)
       void supabase.removeChannel(settingsChannel)
       void supabase.removeChannel(deliveryAreasChannel)
@@ -1537,7 +1520,6 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
     let lastPaymentRefresh = 0
     const paymentRefreshTimes = new Map<string, number>()
     let refreshingProfile: Promise<void> | null = null
-    let lastProfileRefresh = 0
     let profileRevision = 0
     const refreshProfile = async (event?: { new?: Record<string, unknown> }) => {
       if (!active) return
@@ -1553,7 +1535,6 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
         }))
       }
       if (refreshingProfile) return refreshingProfile
-      lastProfileRefresh = Date.now()
       const revision = profileRevision
       refreshingProfile = (async () => {
       try {
@@ -1592,9 +1573,14 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
       const ids = [...changedOrderIds]
       changedOrderIds.clear()
       try {
-        const nextOrders = await loadOrders(userId, catalogRef.current, ids.length ? ids : undefined) as CustomerOrder[]
+        const [page, focused] = await Promise.all([
+          loadOrderPage(userId, catalogRef.current),
+          ids.length ? loadOrders(userId, catalogRef.current, ids) : Promise.resolve([]),
+        ])
         if (!current() || revision !== revisions.orders) return
-        setOrders((existing) => ids.length ? [...existing.filter((order) => !ids.includes(order.databaseId || "")), ...nextOrders].sort((a, b) => b.createdAt.localeCompare(a.createdAt)) : nextOrders)
+        const nextOrders = [...page.orders, ...focused.filter(order => !page.orders.some(row => row.databaseId === order.databaseId))] as CustomerOrder[]
+        setOrders(nextOrders)
+        setOrderCounts({ total: page.total, delivered: page.delivered })
         const pendingId = readPendingPayment().orderId
         if (pendingId && window.parent !== window && nextOrders.some(order => order.databaseId === pendingId && (order.paymentStatus === "paid" || order.status === "Cancelled"))) {
           // Wake the native verifier from the existing realtime update instead
@@ -1631,6 +1617,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
         }
       } catch (error) { console.error(error) }
     }
+    const notificationRefresh = coalescedRefresh(() => refreshNotifications())
     const cartRefresh = coalescedRefresh(refreshCart)
     const wishlistRefresh = coalescedRefresh(refreshWishlist)
     const orderRefresh = coalescedRefresh(refreshOrders)
@@ -1654,6 +1641,14 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
       ids.forEach(id => changedOrderIds.add(id))
       orderRefresh.request()
     }
+    const recovery = watchVisibleRecovery(() => {
+      void refreshProfile()
+      cartRefresh.request()
+      wishlistRefresh.request()
+      refreshPendingPayments()
+      orderRefresh.request()
+      notificationRefresh.request()
+    })
     let commerceSubscribed = false
     const channel = supabase.channel(`mobile-commerce-${userId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "cart_items", filter: `user_id=eq.${userId}` }, cartRefresh.request)
@@ -1668,32 +1663,18 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${userId}` }, refreshProfile)
       .subscribe((status) => {
         if (status === "SUBSCRIBED") {
-          void refreshProfile()
-          if (commerceSubscribed) refreshPendingPayments()
+          if (commerceSubscribed) recovery.invalidate()
           commerceSubscribed = true
         }
       })
-    const refreshOnReturn = () => {
-      if (document.visibilityState === "visible" && Date.now() - lastProfileRefresh >= 5_000) void refreshProfile()
-      refreshPendingPayments()
-    }
-    const refreshOnNativeReturn = (event: MessageEvent) => {
-      if (event.source === window.parent && event.data?.type === "cozycraft-native-app-active") refreshOnReturn()
-    }
-    window.addEventListener("focus", refreshOnReturn)
-    window.addEventListener("online", refreshOnReturn)
-    document.addEventListener("visibilitychange", refreshOnReturn)
-    window.addEventListener("message", refreshOnNativeReturn)
     window.addEventListener(ORDER_PAYMENT_REFRESH_EVENT, requestPaymentRefresh)
     return () => {
       active = false
       cartRefresh.dispose()
       wishlistRefresh.dispose()
       orderRefresh.dispose()
-      window.removeEventListener("focus", refreshOnReturn)
-      window.removeEventListener("online", refreshOnReturn)
-      document.removeEventListener("visibilitychange", refreshOnReturn)
-      window.removeEventListener("message", refreshOnNativeReturn)
+      recovery.dispose()
+      notificationRefresh.dispose()
       window.removeEventListener(ORDER_PAYMENT_REFRESH_EVENT, requestPaymentRefresh)
       void supabase.removeChannel(channel)
     }
@@ -1738,7 +1719,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
     try {
       const [nextCatalog, nextSettings, nextDeliveryAreas, nextBanners, nextSynonyms] = await Promise.all([
         refreshCatalog
-          ? load("products", loadProducts(detail ? [detail.id] : undefined) as Promise<Product[]>)
+          ? load("products", loadProducts(detail ? [detail.id] : undefined, true) as Promise<Product[]>)
           : Promise.resolve(null),
         load("store settings", loadMobileStoreSettings()),
         load("delivery areas", loadMobileDeliveryServiceAreas()),
@@ -1747,7 +1728,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
       ])
 
       if (identityRef.current !== owner) return
-      if (nextCatalog && (nextCatalog.length > 0 || !catalogRef.current.length)) {
+      if (nextCatalog) {
         const merged = detail
           ? [...catalogRef.current.filter((product) => product.id !== detail.id), ...nextCatalog]
           : nextCatalog
@@ -1784,7 +1765,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
             load("profile", loadProfile(accountUser)),
             load("saved pieces", loadWishlist(owner)),
             load("bag", loadCart(owner, catalogRef.current)),
-            load("orders", loadOrders(owner, catalogRef.current)),
+            load("orders", loadOrderPage(owner, catalogRef.current)),
             load("notifications", loadNotifications(owner)),
             load("Home Circle", loadMobileLoyalty()),
             load("Home Circle activity", loadMobileLoyaltyActivity(owner)),
@@ -1794,7 +1775,10 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
           if (nextProfile) setProfile(nextProfile)
           if (nextSaved && canRefreshShopping()) setSaved(nextSaved)
           if (nextCart && canRefreshShopping()) setBag(preserveBagOrder(nextCart as CartLine[]))
-          if (nextOrders) setOrders(nextOrders as CustomerOrder[])
+          if (nextOrders) {
+            setOrders(nextOrders.orders as CustomerOrder[])
+            setOrderCounts({ total: nextOrders.total, delivered: nextOrders.delivered })
+          }
           if (nextNotifications) applyNotifications(nextNotifications)
           if (nextLoyalty) setLoyalty(nextLoyalty)
           if (nextLoyalty && nextLoyaltyActivity && nextRedemptions) setLoyaltyError("")
@@ -2741,6 +2725,8 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
               tier={memberTier}
               lifetimeSpend={lifetimeSpend}
               completedOrders={completedOrderCount}
+              totalOrders={orderCounts.total}
+              catalog={products}
               savedCount={saved.length}
               bagCount={bagCount}
               unreadNotificationCount={unreadNotificationCount}
@@ -2875,6 +2861,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
         )}</Presence>
         <Presence show={membershipOpen} selector=".membership-page">{membershipOpen && (
           <MembershipPage
+            userId={userId}
             ready={Boolean(loyalty) && !loyaltyError}
             loadError={loyaltyError}
             points={memberPoints}
@@ -3321,6 +3308,7 @@ export function MobileCareChat({
       if (!current()) return
       const contextualReply = buildMobileAssistantAccountReply(message, {
         authenticated: Boolean(userId),
+        recentHistoryOnly: true,
         ready: !userId || accountDataReady,
         online,
         profileName,
@@ -3417,7 +3405,7 @@ export function MobileCareChat({
         <section className={`ai-conversation ${isNewConversation ? "is-new" : ""}`} aria-label="Conversation">
           <div className="ai-message-list" aria-live="polite">{messages.slice(1).map((message) => <article className={message.role} key={message.id}><header>{message.role === "assistant" && <span aria-hidden="true">C</span>}<small>{message.role === "assistant" ? "CozyCraft Care" : "You"}</small><time>{new Date(message.createdAt).toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" })}</time></header>{message.role === "assistant" ? <AssistantReply content={message.content} liveAccountData={message.liveAccountData} navigation={messages.at(-1)?.id === message.id && message.id === latestAssistant?.id ? message.navigation : undefined} navigate={(destination) => { setOpen(false); openDestination(destination) }}/> : <p>{message.content}</p>}</article>)}{sending && <article className="assistant typing"><header><span aria-hidden="true">C</span><small>CozyCraft Care</small></header><p aria-label="CozyCraft Care is replying"><i/><i/><i/></p></article>}</div>
         </section>
-        {recommended.length > 0 && <section className="ai-product-rail"><p className="hello">PIECES MENTIONED</p><div>{recommended.map((product) => <button key={product.id} onClick={() => { setOpen(false); openProduct(product) }}><img src={product.image} alt=""/><span><b>{product.name}</b><small>{product.price}</small></span><i>→</i></button>)}</div></section>}
+        {recommended.length > 0 && <section className="ai-product-rail"><p className="hello">PIECES MENTIONED</p><div>{recommended.map((product) => <button key={product.id} onClick={() => { setOpen(false); openProduct(product) }}><CozyImage src={product.image} alt="" loading="lazy"/><span><b>{product.name}</b><small>{product.price}</small></span><i>→</i></button>)}</div></section>}
         {feedbackEligible && <section className={`ai-feedback ${feedback}`} aria-live="polite">
           {feedback === "pending" && <><div><b>Was this answer helpful?</b></div><nav aria-label="Rate this CozyCraft Care answer"><button type="button" onClick={() => rateAssistant(true)}><span className="material-symbols-rounded" aria-hidden="true">thumb_up</span>Yes</button><button type="button" onClick={() => rateAssistant(false)}><span className="material-symbols-rounded" aria-hidden="true">thumb_down</span>Not really</button></nav></>}
           {feedback === "helpful" && <p><span className="material-symbols-rounded" aria-hidden="true">check_circle</span><b>Thank you for letting us know.</b></p>}
@@ -3468,20 +3456,22 @@ function Card({
           onClick={open}
           aria-label={`View ${p.name}`}
         >
-          <img
+          <CozyImage
             crossOrigin="anonymous"
             src={p.image}
             alt={p.alt}
             loading="lazy"
             decoding="async"
             className={`${isolatedImage ? "is-isolated-product " : ""}cozy-image${loadedImage === p.image ? " is-loaded" : ""}`}
-            ref={(image) => { if (image?.complete && image.naturalWidth > 0 && loadedImage !== p.image) setLoadedImage(p.image) }}
             onLoad={(event) => {
               setLoadedImage(p.image)
               const image = event.currentTarget
-              const source = image.getAttribute("src") || image.src
+              const source = p.image
               const cached = readImageAnalysis(source)
               if (cached !== undefined) { setIsolatedImage(cached); return }
+              // Remote CDN images can be displayed but aren't canvas-readable.
+              // Don't download a second full-size image just for crop analysis.
+              if (image.currentSrc.startsWith("https://www.cozycraftfurnitures.com/.netlify/images?")) return
               try {
                 const sample = document.createElement("canvas")
                 sample.width = 24
@@ -3699,6 +3689,7 @@ function Bag({
         })
     }
     refreshAddress()
+    const recovery = watchVisibleRecovery(refreshAddress)
     const addressChannel = supabase.channel(`mobile-bag-address-${userId}`)
       .on("postgres_changes", {
         event: "*",
@@ -3706,11 +3697,12 @@ function Bag({
         table: "addresses",
         filter: `user_id=eq.${userId}`,
       }, refreshAddress)
-      .subscribe()
+      .subscribe(recoverOnRejoin(recovery.invalidate))
     window.addEventListener(PULL_TO_REFRESH_EVENT, refreshAddress)
     return () => {
       active = false
       window.removeEventListener(PULL_TO_REFRESH_EVENT, refreshAddress)
+      recovery.dispose()
       void supabase.removeChannel(addressChannel)
     }
   }, [userId])
@@ -3925,6 +3917,8 @@ export function Account({
   email,
   image,
   orders,
+  totalOrders = orders.length,
+  catalog = [],
   points,
   tier,
   lifetimeSpend,
@@ -3953,6 +3947,8 @@ export function Account({
   email: string
   image: string
   orders: CustomerOrder[]
+  totalOrders?: number
+  catalog?: Product[]
   points: number
   tier: string
   lifetimeSpend: number
@@ -3981,6 +3977,16 @@ export function Account({
   const [supportCategory, setSupportCategory] = useState("general")
   const [supportSubmitting, setSupportSubmitting] = useState(false)
   const [tickets, setTickets] = useState<Record<string, any>[]>([])
+  const [ticketPage, setTicketPage] = useState(1)
+  const [ticketTotal, setTicketTotal] = useState(0)
+  const [ticketBusy, setTicketBusy] = useState(false)
+  const accountReadRevision = useRef(0)
+  const [historyPage, setHistoryPage] = useState(1)
+  const [historyOrders, setHistoryOrders] = useState<CustomerOrder[]>(orders.slice(0, 5))
+  const [historyTotal, setHistoryTotal] = useState(totalOrders)
+  const [historyBusy, setHistoryBusy] = useState(false)
+  const [historyError, setHistoryError] = useState("")
+  const [historyRetry, setHistoryRetry] = useState(0)
   const [addresses, setAddresses] = useState<MobileAddress[]>([])
   const [addressDraft, setAddressDraft] = useState<MobileAddress | null>(null)
   const [addressSaving, setAddressSaving] = useState(false)
@@ -4033,6 +4039,27 @@ export function Account({
       if (paymentOwner.current === owner) setResumingOrderId("")
     }
   }
+  useEffect(() => {
+    if (view !== "orders") return
+    let active = true
+    setHistoryError("")
+    if (historyPage === 1) {
+      setHistoryOrders(orders.slice(0, 5))
+      setHistoryTotal(totalOrders)
+      setHistoryBusy(false)
+      return
+    }
+    setHistoryBusy(true)
+    setHistoryOrders([])
+    void loadOrderPage(userId, catalog, historyPage).then(page => {
+      if (!active) return
+      setHistoryOrders(page.orders as CustomerOrder[])
+      setHistoryTotal(page.total)
+      setSelectedOrder(current => page.orders.find(order => order.databaseId === current?.databaseId) as CustomerOrder || current)
+    }).catch(() => { if (active) setHistoryError("Your order history could not be refreshed. Please retry.") })
+      .finally(() => { if (active) setHistoryBusy(false) })
+    return () => { active = false }
+  }, [userId, view, historyPage, orders, totalOrders, historyRetry])
   useEffect(() => {
     if (!initialOrder) return
     setView("orders")
@@ -4089,45 +4116,63 @@ export function Account({
   }, [selectedOrder])
   const refreshAddresses = () => {
     if (!userId) return Promise.resolve()
-    return loadAddresses(userId).then(setAddresses)
+    const owner = userId
+    return loadAddresses(userId).then(value => { if (paymentOwner.current === owner) setAddresses(value) })
   }
   const refreshTickets = () => {
     if (!userId) return Promise.resolve()
-    return loadSupportTickets(userId).then(setTickets)
+    const owner = userId
+    const revision = accountReadRevision.current
+    setTicketBusy(true)
+    return loadSupportTicketPage(userId, ticketPage).then(value => {
+      if (paymentOwner.current === owner && revision === accountReadRevision.current) { setTickets(value.tickets); setTicketTotal(value.total) }
+    }).finally(() => { if (paymentOwner.current === owner && revision === accountReadRevision.current) setTicketBusy(false) })
   }
   const refreshPaymentPreference = () => {
     if (!userId) return Promise.resolve()
-    return loadPaymentPreference(userId).then(setPaymentPreference)
+    const owner = userId
+    return loadPaymentPreference(userId).then(value => { if (paymentOwner.current === owner) setPaymentPreference(value) })
   }
   const refreshReturns = () => {
     if (!userId) return Promise.resolve()
-    return loadMobileReturnRequests(userId).then(setReturnRequests)
+    if (!selectedOrder?.databaseId) return Promise.resolve()
+    const owner = userId
+    const revision = accountReadRevision.current
+    return loadMobileReturnRequests(userId, selectedOrder.databaseId).then(value => { if (paymentOwner.current === owner && revision === accountReadRevision.current) setReturnRequests(value) })
   }
   const refreshAccountData = () => {
     if (!userId) return
-    void Promise.all([
-      refreshAddresses(),
-      refreshTickets(),
-      refreshPaymentPreference(),
-      refreshReturns(),
+    return Promise.all([
+      view === "addresses" ? refreshAddresses() : Promise.resolve(),
+      view === "support" ? refreshTickets() : Promise.resolve(),
+      view === "payments" ? refreshPaymentPreference() : Promise.resolve(),
+      selectedOrder ? refreshReturns() : Promise.resolve(),
     ]).catch((error) => flash(error.message))
   }
   useEffect(() => {
     if (!userId) return
     refreshAccountData()
+    const accountRefresh = coalescedRefresh(async () => { await refreshAccountData() })
+    const recovery = watchVisibleRecovery(accountRefresh.request)
+    let subscribed = false
     const refreshOnPull = () => refreshAccountData()
     window.addEventListener(PULL_TO_REFRESH_EVENT, refreshOnPull)
     const channel = supabase.channel(`mobile-account-${userId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "addresses", filter: `user_id=eq.${userId}` }, () => void refreshAddresses().catch((error) => flash(error.message)))
-      .on("postgres_changes", { event: "*", schema: "public", table: "support_tickets", filter: `user_id=eq.${userId}` }, () => void refreshTickets().catch((error) => flash(error.message)))
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${userId}` }, () => void refreshPaymentPreference().catch((error) => flash(error.message)))
-      .on("postgres_changes", { event: "*", schema: "public", table: "return_requests", filter: `user_id=eq.${userId}` }, () => void refreshReturns().catch((error) => flash(error.message)))
-      .subscribe()
+      .on("postgres_changes", { event: "*", schema: "public", table: "addresses", filter: `user_id=eq.${userId}` }, accountRefresh.request)
+      .on("postgres_changes", { event: "*", schema: "public", table: "support_tickets", filter: `user_id=eq.${userId}` }, accountRefresh.request)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${userId}` }, accountRefresh.request)
+      .on("postgres_changes", { event: "*", schema: "public", table: "return_requests", filter: `user_id=eq.${userId}` }, accountRefresh.request)
+      .subscribe(status => {
+        if (status === "SUBSCRIBED") { if (subscribed) recovery.invalidate(); subscribed = true }
+      })
     return () => {
+      accountReadRevision.current += 1
       window.removeEventListener(PULL_TO_REFRESH_EVENT, refreshOnPull)
+      recovery.dispose()
+      accountRefresh.dispose()
       void supabase.removeChannel(channel)
     }
-  }, [userId])
+  }, [userId, view, ticketPage, selectedOrder?.databaseId])
   useEffect(() => {
     if (view !== "support" || faqRefreshStarted.current) return
     faqRefreshStarted.current = true
@@ -4258,8 +4303,8 @@ export function Account({
     {
       id: "orders",
       label: "My orders",
-      detail: orders.length
-        ? `${orders.length} recent order${orders.length === 1 ? "" : "s"}`
+      detail: totalOrders
+        ? `${totalOrders} order${totalOrders === 1 ? "" : "s"}`
         : "No orders yet",
       note: orders.length
         ? "Track every CozyCraft delivery in one place."
@@ -4552,7 +4597,8 @@ export function Account({
                   const ticket = await createSupportTicket(userId, supportMessage.trim(), supportSubject.trim(), supportCategory)
                   flash(`Request ${ticket.ticket_number} was sent to CozyCraft Care`)
                   setSupportMessage("")
-                  await Promise.all([loadSupportTickets(userId).then(setTickets)])
+                  setTicketPage(1)
+                  await refreshTickets()
                 } catch (error) {
                   flash(error instanceof Error ? error.message : "Your care request could not be sent")
                 } finally {
@@ -4568,11 +4614,14 @@ export function Account({
                 <button type="submit" disabled={supportSubmitting || supportSubject.trim().length === 0 || supportMessage.trim().length < 10}>{supportSubmitting ? <><i/>Sending with care…</> : <>Send to CozyCraft Care <span className="material-symbols-rounded" aria-hidden="true">arrow_forward</span></>}</button>
                 <p className="support-form-assurance"><span className="material-symbols-rounded" aria-hidden="true">lock</span>Your message is private and connected only to your CozyCraft account.</p>
               </form>
-              <section className="support-conversations"><header><div><small>CARE HISTORY</small><b>Your conversations</b></div><span>{tickets.length} total</span></header>{tickets.length ? tickets.map((ticket) => { const status = String(ticket.status || "open").split("_").join(" "); return <article key={ticket.id} className={`support-ticket status-${String(ticket.status || "open")}`}><header><div><span className="material-symbols-rounded" aria-hidden="true">forum</span><p><small>{ticket.ticket_number || "SUPPORT REQUEST"}</small><strong>{ticket.subject}</strong></p></div><em>{status}</em></header><blockquote className="support-customer-message"><small>YOUR MESSAGE</small><p>{ticket.message}</p></blockquote>{ticket.admin_reply ? <blockquote className="support-care-reply"><span className="material-symbols-rounded" aria-hidden="true">support_agent</span><div><small>COZYCRAFT CARE</small><p>{ticket.admin_reply}</p></div></blockquote> : <aside className="support-awaiting-reply"><span className="material-symbols-rounded" aria-hidden="true">schedule</span><div><b>Our care team is reviewing this.</b><small>You’ll see the reply here automatically.</small></div></aside>}<footer><span className="material-symbols-rounded" aria-hidden="true">update</span><time>{new Date(ticket.updated_at || ticket.created_at).toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" })}</time></footer></article>}) : <div className="support-empty"><span className="material-symbols-rounded" aria-hidden="true">mark_unread_chat_alt</span><h3>A quiet care history.</h3><p>When you send a request, the conversation and every realtime reply will appear here.</p></div>}</section>
+              <section className="support-conversations"><header><div><small>CARE HISTORY</small><b>Your conversations</b></div><span>{ticketTotal} total</span></header>{tickets.length ? tickets.map((ticket) => { const status = String(ticket.status || "open").split("_").join(" "); return <article key={ticket.id} className={`support-ticket status-${String(ticket.status || "open")}`}><header><div><span className="material-symbols-rounded" aria-hidden="true">forum</span><p><small>{ticket.ticket_number || "SUPPORT REQUEST"}</small><strong>{ticket.subject}</strong></p></div><em>{status}</em></header><blockquote className="support-customer-message"><small>YOUR MESSAGE</small><p>{ticket.message}</p></blockquote>{ticket.admin_reply ? <blockquote className="support-care-reply"><span className="material-symbols-rounded" aria-hidden="true">support_agent</span><div><small>COZYCRAFT CARE</small><p>{ticket.admin_reply}</p></div></blockquote> : <aside className="support-awaiting-reply"><span className="material-symbols-rounded" aria-hidden="true">schedule</span><div><b>Our care team is reviewing this.</b><small>You’ll see the reply here automatically.</small></div></aside>}<footer><span className="material-symbols-rounded" aria-hidden="true">update</span><time>{new Date(ticket.updated_at || ticket.created_at).toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" })}</time></footer></article>}) : <div className="support-empty"><span className="material-symbols-rounded" aria-hidden="true">mark_unread_chat_alt</span><h3>A quiet care history.</h3><p>When you send a request, the conversation and every realtime reply will appear here.</p></div>}</section>
+              <HistoryPager page={ticketPage} total={ticketTotal} busy={ticketBusy} change={setTicketPage}/>
             </div>
-          ) : active.id === "orders" && (orders.length > 0 || selectedOrder) ? (
-            <div className="mobile-order-list">
-              {orders.map((order) => (
+          ) : active.id === "orders" && (totalOrders > 0 || orders.length > 0 || selectedOrder) ? (
+            <div className="mobile-order-list" aria-busy={historyBusy}>
+              {historyError && <p role="alert">{historyError} <button type="button" onClick={() => setHistoryRetry(value => value + 1)}>Retry</button></p>}
+              <HistoryPager page={historyPage} total={historyTotal} busy={historyBusy} change={setHistoryPage}/>
+              {historyOrders.map((order) => (
                 <article key={order.id} className="order-summary-card" onClick={() => setSelectedOrder(order)}>
                   <header>
                     <div>
@@ -4632,6 +4681,7 @@ export function Account({
                   <button type="button" onClick={(event) => { event.stopPropagation(); setSelectedOrder(order) }}>View complete order <b>→</b></button>
                 </article>
               ))}
+              <HistoryPager page={historyPage} total={historyTotal} busy={historyBusy} change={setHistoryPage}/>
               {selectedOrder && createPortal(
                 <div className="atelier-account order-detail-portal">
                 <section className="order-detail-view" role="dialog" aria-modal="true" aria-label={`Order ${selectedOrder.id} details`}>
@@ -5146,6 +5196,10 @@ export function ProductDetail({
     reviewer_avatar_url: string
   }>>([])
   const [reviewFilter, setReviewFilter] = useState<number | null>(null)
+  const [reviewPage, setReviewPage] = useState(1)
+  const [reviewSummary, setReviewSummary] = useState({ total: 0, matched: 0, average: 0, counts: {} as Record<string, number> })
+  const [reviewError, setReviewError] = useState("")
+  const [reviewRetry, setReviewRetry] = useState(0)
   const [reviewPhoto, setReviewPhoto] = useState<{ photos: string[]; index: number; description: string; label?: string } | null>(null)
   const [deliveryAddress, setDeliveryAddress] = useState<MobileAddress | null>(null)
   const [reviewsLoaded, setReviewsLoaded] = useState(false)
@@ -5153,21 +5207,37 @@ export function ProductDetail({
   useEffect(() => {
     let active = true
     setReviewsLoaded(false)
-    const refresh = () => void loadReviews(p.id)
-      .then((data) => { if (active) setCustomerReviews(data as typeof customerReviews) })
-      .catch(console.error)
-      .finally(() => { if (active) setReviewsLoaded(true) })
-    refresh()
-    window.addEventListener(PULL_TO_REFRESH_EVENT, refresh)
+    setCustomerReviews([])
+    let revision = 0
+    const refresh = async () => {
+      const request = ++revision
+      try {
+        const data = await loadReviewPage(p.id, reviewPage, reviewFilter)
+        if (!active || request !== revision) return
+        setCustomerReviews(data.reviews as typeof customerReviews)
+        setReviewSummary(data)
+        setReviewError("")
+      } catch { if (active && request === revision) setReviewError("Reviews could not be refreshed. Please retry.") }
+      finally { if (active && request === revision) setReviewsLoaded(true) }
+    }
+    void refresh()
+    const scheduled = coalescedRefresh(refresh)
+    const recovery = watchVisibleRecovery(scheduled.request)
+    let subscribed = false
+    window.addEventListener(PULL_TO_REFRESH_EVENT, scheduled.request)
     const channel = supabase.channel(`mobile-reviews-${p.id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "reviews", filter: `product_id=eq.${p.id}` }, refresh)
-      .subscribe()
+      .on("postgres_changes", { event: "*", schema: "public", table: "mobile_storefront_signals", filter: `topic=eq.reviews:${p.id}` }, scheduled.request)
+      .subscribe(status => {
+        if (status === "SUBSCRIBED") { if (subscribed) recovery.invalidate(); subscribed = true }
+      })
     return () => {
       active = false
-      window.removeEventListener(PULL_TO_REFRESH_EVENT, refresh)
+      scheduled.dispose()
+      recovery.dispose()
+      window.removeEventListener(PULL_TO_REFRESH_EVENT, scheduled.request)
       void supabase.removeChannel(channel)
     }
-  }, [p.id])
+  }, [p.id, reviewPage, reviewFilter, reviewRetry])
   const gallery = useMemo(
     () => [...new Set([...(p.images || []), p.image].filter((source) => Boolean(source?.trim())))],
     [p.image, p.images],
@@ -5175,6 +5245,7 @@ export function ProductDetail({
   useEffect(() => {
     setSlide(0)
     setReviewFilter(null)
+    setReviewPage(1)
   }, [p.id])
   useEffect(() => {
     if (slide >= gallery.length) setSlide(0)
@@ -5182,7 +5253,10 @@ export function ProductDetail({
   useEffect(() => {
     if (gallery.length < 2) return
     const image = new Image()
-    image.src = gallery[(slide + 1) % gallery.length]
+    const source = gallery[(slide + 1) % gallery.length]
+    const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection
+    if (connection?.saveData || document.hidden) return
+    image.src = productImageSources(source)?.src || source
   }, [gallery, slide])
   useEffect(() => {
     if (!userId) { setDeliveryAddress(null); return }
@@ -5193,14 +5267,10 @@ export function ProductDetail({
   }, [userId])
   const materials = p.materials || []
   const dimensions = p.dimensions || []
-  const publishedReviews = customerReviews.filter((review) => review.approved)
-  const liveReviewCount = publishedReviews.length
-  const liveRating = liveReviewCount
-    ? publishedReviews.reduce((sum, review) => sum + Number(review.rating || 0), 0) / liveReviewCount
-    : Number(p.rating || 0)
-  const reviewCounts = [5, 4, 3, 2, 1].map((rating) => ({
-    rating,
-    count: customerReviews.filter((review) => Number(review.rating) === rating).length,
+  const liveReviewCount = reviewSummary.total
+  const liveRating = reviewsLoaded ? reviewSummary.average : Number(p.rating || 0)
+  const reviewCounts = [5, 4, 3, 2, 1].map(rating => ({
+    rating, count: Number(reviewSummary.counts[String(rating)] || 0),
   }))
   const filteredReviews = reviewFilter
     ? customerReviews.filter((review) => Number(review.rating) === reviewFilter)
@@ -5268,6 +5338,7 @@ export function ProductDetail({
             <CozyImage
               src={src}
               key={`${src}-${i}`}
+              sizes="(max-width: 600px) 100vw, 720px"
               alt={i === 0 ? p.alt : `${p.name}, gallery view ${i + 1}`}
               loading={i === 0 ? "eager" : "lazy"}
               decoding="async"
@@ -5365,18 +5436,20 @@ export function ProductDetail({
               {reviewCounts.map(({ rating, count }) => (
                 <div key={rating}>
                   <span>{rating} ★</span>
-                  <i><b style={{ width: `${customerReviews.length ? (count / customerReviews.length) * 100 : 0}%` }}/></i>
+                  <i><b style={{ width: `${liveReviewCount ? (count / liveReviewCount) * 100 : 0}%` }}/></i>
                   <small>{count}</small>
                 </div>
               ))}
             </div>
           </section>
           <nav className="review-filters" aria-label="Filter reviews by star rating">
-            <button type="button" className={reviewFilter === null ? "active" : ""} aria-pressed={reviewFilter === null} onClick={() => setReviewFilter(null)}>All <span>{customerReviews.length}</span></button>
+            <button type="button" className={reviewFilter === null ? "active" : ""} aria-pressed={reviewFilter === null} onClick={() => { setReviewPage(1); setReviewFilter(null) }}>All <span>{liveReviewCount}</span></button>
             {reviewCounts.map(({ rating, count }) => (
-              <button type="button" key={rating} className={reviewFilter === rating ? "active" : ""} aria-pressed={reviewFilter === rating} disabled={count === 0 && reviewFilter !== rating} onClick={() => setReviewFilter(rating)}>{rating} star <span>{count}</span></button>
+              <button type="button" key={rating} className={reviewFilter === rating ? "active" : ""} aria-pressed={reviewFilter === rating} disabled={count === 0 && reviewFilter !== rating} onClick={() => { setReviewPage(1); setReviewFilter(rating) }}>{rating} star <span>{count}</span></button>
             ))}
           </nav>
+          {reviewError && <p role="alert">{reviewError} <button type="button" onClick={() => setReviewRetry(value => value + 1)}>Retry</button></p>}
+          <HistoryPager page={reviewPage} total={reviewSummary.matched} busy={!reviewsLoaded} change={setReviewPage}/>
           <div className="review-list">
             {filteredReviews.map((review) => (
               <article key={review.id}>
@@ -5403,7 +5476,7 @@ export function ProductDetail({
               </article>
             ))}
             {filteredReviews.length === 0 && reviewsLoading && <SkeletonRows count={2} media={false} label="Loading customer reviews" />}
-            {filteredReviews.length === 0 && !reviewsLoading && <section className="review-empty"><span className="material-symbols-rounded" aria-hidden="true">reviews</span><h3>{reviewFilter ? `No ${reviewFilter}-star reviews yet` : "No reviews yet"}</h3><p>{reviewFilter ? "Try another rating or view all customer reviews." : "The first real-home story for this piece could be yours."}</p>{reviewFilter && <button type="button" onClick={() => setReviewFilter(null)}>View all reviews</button>}</section>}
+            {filteredReviews.length === 0 && !reviewsLoading && !reviewError && <section className="review-empty"><span className="material-symbols-rounded" aria-hidden="true">reviews</span><h3>{reviewFilter ? `No ${reviewFilter}-star reviews yet` : "No reviews yet"}</h3><p>{reviewFilter ? "Try another rating or view all customer reviews." : "The first real-home story for this piece could be yours."}</p>{reviewFilter && <button type="button" onClick={() => { setReviewPage(1); setReviewFilter(null) }}>View all reviews</button>}</section>}
           </div>
         </section>
         <section className="atelier-note">
@@ -6582,12 +6655,14 @@ export function ProfilePage({
     }).catch((error) => setNotice(error.message))
     refresh()
     window.addEventListener(PULL_TO_REFRESH_EVENT, refresh)
+    const recovery = watchVisibleRecovery(refresh)
     const channel = supabase.channel(`mobile-preferences-${userId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "customer_preferences", filter: `user_id=eq.${userId}` }, refresh)
-      .subscribe()
+      .subscribe(recoverOnRejoin(recovery.invalidate))
     return () => {
       live = false
       window.removeEventListener(PULL_TO_REFRESH_EVENT, refresh)
+      recovery.dispose()
       void supabase.removeChannel(channel)
     }
   }, [userId])

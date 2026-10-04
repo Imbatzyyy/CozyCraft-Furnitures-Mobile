@@ -110,6 +110,7 @@ export type MobileAssistantAccountContext = {
   authenticated: boolean
   ready?: boolean
   online?: boolean
+  recentHistoryOnly?: boolean
   profileName?: string
   products: readonly MobileAssistantProductFact[]
   savedProductIds: readonly string[]
@@ -367,9 +368,10 @@ function orderReply(message: string, context: MobileAssistantAccountContext) {
     ? orders.filter((order) => cleanFact(order.status).toLocaleLowerCase("en-PH").replace("canceled", "cancelled") === normalizedStatus)
     : orders
   if (normalizedStatus && !matching.length) {
+    if (context.recentHistoryOnly) return `No ${normalizedStatus} orders appear in your recent orders. Open My Orders to check older pages.`
     return `You don’t currently have any ${normalizedStatus} orders. Your account has ${plural(orders.length, "order")} in total.`
   }
-  if (!matching.length) return "Your CozyCraft account does not have any orders yet."
+  if (!matching.length) return context.recentHistoryOnly ? "No orders appear in the recent account snapshot. Open My Orders to refresh your history." : "Your CozyCraft account does not have any orders yet."
 
   const visible = matching.slice(0, 3)
   const lines = visible.map((order) => {
@@ -384,6 +386,7 @@ function orderReply(message: string, context: MobileAssistantAccountContext) {
   const items = wantsItems && itemOrder?.items.length
     ? `\n\nItems in ${cleanFact(itemOrder.id, 50)}:\n${itemOrder.items.slice(0, 5).map((line) => productLine(line.product, line.quantity)).join("\n")}${itemOrder.items.length > 5 ? `\nPlus ${plural(itemOrder.items.length - 5, "more product")}.` : ""}`
     : ""
+  if (context.recentHistoryOnly) return `In your recent orders:\n${lines.join("\n")}${more}${items}\nOpen My Orders to browse your complete history.`
   return `${normalizedStatus ? `You have ${plural(matching.length, `${normalizedStatus} order`)}.` : `I found ${plural(orders.length, "order")} on your account.`}\n${lines.join("\n")}${more}${items}`
 }
 
@@ -418,6 +421,7 @@ function ticketReply(context: MobileAssistantAccountContext) {
     const replyState = cleanFact(ticket.admin_reply) ? "Care reply received" : "Awaiting Care reply"
     return `${number} — ${subject} · ${readableFact(ticket.status, "Open")} · ${replyState}`
   })
+  if (context.recentHistoryOnly) return `Your recent care requests:\n${lines.join("\n")}\nOpen Care & Support to browse older conversations.`
   return `You have ${plural(context.supportTickets.length, "support request")}, with ${plural(active.length, "active request")}.\n${lines.join("\n")}${context.supportTickets.length > visible.length ? `\nPlus ${plural(context.supportTickets.length - visible.length, "older request")}.` : ""}`
 }
 
@@ -434,6 +438,7 @@ function reviewReply(context: MobileAssistantAccountContext) {
   const allItems = context.orders.flatMap((order) => order.items.map((item) => ({ order, item })))
   const reviewed = allItems.filter(({ item }) => Boolean(item.reviewId))
   const available = allItems.filter(({ order, item }) => order.status === "Delivered" && !item.reviewId)
+  if (context.recentHistoryOnly) return `Among your recent orders, ${plural(available.length, "delivered product")} ${available.length === 1 ? "is" : "are"} available for a review.${available.length ? `\nReady to review: ${available.slice(0, 4).map(({ item }) => cleanFact(item.product.name, 70)).join(", ")}.` : ""}\nOpen My Orders to review an older delivered purchase.`
   return `You have reviewed ${plural(reviewed.length, "purchased product")}. ${plural(available.length, "delivered product")} ${available.length === 1 ? "is" : "are"} currently available for a review.${available.length ? `\nReady to review: ${available.slice(0, 4).map(({ item }) => cleanFact(item.product.name, 70)).join(", ")}.` : ""}`
 }
 

@@ -4,9 +4,11 @@ import { readAllPages } from "./paged-query"
 import { supabase, supabaseUrl } from "./supabase"
 import type { MobileDeliveryServiceArea } from "./mobile-delivery"
 import { homeCircleTier } from "./home-circle"
+import { createCatalogCache } from "./catalog-cache"
 
 export type MobileProduct = {
   id: string
+  updatedAt?: string
   name: string
   category: string
   subcategory?: string
@@ -82,13 +84,25 @@ export function isMobileRewardEligible(
 }
 
 export async function loadMobileRedemptions(userId: string): Promise<MobileRedemption[]> {
-  const { data, error } = await supabase
+  // Only usable rewards belong in the live wallet. Past rewards are paged on demand.
+  return readAllPages<MobileRedemption>((from, to) => supabase
     .from("mobile_loyalty_redemptions")
     .select("id,points_cost,discount_amount,reward_source,minimum_order_amount,status,code,created_at,expires_at,used_at")
+    .eq("user_id", userId).in("status", ["available", "applied"])
+    .gt("expires_at", new Date().toISOString())
+    .order("created_at", { ascending: false }).order("id").range(from, to))
+}
+
+export async function loadMobileRewardHistory(userId: string, page = 1) {
+  const { data, error, count } = await supabase
+    .from("mobile_loyalty_redemptions")
+    .select("id,points_cost,discount_amount,reward_source,minimum_order_amount,status,code,created_at,expires_at,used_at", { count: "exact" })
     .eq("user_id", userId)
+    .or(`status.in.(used,expired,cancelled),expires_at.lte.${new Date().toISOString()}`)
     .order("created_at", { ascending: false })
+    .order("id").range((page - 1) * 5, page * 5 - 1)
   if (error) throw error
-  return (data || []) as MobileRedemption[]
+  return { rewards: (data || []) as MobileRedemption[], total: count || 0 }
 }
 
 export async function redeemMobilePoints(points: 100 | 250 | 500) {
@@ -171,6 +185,7 @@ export const mapProduct = (row: Record<string, any>): MobileProduct => {
 
   return {
     id: String(row.id),
+    updatedAt: row.updated_at,
     name: row.name,
     category: row.category || "Furniture",
     subcategory: String(row.subcategory || "").trim(),
@@ -189,14 +204,14 @@ export const mapProduct = (row: Record<string, any>): MobileProduct => {
   }
 }
 
-export async function loadProducts(ids?: string[]) {
+async function readProducts(ids?: string[]) {
   const data = await readAllPages<Record<string, any>>((from, to) => {
     let query = supabase
     .from("products")
     // Keep the mobile catalog payload deliberate. Color and administrative
     // timestamps are not rendered by the app and do not need to cross the
     // network on every catalog refresh.
-    .select("id,name,category,subcategory,price,stock_quantity,status,material,dimensions,description,images,main_image_index,rating,review_count")
+    .select("id,name,category,subcategory,price,stock_quantity,status,material,dimensions,description,images,main_image_index,rating,review_count,updated_at")
     .eq("status", "active")
     .order("created_at", { ascending: false })
     .order("id")
@@ -205,6 +220,12 @@ export async function loadProducts(ids?: string[]) {
   })
   return (data || []).map(mapProduct)
 }
+
+const catalogCache = createCatalogCache(readProducts, () => readAllPages<{ id: string; updated_at: string }>(
+  (from, to) => supabase.from("products").select("id,updated_at").eq("status", "active")
+    .order("created_at", { ascending: false }).order("id").range(from, to), 500,
+))
+export const loadProducts = (ids?: string[], force = false) => catalogCache.load(ids, force)
 
 const PROFILE_AVATAR_URL_CACHE_KEY = "cozycraft-profile-avatar-url-v1"
 const PROFILE_AVATAR_URL_LIFETIME_SECONDS = 3600
@@ -491,12 +512,26 @@ export async function placeOrder(input: {
   }
 }
 
+export async function loadOrderPage(userId: string, catalog: MobileProduct[], page = 1) {
+  if (!userId) throw new Error("Sign in to view orders.")
+  const { data, error } = await supabase.rpc("customer_order_page", { p_page: page, p_status: "all", p_focus: null })
+  if (error) throw error
+  const rows = (data?.orders || []) as Record<string, any>[]
+  return { orders: await mapOrders(userId, catalog, rows), total: Number(data?.total || 0), delivered: Number(data?.counts?.delivered || 0) }
+}
+
 export async function loadOrders(userId: string, catalog: MobileProduct[], ids?: string[]) {
+  if (!ids) return (await loadOrderPage(userId, catalog)).orders
+  if (!ids.length) return []
   const data = await readAllPages<Record<string, any>>((from, to) => {
-    let query = supabase.from("orders").select("*,order_items(*),order_status_history(status,changed_at)").eq("user_id", userId).order("created_at", { ascending: false }).order("id")
+    let query = supabase.from("orders").select("id,order_number,status,created_at,payment_method,payment_status,payment_expires_at,refund_status,refunded_at,cancellation_reason,cancellation_status,cancellation_requested_at,cancellation_reviewed_at,cancellation_decision_note,subtotal,delivery_fee,reward_discount,total,shipping_address,order_items(id,product_id,product_name,unit_price,quantity,image_url),order_status_history(status,changed_at)").eq("user_id", userId).order("created_at", { ascending: false }).order("id")
     if (ids) query = query.in("id", ids)
     return query.range(from, to)
   })
+  return mapOrders(userId, catalog, data)
+}
+
+async function mapOrders(userId: string, catalog: MobileProduct[], data: Record<string, any>[]) {
   const itemIds = data.flatMap((order) => (order.order_items || []).map((item: Record<string, any>) => item.id))
   const customerReviews: Record<string, any>[] = []
   for (let index = 0; index < itemIds.length; index += 100) {
@@ -684,9 +719,15 @@ export async function savePaymentPreference(userId: string, method: string) {
   if (error) throw error
 }
 
-export async function loadSupportTickets(userId: string) {
-  return readAllPages<Record<string, any>>((from, to) => supabase.from("support_tickets").select("*").eq("user_id", userId).order("created_at", { ascending: false }).order("id").range(from, to))
+export async function loadSupportTicketPage(userId: string, page = 1) {
+  const { data, error, count } = await supabase.from("support_tickets")
+    .select("id,ticket_number,subject,message,status,admin_reply,created_at,updated_at", { count: "exact" })
+    .eq("user_id", userId).order("created_at", { ascending: false }).order("id")
+    .range((page - 1) * 5, page * 5 - 1)
+  if (error) throw error
+  return { tickets: (data || []) as Record<string, any>[], total: count || 0 }
 }
+export async function loadSupportTickets(userId: string) { return (await loadSupportTicketPage(userId)).tickets }
 
 export async function loadNotifications(userId: string) {
   const { data, error } = await supabase
@@ -1051,13 +1092,15 @@ export async function acceptCurrentMobilePolicies(source = "mobile_app") {
   if (error) throw error
 }
 
-export async function loadMobileReturnRequests(userId: string): Promise<MobileReturnRequest[]> {
-  const { data, error } = await supabase
+export async function loadMobileReturnRequests(userId: string, orderId?: string): Promise<MobileReturnRequest[]> {
+  let query = supabase
     .from("return_requests")
     .select("id,order_id,return_number,reason,details,status,admin_note,evidence_paths,created_at,updated_at")
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
     .limit(30)
+  if (orderId) query = query.eq("order_id", orderId)
+  const { data, error } = await query
   if (error) throw error
   return (data || []) as MobileReturnRequest[]
 }
@@ -1265,18 +1308,21 @@ export async function unregisterPushToken(token: string) {
   if (error) throw error
 }
 
-export async function loadReviews(productId: string) {
+export async function loadReviewPage(productId: string, page = 1, rating: number | null = null) {
   // Product pages only request reviews currently visible on the storefront.
   // New verified reviews are inserted with approved=true and appear through
   // the product-scoped realtime subscription immediately after publication.
-  const data = await readAllPages<Record<string, any>>((from, to) => supabase.from("reviews").select("id,rating,body,image_urls,created_at,approved,reviewer_display_name").eq("product_id", productId).eq("approved", true).order("created_at", { ascending: false }).order("id").range(from, to))
-  return (data || []).map((review) => ({
+  const { data, error } = await supabase.rpc("mobile_product_review_page", { p_product_id: productId, p_page: page, p_rating: rating })
+  if (error) throw error
+  const reviews = ((data?.reviews || []) as Record<string, any>[]).map((review) => ({
     ...review,
     // The endpoint only serves photos belonging to visible reviews. It keeps
     // the private avatars bucket private and returns 404 when no photo exists.
     reviewer_avatar_url: `${supabaseUrl}/functions/v1/review-avatar?review_id=${encodeURIComponent(review.id)}`,
   }))
+  return { reviews, total: Number(data?.total || 0), matched: Number(data?.matched || 0), average: Number(data?.average || 0), counts: (data?.counts || {}) as Record<string, number> }
 }
+export async function loadReviews(productId: string) { return (await loadReviewPage(productId)).reviews }
 
 type ReviewImageFormat = { contentType: string; extension: string }
 
