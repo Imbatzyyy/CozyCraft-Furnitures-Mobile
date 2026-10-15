@@ -640,7 +640,7 @@ const categories = [
   },
 ]
 
-export default function Storefront({ launchHandoff = false, onReady }: { launchHandoff?: boolean; onReady?: () => void }) {
+export default function Storefront({ launchHandoff = false, onReady, initialSupport = false }: { launchHandoff?: boolean; onReady?: () => void; initialSupport?: boolean }) {
   const [returnState] = useState(readStorefrontReturnState)
   const [textSize, setTextSize] = useState<MobileTextSize>(readMobileTextSize)
   const [tab, setTab] = useState(returnState?.tab || "home")
@@ -2070,7 +2070,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
   }
 
   const openAssistantDestination = (destination: MobileAssistantDestination) => {
-    if (destination === "about") { setAppInfoPage("about"); return }
+    if (destination === "about" || destination === "contact" || destination === "terms" || destination === "privacy") { setAppInfoPage(destination); return }
     if (["orders", "addresses", "payments", "support"].includes(destination)) {
       setAssistantAccountView(destination as "orders" | "addresses" | "payments" | "support")
       navigateTo("account")
@@ -2086,14 +2086,16 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
       setNotificationsOpen(true)
       return
     }
-    if (["about", "contact", "terms", "privacy"].includes(destination)) {
-      const scrollTop = document.querySelector<HTMLElement>(".lux-body")?.scrollTop || 0
-      rememberStorefrontReturnState(scrollTop, unreadNotificationCount)
-      window.location.hash = `#/${destination === "privacy" ? "privacy-policy" : destination}`
-      return
-    }
     navigateTo(destination)
   }
+
+  const initialSupportHandled = useRef(false)
+  useEffect(() => {
+    if (!initialSupport || initialSupportHandled.current) return
+    initialSupportHandled.current = true
+    setAssistantAccountView("support")
+    setTab("account")
+  }, [initialSupport])
 
   useEffect(() => {
     if (navGlassPointer.current || navGlassTouch.current) return
@@ -2347,7 +2349,7 @@ export default function Storefront({ launchHandoff = false, onReady }: { launchH
           settled={() => setShoppingNotificationId("")} navigate={openAssistantDestination} notice={flash} onOpenChange={setShoppingOfferOpen} />
         <header className="lux-header">
           <div className="ccnav-brand">
-          <AppNavigation activeTab={tab} displayName={userId ? profile.firstName || profile.name : ""} savedCount={saved.length} bagCount={bagCount} navigate={openAssistantDestination} infoPage={appInfoPage} changeInfoPage={setAppInfoPage} onOpenChange={setAppNavigationOpen}/>
+          <AppNavigation activeTab={tab} profile={userId ? profile : null} storeSettings={storeSettings} savedCount={saved.length} bagCount={bagCount} navigate={openAssistantDestination} openProfile={() => { navigateTo("account"); setProfileOpen(true) }} signIn={() => { window.location.hash = "#/sign-in" }} createAccount={() => { window.location.hash = "#/create-account" }} infoPage={appInfoPage} changeInfoPage={setAppInfoPage} onOpenChange={setAppNavigationOpen}/>
           <button className="logo-button" onClick={() => navigateTo("home")}>
             <img src={cozyLogo} alt="CozyCraft Furniture" />
           </button>

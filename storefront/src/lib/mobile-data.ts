@@ -788,24 +788,63 @@ export type MobileReturnRequest = {
 
 const CONTENT_CACHE_MS = 30 * 60 * 1000
 const contentCache = new Map<string, { at: number; page: MobileContentPage }>()
+const contentRequests = new Map<string, Promise<MobileContentPage | null>>()
+const persistedContentSlugs = new Set(["about", "contact", "terms", "privacy"])
+const contentStorageKey = (slug: string) => `cozycraft-public-content-v1:${slug}`
+
+export function readMobileContentSnapshot(slug: string): MobileContentPage | null {
+  const key = slug.trim().toLocaleLowerCase("en-PH")
+  const memory = contentCache.get(key)
+  if (memory) return memory.page
+  if (!persistedContentSlugs.has(key)) return null
+  try {
+    const saved = JSON.parse(localStore.getItem(contentStorageKey(key)) || "null")
+    if (saved?.page?.slug !== key || typeof saved.page.body !== "string" || typeof saved.page.title !== "string" || !Number.isFinite(saved.at)) return null
+    contentCache.set(key, saved)
+    return saved.page as MobileContentPage
+  } catch { return null }
+}
 let bannerCache: { at: number; rows: MobileHomepageBanner[] } | null = null
 let synonymCache: { at: number; rows: MobileSearchSynonym[] } | null = null
 
 export async function loadMobileContentPage(slug: string, fresh = false) {
   const normalizedSlug = slug.trim().toLocaleLowerCase("en-PH")
+  readMobileContentSnapshot(normalizedSlug)
   const cached = contentCache.get(normalizedSlug)
   if (!fresh && cached && Date.now() - cached.at < CONTENT_CACHE_MS) return cached.page
-  const { data, error } = await supabase
-    .from("content_pages")
-    .select("slug,eyebrow,title,summary,body,updated_at")
-    .eq("slug", normalizedSlug)
-    .eq("published", true)
-    .maybeSingle()
-  if (error) throw error
-  if (!data) return null
-  const page = data as MobileContentPage
-  contentCache.set(normalizedSlug, { at: Date.now(), page })
-  return page
+  const pending = contentRequests.get(normalizedSlug)
+  if (pending) return pending
+  const request = (async () => {
+    const controller = new AbortController()
+    let timer: ReturnType<typeof setTimeout> | undefined
+    try {
+      const timeout = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => { controller.abort(); reject(new Error("Information request timed out")) }, 8000)
+      })
+      const { data, error } = await Promise.race([supabase
+        .from("content_pages")
+        .select("slug,eyebrow,title,summary,body,updated_at")
+        .eq("slug", normalizedSlug)
+        .eq("published", true)
+        .abortSignal(controller.signal)
+        .maybeSingle(), timeout])
+      if (error) throw error
+      if (!data) {
+        contentCache.delete(normalizedSlug)
+        if (persistedContentSlugs.has(normalizedSlug)) localStore.removeItem(contentStorageKey(normalizedSlug))
+        return null
+      }
+      const page = data as MobileContentPage
+      const entry = { at: Date.now(), page }
+      contentCache.set(normalizedSlug, entry)
+      if (persistedContentSlugs.has(normalizedSlug)) {
+        try { localStore.setItem(contentStorageKey(normalizedSlug), JSON.stringify(entry)) } catch { /* Storage is optional. */ }
+      }
+      return page
+    } finally { clearTimeout(timer); contentRequests.delete(normalizedSlug) }
+  })()
+  contentRequests.set(normalizedSlug, request)
+  return request
 }
 
 export async function loadMobileHomepageBanners(fresh = false) {
@@ -1244,6 +1283,9 @@ export async function loadMobileFaq(): Promise<MobileFaqPage> {
 }
 
 export type MobileStoreSettings = {
+  contact_email?: string
+  support_phone?: string
+  business_address?: string
   announcement_enabled: boolean
   announcement_text: string
   announcement_link: string
@@ -1272,11 +1314,14 @@ export async function loadMobileDeliveryServiceAreas(): Promise<MobileDeliverySe
 export async function loadMobileStoreSettings(): Promise<MobileStoreSettings> {
   const { data, error } = await supabase
     .from("store_settings")
-    .select("announcement_enabled,announcement_text,announcement_link,delivery_area,checkout_settings,fulfillment_settings")
+    .select("announcement_enabled,announcement_text,announcement_link,delivery_area,checkout_settings,fulfillment_settings,contact_email,support_phone,business_address")
     .eq("id", true)
     .single()
   if (error) throw error
   return {
+    contact_email: String(data.contact_email || ""),
+    support_phone: String(data.support_phone || ""),
+    business_address: String(data.business_address || ""),
     announcement_enabled: Boolean(data.announcement_enabled),
     announcement_text: String(data.announcement_text || ""),
     announcement_link: String(data.announcement_link || ""),

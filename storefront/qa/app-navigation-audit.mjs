@@ -7,13 +7,14 @@ const output = process.env.QA_OUTPUT || "/tmp/cozycraft-menu-qa"
 await mkdir(output, { recursive: true })
 const id = "11111111-1111-4111-8111-111111111111"
 const user = { id, email: "qa@example.test", role: "authenticated", aud: "authenticated", created_at: "2026-01-01", app_metadata: { provider: "email", providers: ["email"] }, user_metadata: { full_name: "Alex Rivera", cozy_tour_completed_v1: true }, factors: [] }
-const profile = { id, role: "customer", full_name: "Alex Rivera", email: user.email, username: "alex.rivera", avatar_url: "" }
+const profile = { id, role: "customer", full_name: "Alexandra Rivera Santos", email: "alexandra.rivera.long.address@example.test", phone: "+639171234567", username: "alex.rivera", avatar_url: "" }
 let checked = 0
 for (const engine of [chromium, webkit]) {
   const browser = await engine.launch(engine === chromium ? { channel: "chrome", headless: true } : { headless: true })
   for (const [width, height] of [[320,640], [390,844], [768,1024], [844,390], [1440,1000]]) {
     for (const text of ["comfortable", "extra-large"]) {
       const context = await browser.newContext({ viewport: { width, height }, reducedMotion: width === 320 ? "reduce" : "no-preference" })
+      const contentReads = new Map()
       await context.routeWebSocket(/supabase\.(co|in)/, ws => ws.close())
       await context.route(/https:\/\/[^/]*supabase\.(co|in)\//, async route => {
         const req = route.request(), path = new URL(req.url()).pathname
@@ -22,7 +23,12 @@ for (const engine of [chromium, webkit]) {
         if (path === "/auth/v1/user") data = user
         else if (path === "/rest/v1/profiles") data = req.headers().accept?.includes("object") ? profile : [profile]
         else if (path === "/rest/v1/products") data = [{ id: "qa-sofa", name: "CozyCraft sofa", category: "Living room", price: 12000, stock_quantity: 10, status: "active", images: [`${base}/furniture/photo-1599696848652-f0ff23bc911f.jpg`], rating: 5, review_count: 1 }]
-        else if (path === "/rest/v1/store_settings") { const settings = { id: true, account_settings: {}, checkout_settings: {}, fulfillment_settings: {} }; data = req.headers().accept?.includes("object") ? settings : [settings] }
+        else if (path === "/rest/v1/store_settings") { const settings = { id: true, account_settings: {}, checkout_settings: {}, fulfillment_settings: {}, contact_email: "care@example.test", support_phone: "+639171234567" }; data = req.headers().accept?.includes("object") ? settings : [settings] }
+        else if (path === "/rest/v1/content_pages") {
+          const slug = new URL(req.url()).searchParams.get("slug")?.replace("eq.", "")
+          contentReads.set(slug, (contentReads.get(slug) || 0) + 1)
+          data = { slug, title: slug === "contact" ? "Contact CozyCraft" : `${slug === "privacy" ? "Privacy Policy" : "Terms of Service"}`, summary: "Current CozyCraft information.", body: slug === "contact" ? "BUSINESS EMAIL\ncare@example.test\n\nCUSTOMER CARE HOURS\nMonday to Saturday · 9:00 AM–6:00 PM Philippine Time" : "YOUR INFORMATION\nThis is the controlled QA policy, not production legal text.", updated_at: "2026-10-15T00:00:00Z" }
+        }
         else if (path.endsWith("/get_mobile_customer_onboarding")) data = { userId: id, isGoogle: false, needsUsername: false, showVoucher: false, voucher: null }
         else if (path.endsWith("/touch_customer_device_session")) data = true
         else if (path.startsWith("/functions/")) data = {}
@@ -50,16 +56,21 @@ for (const engine of [chromium, webkit]) {
       const open = async () => { await page.getByRole("button", { name: "Open navigation menu", exact: true }).click(); await page.locator('.ccnav-drawer').waitFor(); await page.waitForTimeout(240) }
       await open()
       await checkOverflow(".ccnav-drawer, .ccnav-drawer-scroll, .ccnav-group button")
-      assert.equal(await page.locator('.ccnav-group button[aria-current="page"]').innerText(), "home\nHome\n↗")
+      assert.equal(await page.locator('.ccnav-group button[aria-current="page"]').getAttribute("aria-current"), "page")
+      assert.equal(await page.locator('.ccnav-profile h2').innerText(), profile.full_name)
+      assert.ok((await page.locator('.ccnav-profile').innerText()).includes(profile.email))
+      assert.equal(await page.getByText("A place for you.", { exact: true }).count(), 0)
+      await checkOverflow(".ccnav-profile, .ccnav-profile-heading, .ccnav-profile-details")
       assert.ok(await page.evaluate(() => document.getElementById("root").inert))
       // A keyboard user must never fall through to the background dock.
       await page.keyboard.press("Shift+Tab")
-      assert.equal(await page.evaluate(() => document.activeElement.textContent.includes("Developers")), true)
+      assert.equal(await page.evaluate(() => document.activeElement.textContent.includes("Privacy Policy")), true)
       await page.keyboard.press("Tab")
       assert.equal(await page.getByRole("button", { name: "Close navigation menu" }).evaluate(e => e === document.activeElement), true)
+      await page.locator('.ccnav-drawer-scroll').evaluate(element => { element.scrollTop = 0 })
       if (snapshot) await page.screenshot({ path: `${output}/${width === 390 ? "mobile" : "desktop"}-expanded.png`, animations: "disabled" })
-      await page.getByRole("button", { name: "About the App", exact: true }).click()
-      await page.getByRole("dialog", { name: "About the App", exact: true }).waitFor()
+      await page.getByRole("button", { name: "About CozyCraft", exact: true }).click()
+      await page.getByRole("dialog", { name: "About CozyCraft", exact: true }).waitFor()
       await checkOverflow(".ccnav-page-scroll, .ccnav-information, .ccnav-page-actions")
       // The real dock must be behind the new page, never painted over its controls.
       assert.ok(await page.evaluate(() => document.elementFromPoint(innerWidth / 2, innerHeight - 30)?.closest('.ccnav-layer')))
@@ -67,6 +78,7 @@ for (const engine of [chromium, webkit]) {
       await page.getByRole("button", { name: /Meet the developers/ }).click()
       await checkOverflow(".ccnav-page-scroll, .ccnav-person, .ccnav-person a")
       assert.equal(await page.locator(".ccnav-person").count(), 5)
+      assert.equal(await page.locator(".ccnav-person-description").count(), 5)
       assert.equal(await page.locator('.ccnav-person a[href^="mailto:"]').count(), 5)
       assert.ok(!(await page.locator(".ccnav-team").textContent()).includes("Jacob"))
       for (const img of await page.locator('.ccnav-person img').all()) { await img.scrollIntoViewIfNeeded(); await img.evaluate(img => img.decode()) }
@@ -84,6 +96,28 @@ for (const engine of [chromium, webkit]) {
       await page.locator('.ccnav-layer').waitFor({ state: "detached" })
       assert.equal(await page.evaluate(() => document.getElementById("root").inert), false)
       assert.equal(await page.locator('.lux-nav [data-nav="home"]').getAttribute("aria-current"), "page")
+      for (const [name, selector] of [["Company History", ".ccnav-timeline"], ["Contact Us", ".ccnav-contact-actions"], ["Terms of Service", ".ccnav-policy"], ["Privacy Policy", ".ccnav-policy"]]) {
+        await open(); await page.getByRole("button", { name, exact: true }).click()
+        await page.locator(selector).waitFor()
+        await checkOverflow(".ccnav-page-scroll, .ccnav-information, .ccnav-policy, .ccnav-contact-actions")
+        if (name === "Terms of Service" || name === "Privacy Policy") {
+          assert.equal(await page.locator('.legal-summary > span').evaluate(e => getComputedStyle(e).color), "rgb(53, 69, 43)", "Policy summary must retain dark, readable text")
+        }
+        if (name === "Contact Us") {
+          assert.equal(await page.getByRole("link", { name: /Email customer care/ }).getAttribute("href"), "mailto:care@example.test")
+          assert.equal(await page.getByRole("link", { name: /Call customer care/ }).getAttribute("href"), "tel:+639171234567")
+        }
+        if (snapshot && width === 390) await page.screenshot({ path: `${output}/mobile-${name.split(" ")[0].toLowerCase()}.png`, animations: "disabled" })
+        await page.getByRole("button", { name: "Back to shopping screen" }).click()
+        assert.ok(page.url().endsWith("#/shop"), "Information unmounted the storefront route")
+      }
+      await open(); await page.getByRole("button", { name: "Terms of Service", exact: true }).click(); await page.locator('.ccnav-policy').waitFor()
+      assert.equal(contentReads.get("terms"), 1, "Reopening the policy fetched it again")
+      await page.getByRole("button", { name: "Back to shopping screen" }).click()
+      await open(); await page.getByRole("button", { name: /View my profile/ }).click()
+      await page.locator('.profile-page').waitFor()
+      await page.evaluate(() => window.dispatchEvent(new MessageEvent("message", { data: { type: "cozycraft-native-back" }, source: window.parent })))
+      await page.locator('.profile-page').waitFor({ state: "detached" })
       for (const [name, tab] of [["Shop furniture", "shop"], ["Wishlist", "saved"], ["Shopping bag", "bag"], ["My account", "account"]]) {
         await open(); await page.getByRole("button", { name, exact: true }).click()
         await page.locator('.ccnav-layer').waitFor({ state: "detached" })

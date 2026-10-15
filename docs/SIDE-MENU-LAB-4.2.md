@@ -16,8 +16,12 @@ scrolling area keeps its close button accessible on small/landscape screens.
 | Lab requirement | Implementation |
 | --- | --- |
 | Side menu with existing modules | Home, Shop furniture, Wishlist, Shopping bag, My orders, Home Circle, My account, Care & support |
-| About the App | Purpose and four feature summaries, with working collection/team links |
-| Developers | Five members, supplied/website portraits, and approved email links |
+| User identity | Saved profile photo or initials, full name, email, available phone number, and View my profile; guests receive Sign in/Create account |
+| About CozyCraft | Purpose and four feature summaries, with working collection/history/team links |
+| Company History | App-only origin story and three development milestones; no invented milestone dates |
+| Developers | Five members, supplied/website portraits, role-based descriptions, and approved email links |
+| Contact Us | Published contact content, configured business email/phone when available, and existing private Care & support |
+| Terms and Privacy | Shared policy reader with registration, cached published content, dated status, offline fallback and retry |
 | Responsive hamburger/toggle | 44-pixel minimum toggle/close targets; bounded drawer width; scrollable content; responsive developer grid |
 | Active state | `aria-current="page"` and a matching visible highlight |
 | Smooth transitions | Short transform/opacity animations; no continuous animation, new animation library, or backdrop blur |
@@ -32,7 +36,9 @@ scrolling area keeps its close button accessible on small/landscape screens.
 - `storefront/src/features/navigation/app-navigation-data.ts`: reusable menu
   configuration and **app-only** developer roster/contact data.
 - `storefront/src/features/navigation/AppInformation.tsx`: About/Developers
-  content. Email links hand off to the device's configured mail application.
+  content plus Company History and Contact Us. Email links hand off to the
+  device's configured mail application. PolicyContent and legal-content share
+  the unchanged policy wording with registration.
 - `storefront/src/features/navigation/app-navigation.css`: scoped layout,
   active states, safe areas, text sizing, and motion preferences.
 - `storefront/src/Storefront.tsx`: integration with existing destinations;
@@ -57,6 +63,23 @@ Sammuel replaces Jacob only in this app roster, using the supplied photograph.
 The spelling follows the user's final contact-list message. Other four roles
 and portraits are retained from the website; Sammuel is labeled Development
 Team rather than attributing an unconfirmed specialty.
+
+## October 15 update (1.0.82)
+
+The professor-requested removal of "Your home, thoughtfully connected / A place
+for you" is complete. The compact account header replaces that block. Member
+descriptions explain the existing displayed roles, not invented qualifications.
+About/history use app-specific copy so the website's different roster is not
+accidentally imported. No shared CMS record or website page was changed.
+
+All information destinations stay in the existing modal shell while the
+storefront remains mounted. Contact/Terms/Privacy share a 30-minute public
+content cache, deduplicate concurrent reads, retain a saved offline copy, and
+bound requests to eight seconds. Opening the drawer itself makes no profile
+query. These pages add no polling or realtime channel and make no consent writes.
+The company history is bundled; customer contact details come from the existing
+published content and public business settings. Unconfigured phone details are
+not invented or shown as a working call button.
 
 ## Run the checks
 

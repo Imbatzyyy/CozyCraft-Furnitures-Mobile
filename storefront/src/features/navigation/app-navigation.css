@@ -15,11 +15,20 @@
 .ccnav-drawer-header img { width: 108px; height: 50px; object-fit: contain; object-position: left center; }
 .ccnav-close, .ccnav-page-header button { display: grid; place-items: center; flex: 0 0 44px; width: 44px; height: 44px; min-height: 44px; padding: 0; border-radius: 50%; border: 1px solid #dcded3; background: #eeefe7; }
 .ccnav-drawer-scroll { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; padding: 24px 18px calc(18px + env(safe-area-inset-bottom, 0px)) calc(18px + env(safe-area-inset-left, 0px)); }
-.ccnav-welcome { padding: 0 10px 20px; }
 .ccnav-eyebrow { display: block; font-size: .58rem; line-height: 1.6; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; color: #626d55; }
-.ccnav-welcome h2 { font: 400 1.85rem/1.1 "DM Serif Display", serif; letter-spacing: -.035em; margin: 10px 0 6px; }
-.ccnav-welcome h2 em { color: #677450; }
-.ccnav-welcome p { font-size: .72rem; color: var(--ccnav-muted); line-height: 1.5; margin: 0; overflow-wrap: anywhere; }
+.ccnav-profile { padding: 18px; margin: 0 0 24px; border: 1px solid #dce1d2; border-radius: 20px; background: #eef0e7; }
+.ccnav-profile-heading { display: flex; gap: 14px; align-items: center; }
+.ccnav-profile-heading > div:last-child { min-width: 0; }
+.ccnav-avatar { flex: 0 0 60px; width: 60px; height: 60px; display: grid; place-items: center; overflow: hidden; border-radius: 18px; background: #dce3d1; color: #35452b; font-size: 1.2rem; font-weight: 600; }
+.ccnav-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.ccnav-profile h2 { font: 400 1.3rem/1.25 "DM Serif Display", serif; letter-spacing: -.02em; margin: 5px 0 0; overflow-wrap: anywhere; }
+.ccnav-profile-details { margin-top: 14px; }
+.ccnav-profile-details p, .ccnav-guest-copy { font-size: var(--ui-support, 14px); color: #515b46; line-height: 1.6; margin: 3px 0; overflow-wrap: anywhere; }
+.ccnav-profile-action { display: flex; align-items: center; justify-content: space-between; width: 100%; border: 0; border-top: 1px solid #d6ddcb; background: transparent; min-height: 44px; margin-top: 12px; padding: 12px 0 0; font-size: var(--ui-support, 14px); text-align: left; gap: 12px; }
+.ccnav-guest-copy { margin-top: 12px; }
+.ccnav-guest-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.ccnav-guest-actions button { flex: 1 1 100px; min-height: 44px; padding: 10px; border-radius: 12px; border: 1px solid #cbd4c0; background: #fafbf7; font-size: var(--ui-support, 14px); }
+.ccnav-guest-actions button:first-child { background: #35452b; color: white; border-color: #35452b; }
 .ccnav-group + .ccnav-group { margin-top: 20px; padding-top: 18px; border-top: 1px solid #e5e3db; }
 .ccnav-group h3 { font-size: .55rem; text-transform: uppercase; letter-spacing: .13em; font-weight: 700; line-height: 1.6; color: #747565; margin: 0 12px 9px; }
 .ccnav-group button { border: 1px solid transparent; width: 100%; min-height: 48px; display: flex; align-items: center; gap: 13px; padding: 11px 12px; border-radius: 14px; background: transparent; text-align: left; font-size: .78rem; line-height: 1.4; margin: 2px 0; }
@@ -76,13 +85,13 @@
 .ccnav-info-footer > span { display: block; margin-top: 8px; text-transform: none; font-size: .63rem; letter-spacing: 0; }
 /* Honor the app's reading-size preference, independently of icon geometry. */
 .ccnav-group button, .ccnav-editorial > p:last-child, .ccnav-features dt { font-size: var(--ui-body); }
-.ccnav-welcome p, .ccnav-brand-card p, .ccnav-features dd, .ccnav-page-actions button, .ccnav-page-header > span, .ccnav-team-note p { font-size: var(--ui-support); }
+.ccnav-brand-card p, .ccnav-features dd, .ccnav-page-actions button, .ccnav-page-header > span, .ccnav-team-note p { font-size: var(--ui-support); }
 .ccnav-person p, .ccnav-person a, .ccnav-contact-pending { font-size: var(--ui-support); }
 .ccnav-count { font-size: calc(11px * var(--ui-reading-scale, 1.15)); }
 @media (hover: hover) { .ccnav-group button:hover { background: #eeefe6; } .ccnav-group button[aria-current="page"]:hover { background: #dbe2d1; } .ccnav-page-actions button:hover { filter: brightness(.96); } }
 @media (min-width: 760px) { .ccnav-page-header { padding-left: max(28px, calc((100vw - 1040px) / 2)); padding-right: max(28px, calc((100vw - 1040px) / 2)); } .ccnav-editorial { padding-top: 52px; } }
 @media (max-width: 359px) { .lux-header:has(.ccnav-brand) { padding-left: 12px; padding-right: 12px; } .lux-header > .ccnav-brand { gap: 4px; margin-right: 4px; } .ccnav-person { gap: 13px; padding: 14px; } .ccnav-person > img { width: 76px; } .ccnav-person h2 { font-size: 1.1rem; } }
-@media (max-height: 480px) { .ccnav-welcome { padding-bottom: 12px; } .ccnav-drawer-scroll { padding-top: 14px; } .ccnav-drawer-header { padding-top: max(8px, env(safe-area-inset-top, 0px)); padding-bottom: 8px; } }
+@media (max-height: 480px) { .ccnav-drawer-scroll { padding-top: 14px; } .ccnav-drawer-header { padding-top: max(8px, env(safe-area-inset-top, 0px)); padding-bottom: 8px; } }
 @keyframes ccnav-slide-in { from { transform: translateX(-100%); } to { transform: translateX(0); } }
 @keyframes ccnav-slide-out { from { transform: translateX(0); } to { transform: translateX(-100%); } }
 @keyframes ccnav-fade-in { from { opacity: 0; } to { opacity: 1; } }
@@ -91,3 +100,41 @@
 :root[data-cozy-motion="economy"] .ccnav-layer { --ccnav-motion: 120ms; }
 :root[data-cozy-motion="paused"] .ccnav-layer { --ccnav-motion: 0ms; }
 @media (prefers-reduced-motion: reduce) { .ccnav-layer { --ccnav-motion: 0ms; } }
+
+/* Information stays in the same modal shell; no route remount or fixed-height cards. */
+.ccnav-information .ccnav-person { align-items: flex-start; flex-wrap: wrap; }
+.ccnav-information .ccnav-person > img { width: 88px; }
+.ccnav-information .ccnav-person > div { flex: 1 1 200px; }
+.ccnav-person .ccnav-person-role { color: #536447; font-weight: 600; }
+.ccnav-person .ccnav-person-description { margin-top: 12px; line-height: 1.7; }
+.ccnav-timeline { list-style: none; padding: 0; margin: 0; max-width: 760px; }
+.ccnav-timeline li { display: flex; gap: 20px; position: relative; padding: 0 0 34px; }
+.ccnav-timeline li:not(:last-child)::before { content: ""; position: absolute; width: 1px; background: #d4dcc9; top: 42px; bottom: 0; left: 21px; }
+.ccnav-timeline-number { display: grid; place-items: center; width: 43px; height: 43px; flex: 0 0 43px; border: 1px solid #d4dcc9; border-radius: 50%; background: #e9eedf; color: #52643f; font-size: .85rem; }
+.ccnav-timeline h2, .ccnav-contact-copy > h2 { font: 400 1.5rem/1.2 "DM Serif Display", serif; margin: 8px 0 12px; }
+.ccnav-timeline li > div > p:last-child, .ccnav-address { color: #666b5c; font-size: var(--ui-body, 16px); line-height: 1.75; margin: 0; }
+.ccnav-contact-intro .cozy-companion { float: right; margin: 0 0 12px 12px; }
+.ccnav-contact-actions { display: grid; gap: 12px; }
+.ccnav-contact-actions > :is(button, a) { min-height: 64px; display: flex; align-items: center; gap: 14px; padding: 18px; border: 1px solid #dce1d2; border-radius: 18px; background: #fffefb; text-align: left; color: #35452b; text-decoration: none; font: inherit; cursor: pointer; }
+.ccnav-contact-actions > button:first-child { background: #e8eddf; }
+.ccnav-contact-actions > :is(button, a) > span:nth-child(2) { min-width: 0; flex: 1; overflow-wrap: anywhere; }
+.ccnav-contact-actions b, .ccnav-contact-actions small { display: block; font-size: var(--ui-body, 16px); line-height: 1.5; }
+.ccnav-contact-actions small { font-size: var(--ui-support, 14px); color: #68715d; margin-top: 4px; }
+.ccnav-address { margin: 18px 0; }
+.ccnav-document { max-width: 760px; }
+.ccnav-policy { padding: 34px 0 10px; }
+.ccnav-policy h1 { font: 400 clamp(2rem, 6vw, 3.6rem)/1.1 "DM Serif Display", serif; margin: 14px 0 18px; letter-spacing: -.035em; }
+.ccnav-policy h2, .ccnav-contact-copy .document-section-heading { font: 600 var(--ui-body, 16px)/1.5 "DM Sans", sans-serif; margin: 0 0 12px; }
+.ccnav-policy p, .ccnav-policy li, .ccnav-contact-copy p { font-size: var(--ui-body, 16px); line-height: 1.8; color: #5e6456; overflow-wrap: anywhere; }
+.ccnav-policy section, .ccnav-contact-copy section { border-top: 1px solid #e0e3d7; padding: 24px 0 0; margin-top: 24px; }
+.ccnav-policy ul { padding-left: 22px; }
+.ccnav-policy .legal-effective { font-size: var(--ui-support, 14px); }
+.ccnav-policy .legal-summary { border: 1px solid #dce1d2; border-radius: 20px; background: #eef0e7; color: #35452b; padding: 20px; margin-top: 24px; box-shadow: none; }
+.ccnav-policy .legal-summary > span { color: #35452b; font: 600 var(--ui-body, 16px)/1.5 "DM Sans", sans-serif; }
+.ccnav-policy .legal-summary p { color: #535e49; margin-bottom: 0; }
+.ccnav-information a { color: #48613d; text-underline-offset: 3px; overflow-wrap: anywhere; }
+.ccnav-content-status { font-size: var(--ui-support, 14px); color: #666b5c; line-height: 1.6; margin: 16px 0; }
+.ccnav-content-status:empty { display: none; }
+.ccnav-content-status button { display: inline-block; min-height: 44px; padding: 10px 14px; margin: 4px 8px; border: 1px solid #d5ddca; border-radius: 12px; background: #eef0e7; color: #35452b; font: inherit; cursor: pointer; }
+.ccnav-standalone > .ccnav-information { width: 100%; --ccnav-muted: #6c6d61; }
+@media (max-width: 359px) { .ccnav-contact-intro .cozy-companion { float: none; margin: 0 0 12px; } .ccnav-profile { padding: 14px; } .ccnav-avatar { flex-basis: 48px; width: 48px; height: 48px; } }

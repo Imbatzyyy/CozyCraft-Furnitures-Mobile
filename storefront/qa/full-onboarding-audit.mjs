@@ -16,7 +16,6 @@ for (const engine of [chromium, webkit]) {
 const welcomeVoucher = { id: "fixture-voucher", code: "WELCOME-QA", discountAmount: 500, minimumOrderAmount: 5000, expiresAt: "2027-01-01" }
   const status = { userId: id, isGoogle: provider === "google", needsUsername: provider === "google", username: profile.username, showVoucher: provider === "email", voucher: provider === "email" ? welcomeVoucher : null }
   const counts = {}
-  let reconnectGate = null, reconnectObserved = null
   const errors = []
   await context.routeWebSocket(/supabase\.(co|in)/, ws => ws.close())
   await context.route(/https:\/\/[^/]*supabase\.(co|in)\//, async route => {
@@ -37,7 +36,6 @@ const welcomeVoucher = { id: "fixture-voucher", code: "WELCOME-QA", discountAmou
     } else if (path.endsWith("/get_mobile_google_onboarding") || path.endsWith("/get_mobile_customer_onboarding")) {
       if (journey === "retry" && counts[path] <= 2) return route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({message:"Temporary welcome lookup failure"}) })
       data = structuredClone(status)
-      if (reconnectGate) { reconnectObserved?.(); await reconnectGate }
       // A stale status response arriving after dismissal cannot reopen it.
       if (counts[path] > 1) await new Promise(r => setTimeout(r, 800))
     }
@@ -104,17 +102,19 @@ const welcomeVoucher = { id: "fixture-voucher", code: "WELCOME-QA", discountAmou
   await page.getByText("WELCOME-QA", { exact: true }).waitFor()
   await page.waitForFunction(() => { const img = document.querySelector('.voucher-step img'); return img?.complete && img.naturalWidth > 0 })
   await page.screenshot({ path: `/tmp/cozy-full-onboarding-${provider}-${journey}-${engine.name()}.png` })
-  let releaseReconnect = null
   if (journey === "reconnect") {
-    reconnectGate = new Promise(resolve => { releaseReconnect = resolve })
-    const observed = new Promise(resolve => { reconnectObserved = resolve })
+    // A successfully hydrated welcome flow no longer reloads on every online
+    // event. The low-egress recovery path refreshes shopping resources only;
+    // failed welcome lookups have their own explicit Retry action above.
+    const before = counts["/rest/v1/rpc/get_mobile_customer_onboarding"] || 0
     await page.evaluate(() => { window.dispatchEvent(new Event("offline")); window.dispatchEvent(new Event("online")) })
-    await Promise.race([observed, new Promise((_, reject) => setTimeout(() => reject(new Error("Reconnect lookup did not start")), 5000))])
+    await page.waitForTimeout(1000)
+    assert.equal(counts["/rest/v1/rpc/get_mobile_customer_onboarding"] || 0, before, "Reconnect unnecessarily reloaded completed welcome setup")
+    assert.equal(await page.getByText("WELCOME-QA", { exact: true }).count(), 1, "Reconnect duplicated the voucher")
   }
   await page.getByText("Keep it for later", { exact: true }).click()
   await page.getByRole("dialog").waitFor({ state: "detached" })
   assert.equal(await page.locator("#root").evaluate(el => el.inert), false)
-  releaseReconnect?.()
   await page.waitForTimeout(1000)
   assert.equal(await page.getByRole("dialog").count(), 0, "Late status reopened voucher")
   assert.equal(counts["/rest/v1/rpc/acknowledge_mobile_welcome_voucher"], 1)
