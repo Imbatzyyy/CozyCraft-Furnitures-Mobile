@@ -138,3 +138,9 @@
 .ccnav-content-status button { display: inline-block; min-height: 44px; padding: 10px 14px; margin: 4px 8px; border: 1px solid #d5ddca; border-radius: 12px; background: #eef0e7; color: #35452b; font: inherit; cursor: pointer; }
 .ccnav-standalone > .ccnav-information { width: 100%; --ccnav-muted: #6c6d61; }
 @media (max-width: 359px) { .ccnav-contact-intro .cozy-companion { float: none; margin: 0 0 12px; } .ccnav-profile { padding: 14px; } .ccnav-avatar { flex-basis: 48px; width: 48px; height: 48px; } }
+.account-page .account-resource-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.account-page .account-resource-links button{min-width:0;min-height:48px;padding:12px;line-height:1.4;font-size:var(--ui-support,14px);overflow-wrap:break-word}
+.account-page .account-preferences-card{flex-wrap:wrap}
+.account-page .account-preferences-card>header{flex-basis:180px}
+@media(min-width:600px){.account-page .account-resource-links{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:420px){.account-page .account-preferences-card>button{width:100%;min-height:44px}}

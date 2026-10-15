@@ -1,25 +1,11 @@
 import { homeCircleTier } from "./home-circle"
+import { MOBILE_CARE_PAGES, mobileTaskSteps, type MobileCareDestination } from "./cozycraft-mobile-pages"
 
 export type MobileAssistantReplyBlock =
   | { type: "paragraph"; text: string }
   | { type: "directions"; items: string[] }
 
-export type MobileAssistantDestination =
-  | "home"
-  | "shop"
-  | "saved"
-  | "bag"
-  | "account"
-  | "orders"
-  | "addresses"
-  | "payments"
-  | "support"
-  | "membership"
-  | "notifications"
-  | "about"
-  | "contact"
-  | "terms"
-  | "privacy"
+export type MobileAssistantDestination = MobileCareDestination
 
 export type MobileAssistantNavigation = {
   destination: MobileAssistantDestination
@@ -129,33 +115,9 @@ export type MobileAssistantContextualReply = MobileAssistantGuidance & {
   liveAccountData: boolean
 }
 
-const navigationRequest = /\b(?:where|how (?:do|can|may|should)|guide me|show me|take me|bring me|navigate|open|find|which (?:page|screen|tab)|go to|access|see the)\b/i
+const navigationRequest = /\b(?:where|how (?:do|can|may|should|to)|guide me|show me|take me|bring me|navigate|open|find|which (?:page|screen|tab)|go to|access|see the|saan|paano|buksan)\b/i
 
-const navigationDefinitions: Array<{
-  destination: MobileAssistantDestination
-  matches: RegExp
-  label: string
-  icon: string
-  title: string
-  purpose: string
-  signedInOnly?: boolean
-}> = [
-  { destination: "orders", matches: /\b(?:my orders?|order history|track(?:ing)?\b[^.!?]{0,36}\b(?:order|package|delivery)|delivery status|cancel(?:lation)? (?:an? |my )?order|return (?:an? |my )?(?:order|product)|review (?:an? |my )?(?:order|purchase|product))\b/i, label: "Open My Orders", icon: "package_2", title: "My Orders", purpose: "See payment status, delivery progress, requests, and your complete order timeline.", signedInOnly: true },
-  { destination: "support", matches: /\b(?:care\s*(?:and|&)\s*support|support (?:page|screen|tab|ticket)|(?:open|visit|view|check|tap|then|see|find|access) (?:the )?support|customer (?:care|support)|contact (?:support|the care team|staff)|start (?:a )?(?:support )?ticket|get help)\b/i, label: "Open Care & Support", icon: "support_agent", title: "Care & Support", purpose: "Find quick answers or send a private request to the care team.", signedInOnly: true },
-  { destination: "addresses", matches: /\b(?:delivery|saved|shipping) address(?:es)?\b/i, label: "Open Delivery Addresses", icon: "location_on", title: "Delivery Addresses", purpose: "Add, edit, and choose the address used at checkout.", signedInOnly: true },
-  { destination: "payments", matches: /\b(?:payment preferences?|preferred payment|default payment|payment settings?)\b/i, label: "Open Payment Preferences", icon: "payments", title: "Payment Preferences", purpose: "Choose the payment method shown first at checkout.", signedInOnly: true },
-  { destination: "bag", matches: /\b(?:shopping bag|my bag|cart|checkout|place (?:my |an? )?order|pay with (?:gcash|card)|gcash checkout|card checkout)\b/i, label: "Open My Bag", icon: "shopping_bag", title: "Bag", purpose: "Review selected items, delivery fees, and checkout details." },
-  { destination: "saved", matches: /\b(?:wishlist|wish list|saved (?:items?|pieces?|products?)|favorites?|favourites?)\b/i, label: "Open Saved Pieces", icon: "favorite", title: "Saved Pieces", purpose: "Return to furniture you saved for later.", signedInOnly: true },
-  { destination: "membership", matches: /\b(?:home circle|membership|member tier|loyalty|reward points?|my points?)\b/i, label: "Open Home Circle", icon: "stars", title: "Home Circle", purpose: "See points, tier progress, activity, and available rewards.", signedInOnly: true },
-  { destination: "notifications", matches: /\b(?:notifications?|order updates?)\b/i, label: "Open Notifications", icon: "notifications", title: "Notifications", purpose: "Review recent payment, order, and delivery updates.", signedInOnly: true },
-  { destination: "account", matches: /\b(?:my account|profile (?:page|screen|tab)|edit (?:my )?profile|account settings?|sign[ -]?in|log[ -]?in|login|create (?:an? )?account|register|change (?:my )?(?:name|photo|phone|email)|phone verification|otp)\b/i, label: "Open My Profile", icon: "person", title: "My Profile", purpose: "Manage your profile and customer account tools.", signedInOnly: true },
-  { destination: "privacy", matches: /\b(?:privacy|data policy)\b/i, label: "Open Privacy", icon: "privacy_tip", title: "Privacy", purpose: "Read how CozyCraft handles customer information." },
-  { destination: "terms", matches: /\b(?:terms|conditions)\b/i, label: "Open Terms", icon: "gavel", title: "Terms", purpose: "Review the terms for using CozyCraft services." },
-  { destination: "about", matches: /\b(?:about (?:cozycraft|us|page)|company story|founders?|vision ventures)\b/i, label: "Open About CozyCraft", icon: "info", title: "About CozyCraft", purpose: "Read the brand story and meet Vision Ventures." },
-  { destination: "contact", matches: /\b(?:contact (?:page|details|information)|email address|phone number)\b/i, label: "Open Contact", icon: "contact_support", title: "Contact", purpose: "See CozyCraft customer-care contact information." },
-  { destination: "shop", matches: /\b(?:shop|catalog|products? page|new arrivals?|living room|bedroom|dining room|browse (?:furniture|products?|pieces?))\b/i, label: "Browse Furniture", icon: "chair", title: "Shop", purpose: "Browse the live catalog by room and product type." },
-  { destination: "home", matches: /\b(?:home page|homepage|main screen)\b/i, label: "Open Home", icon: "home", title: "Home", purpose: "Return to featured collections and recommendations." },
-]
+const navigationDefinitions = MOBILE_CARE_PAGES
 
 const privateDataPatterns: Array<{ intent: MobileAssistantDataIntent; matches: RegExp }> = [
   { intent: "orders", matches: /\b(?:orders?|tracking|shipment)\b/i },
@@ -258,6 +220,9 @@ export function mobileAssistantGuidanceFor(
 ): MobileAssistantGuidance | null {
   if (mobileAssistantDataIntentsFor(message).length) return null
   if (!navigationRequest.test(message)) return null
+  // Troubleshooting needs the scoped assistant rather than a route shortcut.
+  if (/\b(why|broken|failed|stuck|not working|cannot|can't|won't|python|coding|ignore instructions)\b/i.test(message)) return null
+  if (/\b(authenticator|two.step|2fa|signed.in devices|sessions)\b/i.test(message)) return null
   const navigation = mobileAssistantNavigationFor(message, authenticated)
   if (!navigation) return null
 
@@ -266,9 +231,7 @@ export function mobileAssistantGuidanceFor(
     const steps = [
       `Tap ${navigation.label} below.`,
       "Sign in with your CozyCraft customer account.",
-      ...(requestedDefinition?.destination !== "account"
-        ? [`Open ${requestedDefinition?.title || "the requested section"} from My Profile.`]
-        : []),
+      ...(requestedDefinition?.steps || []),
     ]
     return {
       reply: `Sign-in is required to view this private account section.\n${steps.map((step, index) => `${index + 1}. ${step}`).join("\n")}`,
@@ -278,7 +241,8 @@ export function mobileAssistantGuidanceFor(
 
   const definition = navigationDefinitions.find((item) => item.destination === navigation.destination)
   const title = definition?.title || navigation.label.replace(/^Open\s+/i, "")
-  const reply = `${title}: ${definition?.purpose || "Open the correct app section directly."}\n1. Tap ${navigation.label} below.`
+  const steps = (navigation.destination === "orders" ? mobileTaskSteps(message) : undefined) || definition?.steps || []
+  const reply = `${title}: ${definition?.purpose || "Open the correct app section directly."}\n${steps.map((step, index) => `${index + 1}. ${step}`).join("\n")}\n\nTap ${navigation.label} below to get started.`
 
   return { reply, navigation }
 }

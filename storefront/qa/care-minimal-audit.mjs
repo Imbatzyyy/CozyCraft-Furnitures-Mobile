@@ -26,7 +26,7 @@ for(const [engine,platform] of [[chromium,'android'],[webkit,'ios']]) {
   assert.ok((await page.locator('output').textContent()).startsWith('closed'))
   await page.goto(`http://127.0.0.1:5187/?care&offline&platform=${platform}&text=${text}`)
   await page.getByText('Offline',{exact:true}).waitFor()
-  await page.getByRole('button',{name:'Back from CozyCraft Care'}).click()
+  await page.getByRole('button',{name:'Close CozyCraft Care'}).click()
   assert.ok((await page.locator('output').textContent()).startsWith('closed'))
   checks++; await page.close()
  }

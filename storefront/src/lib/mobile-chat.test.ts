@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest"
+import { APP_MENU_GROUPS } from "../features/navigation/app-navigation-data"
+import { MOBILE_CARE_PAGES } from "./cozycraft-mobile-pages"
 import {
   buildMobileAssistantAccountReply,
   formatMobileAssistantReply,
@@ -35,6 +37,39 @@ const signedInContext: MobileAssistantAccountContext = {
 }
 
 describe("mobile assistant reply formatting", () => {
+  it("covers every current navigation-menu destination", () => {
+    const destinations = new Set(MOBILE_CARE_PAGES.map(page => page.destination))
+    for (const group of APP_MENU_GROUPS) for (const item of group.items) expect(destinations.has(item.id), item.label).toBe(true)
+  })
+  it.each(MOBILE_CARE_PAGES)("recognizes the exact $title screen label", page => {
+    expect(mobileAssistantGuidanceFor(`Open ${page.title}`, true)?.navigation.destination).toBe(page.destination)
+  })
+  it.each([
+    ["Where is the Developers page?", "developers"], ["Where is Company History?", "history"],
+    ["Where is About CozyCraft?", "about"], ["Open Contact Us", "contact"],
+    ["Open Terms of Service", "terms"], ["Open Privacy Policy", "privacy"],
+    ["Open Search", "search"], ["How do I compare furniture?", "compare"],
+    ["How do I edit my profile?", "profile"], ["How do I change my password?", "security"],
+    ["Where are shopping preferences?", "preferences"], ["Where is text size?", "text-size"],
+    ["How do I replay the tutorial?", "tour"], ["Open Living room", "living-room"],
+    ["Open Bedroom", "bedroom"], ["Open Dining room", "dining-room"],
+    ["How do I request an invoice?", "orders"], ["Where is Continue payment?", "orders"],
+    ["How do I create an account?", "create-account"], ["How do I reset my password?", "reset-password"],
+    ["Saan ang Developers page?", "developers"], ["Buksan ang wishlist", "saved"],
+    ["Open Home Circle", "membership"], ["Open Payment Preferences", "payments"],
+  ])("routes %s to %s", (question, destination) => {
+    const result = mobileAssistantGuidanceFor(question, true)
+    expect(result?.navigation.destination).toBe(destination)
+    expect(result?.reply).not.toMatch(/website footer|\/profile/)
+  })
+  it.each(MOBILE_CARE_PAGES.filter(page => page.signedInOnly))("gates private $destination for guests", page => {
+    expect(mobileAssistantGuidanceFor(`Open ${page.title}`, false)?.navigation.destination).toBe("account")
+  })
+  it("explains current order actions and leaves troubleshooting to the assistant", () => {
+    expect(mobileAssistantGuidanceFor("How do I request an invoice?", true)?.reply).toContain("Request an invoice")
+    expect(mobileAssistantGuidanceFor("Where is Continue payment?", true)?.reply).toContain("already charged")
+    expect(mobileAssistantGuidanceFor("Why is my invoice not working?", true)).toBeNull()
+  })
   it.each([
     "Hello! I’m Cozy. I can help you choose furniture, follow an order, use a voucher, or find the right account setting. What would you like to do?",
     "I can help you select a sofa or choose furniture for your room.",
@@ -122,7 +157,7 @@ describe("mobile assistant reply formatting", () => {
 
   it("resolves a support-page request to the actual mobile support section", () => {
     expect(mobileAssistantGuidanceFor("Guide me where to see support page", true)).toEqual({
-      reply: "Care & Support: Find quick answers or send a private request to the care team.\n1. Tap Open Care & Support below.",
+      reply: "Care & Support: Find quick answers or send a private request to the care team.\n1. Open My account, then Care & Support.\n2. Read the FAQs or create a support ticket and follow staff replies there.\n\nTap Open Care & Support below to get started.",
       navigation: {
         destination: "support",
         label: "Open Care & Support",
@@ -151,7 +186,7 @@ describe("mobile assistant reply formatting", () => {
       icon: "login",
     })
     expect(mobileAssistantGuidanceFor("Where can I sign in?", false)?.navigation).toEqual({
-      destination: "account",
+      destination: "sign-in",
       label: "Open customer sign-in",
       icon: "login",
     })

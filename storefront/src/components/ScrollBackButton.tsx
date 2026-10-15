@@ -34,7 +34,9 @@ export default function ScrollBackButton() {
       const page = hit?.closest<HTMLElement>(pageSelector) || null
       const dialog = hit?.closest<HTMLElement>('[role="dialog"][aria-modal="true"]')
       const editing = document.activeElement?.matches('input,textarea,select,[contenteditable="true"]')
-      if (!page || (dialog && dialog !== page && !dialog.contains(page)) || editing || !visible(page)) {
+      // Care owns a persistent Close control. Never overlay its conversation or
+      // feedback with a second navigation control, even over a scrolled page.
+      if (document.querySelector(".mobile-ai-chat") || !page || (dialog && dialog !== page && !dialog.contains(page)) || editing || !visible(page)) {
         setTarget(previous => previous ? null : previous)
         return
       }

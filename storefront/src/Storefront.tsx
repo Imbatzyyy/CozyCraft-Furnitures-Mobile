@@ -2070,7 +2070,31 @@ export default function Storefront({ launchHandoff = false, onReady, initialSupp
   }
 
   const openAssistantDestination = (destination: MobileAssistantDestination) => {
-    if (destination === "about" || destination === "contact" || destination === "terms" || destination === "privacy") { setAppInfoPage(destination); return }
+    if (destination === "about" || destination === "contact" || destination === "terms" || destination === "privacy" || destination === "history" || destination === "developers") { setAppInfoPage(destination); return }
+    if (destination === "sign-in" || destination === "create-account" || destination === "reset-password") {
+      if (userId && destination !== "reset-password") { navigateTo("account"); return }
+      window.location.hash = `#/${destination}`
+      return
+    }
+    if (destination === "profile" || destination === "security" || destination === "preferences") {
+      navigateTo("account")
+      setProfileOpen(true)
+      return
+    }
+    if (destination === "text-size" || destination === "tour") { navigateTo("account"); return }
+    if (destination === "search") { navigateTo("shop"); setSearch(true); return }
+    if (destination === "compare") {
+      navigateTo("shop")
+      if (compareIds.length) setCompareOpen(true)
+      else flash("Add pieces to compare, then tap Compare now")
+      return
+    }
+    if (destination === "living-room" || destination === "bedroom" || destination === "dining-room") {
+      navigateTo("shop")
+      setShopRoom(({ "living-room": "living", bedroom: "bedroom", "dining-room": "dining" })[destination])
+      setShopSubcategory("")
+      return
+    }
     if (["orders", "addresses", "payments", "support"].includes(destination)) {
       setAssistantAccountView(destination as "orders" | "addresses" | "payments" | "support")
       navigateTo("account")
@@ -2756,6 +2780,7 @@ export default function Storefront({ launchHandoff = false, onReady, initialSupp
               onInitialOrderHandled={() => setOrderToView(null)}
               onInitialViewHandled={() => setAssistantAccountView(null)}
               openAppAbout={() => setAppInfoPage("about")}
+              openAppInformation={setAppInfoPage}
             />
           )}
         </section>
@@ -3397,7 +3422,7 @@ export function MobileCareChat({
   return <>
     {open && <section className="mobile-ai-chat care-minimal" role="dialog" aria-modal="true" aria-label="CozyCraft customer care chat">
       <header>
-        <button onClick={() => setOpen(false)} aria-label="Back from CozyCraft Care"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="m11 5-7 7 7 7M4 12h16"/></svg></button>
+        <button type="button" onClick={() => setOpen(false)} aria-label="Close CozyCraft Care"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button>
         <div className="ai-care-brand"><p><b>CozyCraft Care</b><small>{!online ? "Offline" : userId && !accountDataReady ? "Connecting your account…" : "Your shopping assistant"}</small></p></div>
         <button onClick={resetConversation} aria-label="Start a new conversation"><span className="material-symbols-rounded">edit_square</span></button>
       </header>
@@ -3941,6 +3966,7 @@ export function Account({
   initialOrder,
   onInitialOrderHandled,
   openAppAbout,
+  openAppInformation,
 }: {
   userId: string
   flash: (s: string) => void
@@ -3971,6 +3997,7 @@ export function Account({
   initialOrder?: CustomerOrder | null
   onInitialOrderHandled?: () => void
   openAppAbout?: () => void
+  openAppInformation?: (section: AppInfoSection) => void
 }) {
   const [view, setView] = useState<string | null>(null)
   const [confirmSignOut, setConfirmSignOut] = useState(false)
@@ -4333,6 +4360,7 @@ export function Account({
   ]
   const active = entries.find((x) => x.id === view)
   const openContentDocument = (route: "about" | "contact" | "terms" | "privacy-policy") => {
+    if (openAppInformation) { openAppInformation(route === "privacy-policy" ? "privacy" : route); return }
     if (route === "about" && openAppAbout) { openAppAbout(); return }
     const scrollTop = document.querySelector<HTMLElement>(".lux-body")?.scrollTop || 0
     rememberStorefrontReturnState(scrollTop, unreadNotificationCount)
@@ -4475,7 +4503,8 @@ export function Account({
       <nav className="account-resource-links" aria-label="CozyCraft information">
         <button type="button" onClick={() => window.dispatchEvent(new Event("cozycraft-replay-tour"))}>Take the app tour</button>
         <button type="button" onClick={() => openContentDocument("about")}>About</button>
-        <button type="button" onClick={() => openContentDocument("contact")}>Contact</button>
+        <button type="button" onClick={() => openContentDocument("contact")}>Contact Us</button>
+        {openAppInformation && <><button type="button" onClick={() => openAppInformation("developers")}>Developers</button><button type="button" onClick={() => openAppInformation("history")}>Company History</button></>}
         <button type="button" onClick={() => openContentDocument("terms")}>Terms</button>
         <button type="button" onClick={() => openContentDocument("privacy-policy")}>Privacy</button>
       </nav>

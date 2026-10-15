@@ -4,6 +4,7 @@ import { mkdir } from "node:fs/promises"
 const { chromium, webkit } = await import(process.env.PLAYWRIGHT_MODULE || "playwright")
 const base = process.env.APP_URL || "http://127.0.0.1:5197"
 const output = process.env.QA_OUTPUT || "/tmp/cozycraft-menu-qa"
+const quick = process.env.QA_QUICK === "1"
 await mkdir(output, { recursive: true })
 const id = "11111111-1111-4111-8111-111111111111"
 const user = { id, email: "qa@example.test", role: "authenticated", aud: "authenticated", created_at: "2026-01-01", app_metadata: { provider: "email", providers: ["email"] }, user_metadata: { full_name: "Alex Rivera", cozy_tour_completed_v1: true }, factors: [] }
@@ -11,8 +12,8 @@ const profile = { id, role: "customer", full_name: "Alexandra Rivera Santos", em
 let checked = 0
 for (const engine of [chromium, webkit]) {
   const browser = await engine.launch({ headless: true })
-  for (const [width, height] of [[320,640], [390,844], [768,1024], [844,390], [1440,1000]]) {
-    for (const text of ["comfortable", "extra-large"]) {
+  for (const [width, height] of quick ? [[390,844]] : [[320,640], [390,844], [768,1024], [844,390], [1440,1000]]) {
+    for (const text of quick ? ["comfortable"] : ["comfortable", "extra-large"]) {
       const context = await browser.newContext({ viewport: { width, height }, reducedMotion: width === 320 ? "reduce" : "no-preference" })
       const contentReads = new Map()
       await context.routeWebSocket(/supabase\.(co|in)/, ws => ws.close())
@@ -122,6 +123,43 @@ for (const engine of [chromium, webkit]) {
         await open(); await page.getByRole("button", { name, exact: true }).click()
         await page.locator('.ccnav-layer').waitFor({ state: "detached" })
         assert.equal(await page.locator(`.lux-nav [data-nav="${tab}"]`).getAttribute("aria-current"), "page")
+      }
+      // Account shortcuts open the same in-app information surfaces and return
+      // to Account without remounting the storefront or losing the scroll position.
+      for (const [name, selector] of [["Contact Us", ".ccnav-contact-actions"], ["Developers", ".ccnav-team"], ["Company History", ".ccnav-timeline"]]) {
+        const link = page.locator('.account-resource-links').getByRole('button', { name, exact: true })
+        await link.scrollIntoViewIfNeeded()
+        // In landscape, the browser may scroll a link clear of the fixed dock
+        // during click actionability. Compare with the actual tap position.
+        await link.evaluate(el => el.addEventListener('click', () => { window.__accountScrollAtOpen = document.querySelector('.lux-body').scrollTop }, { once: true }))
+        await checkOverflow('.account-resource-links')
+        assert.equal(await page.locator('.account-resource-links').evaluate(el => getComputedStyle(el).display), 'grid')
+        assert.ok(await page.locator('.account-resource-links button').evaluateAll(items => items.every(el => el.getBoundingClientRect().height >= 44 && el.getBoundingClientRect().width >= 90)), 'Information shortcuts must be readable touch targets')
+        if (snapshot && name === "Developers") await page.screenshot({ path: `${output}/account-information-links-${width}.png`, animations: "disabled" })
+        await link.click()
+        await page.locator(selector).waitFor()
+        await page.getByRole("button", { name: "Back to shopping screen" }).click()
+        assert.equal(await page.locator('.lux-nav [data-nav="account"]').getAttribute("aria-current"), "page")
+        assert.equal(await page.locator('.lux-body').evaluate(el => el.scrollTop), await page.evaluate(() => window.__accountScrollAtOpen), `${label}: ${name} changed the Account reading position`)
+      }
+      // Exercise actual chatbot destinations through the full Storefront handler.
+      if (width === 390 && text === "comfortable") for (const [question, selector] of [["Open Developers", ".ccnav-team"], ["Open Company History", ".ccnav-timeline"], ["How do I change my password?", ".profile-security"], ["Open Search", ".search-overlay"], ["Open Living room", ".room-shop"], ["How do I request an invoice?", ".account-sheet"]]) {
+        await page.locator('.lux-nav [data-nav="home"]').click()
+        await page.locator('.lux-body').evaluate(el => el.scrollTop = 0)
+        await page.getByRole('button', { name: 'Open CozyCraft Care', exact: true }).click()
+        await page.getByRole('textbox', { name: 'Message CozyCraft Care' }).fill(question)
+        await page.getByRole('button', { name: 'Send message', exact: true }).click()
+        await page.locator('.ai-navigation-action').click()
+        await page.locator(selector).waitFor()
+        assert.equal(await page.locator('.mobile-ai-chat').count(), 0)
+        if (selector === '.room-shop') {
+          assert.equal(await page.locator('.room-tabs .active').innerText(), 'Living')
+          await page.locator('.lux-nav [data-nav="account"]').click()
+        }
+        else {
+          await page.evaluate(() => window.dispatchEvent(new MessageEvent("message", { data: { type: "cozycraft-native-back" }, source: window.parent })))
+          await page.locator(selector).waitFor({ state: "detached" })
+        }
       }
       // Rapid clicks, background protections, support/rewards/order entry points.
       for (const [name, selector] of [["My orders", ".account-sheet"], ["Care & support", ".account-sheet"], ["Home Circle", ".home-circle"]]) {

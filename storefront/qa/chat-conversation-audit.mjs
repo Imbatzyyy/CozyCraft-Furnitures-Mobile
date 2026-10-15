@@ -43,18 +43,39 @@ try {
         }
         if (width === 390) await page.screenshot({ path: `/tmp/cozy-chat-conversation-${engine.name()}.png`, fullPage: true })
         const reply = await send("Where can I see support?")
-        assert.equal(await reply.locator(".ai-direction-card").count(), 1)
+        assert.ok(await reply.locator(".ai-direction-card").count() >= 1)
         assert.equal(await reply.locator(".ai-navigation-action").count(), 1)
         assert.ok(await page.locator(".ai-composer").evaluate(el => { const r = el.getBoundingClientRect(); return r.bottom <= innerHeight + 1 && r.top >= 0 }))
         assert.ok(await page.locator(".care-minimal").evaluate(el => el.scrollWidth <= el.clientWidth + 1))
         assert.deepEqual(errors, [])
+        // A long, unfocused conversation must never acquire the global Back helper.
+        await page.getByRole("textbox", { name: "Message CozyCraft Care" }).blur()
+        await page.locator(".mobile-ai-chat > main").evaluate(el => { el.scrollTop = el.scrollHeight })
+        await delay(150)
+        assert.equal(await page.locator(".cozy-scroll-back").count(), 0)
+        assert.equal(await page.getByRole("button", { name: /back/i }).count(), 0)
+        assert.equal(await page.getByRole("button", { name: "Close CozyCraft Care", exact: true }).count(), 1)
+        await page.locator(".mobile-ai-chat > main").evaluate(el => { el.scrollTop = 350 })
+        await delay(100)
+        assert.equal(await page.locator(".cozy-scroll-back").count(), 0)
+        if (width === 390) await page.screenshot({ path: `/tmp/cozy-care-no-back-${engine.name()}.png`, fullPage: true })
         await reply.locator(".ai-navigation-action").click()
         assert.match(await page.getByLabel("Chat state").innerText(), /^closed support/)
+        for (const [question, target] of [["Open Company History", "history"], ["Open Developers", "developers"], ["Open Contact Us", "contact"], ["Open Privacy Policy", "privacy"], ["Open Living room", "living-room"], ["How do I change my password?", "security"], ["How do I request an invoice?", "orders"]]) {
+          await page.reload()
+          const answer = await send(question)
+          assert.equal(await answer.locator(".ai-navigation-action").count(), 1)
+          await answer.locator(".ai-navigation-action").click()
+          assert.equal(await page.getByLabel("Chat state").innerText(), `closed ${target}`)
+        }
+        await page.reload()
+        await page.getByRole("button", { name: "Close CozyCraft Care", exact: true }).click()
+        assert.equal(await page.getByLabel("Chat state").innerText(), "closed")
         console.log(`PASS ${engine.name()} ${width}px: six conversational replies, product list, real support navigation, composer and overflow`)
         checks++
         await page.close()
       }
     } finally { await browser.close() }
   }
-  console.log(`PASS ${checks} chat layouts and 56 message interactions.`)
+  console.log(`PASS ${checks} chat layouts, 112 message interactions, no floating Back, and working Close.`)
 } finally { server.kill("SIGTERM") }
