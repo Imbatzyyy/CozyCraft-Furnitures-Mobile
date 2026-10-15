@@ -16,7 +16,9 @@ export default function CozyImage({ className, onLoad, onError, ...props }: ImgH
     // Netlify remote-image transformations don't forward custom CORS headers.
     // Display them as ordinary images; retain CORS for an original fallback.
     crossOrigin={responsive ? undefined : props.crossOrigin}
-    src={responsive?.src || props.src}
+    // An empty src can request the document itself and logs a React warning.
+    // Leave the placeholder frame without a network request until media exists.
+    src={responsive?.src || props.src || undefined}
     srcSet={responsive?.srcSet || props.srcSet}
     sizes={props.sizes || "(max-width: 600px) 50vw, 320px"}
     decoding={props.decoding || "async"}

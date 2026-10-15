@@ -6,6 +6,9 @@ import tailwindcss from "@tailwindcss/vite"
 // Isolated UI fixture: this config never participates in the app build.
 export default defineConfig({
   root: fileURLToPath(new URL(".", import.meta.url)),
+  // Never reuse the production app's optimized dependencies: this fixture
+  // replaces Supabase with a mock and can run alongside the real dev server.
+  cacheDir: fileURLToPath(new URL("../node_modules/.vite-qa", import.meta.url)),
   publicDir: fileURLToPath(new URL("../public", import.meta.url)),
   plugins: [react(), tailwindcss()],
   resolve: { alias: { "@supabase/supabase-js": fileURLToPath(new URL("./mock-supabase.ts", import.meta.url)) } },

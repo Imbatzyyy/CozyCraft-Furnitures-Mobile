@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { appPath, compareVersions, selectXcode, toolchainEnvironment } from './xcode-toolchain.mjs';
+import { appPath, compareVersions, missingNativeDependencyFiles, selectXcode, toolchainEnvironment } from './xcode-toolchain.mjs';
 
 const old = { app: '/Applications/Xcode.app', version: '26.6' };
 const current = { app: '/Example User/Downloads/Xcode.app', version: '27.0' };
@@ -40,4 +40,21 @@ test('preserves unrelated caller build configuration on new Xcode', () => {
   const env = toolchainEnvironment(current, { XCODE_XCCONFIG_FILE: '/custom/config.xcconfig', CCC_OVERRIDE_OPTIONS: 'custom' });
   assert.equal(env.XCODE_XCCONFIG_FILE, '/custom/config.xcconfig');
   assert.equal(env.CCC_OVERRIDE_OPTIONS, 'custom');
+});
+
+test('accepts a complete native dependency graph', () => {
+  assert.deepEqual(missingNativeDependencyFiles(undefined, () => true), []);
+});
+test('detects a missing haptics Swift manifest even when package.json exists', () => {
+  const missing = missingNativeDependencyFiles(undefined, file => !file.endsWith('/haptics/Package.swift'));
+  assert.equal(missing.length, 1);
+  assert.match(missing[0], /node_modules\/@capacitor\/haptics\/Package.swift$/);
+});
+test('checks every generated local plugin manifest and Capacitor CLI', () => {
+  const missing = missingNativeDependencyFiles(undefined, () => false);
+  for (const plugin of ['app', 'browser', 'haptics', 'local-notifications', 'push-notifications']) {
+    assert.ok(missing.some(file => file.endsWith(`/${plugin}/Package.swift`)));
+    assert.ok(missing.some(file => file.endsWith(`/${plugin}/package.json`)));
+  }
+  assert.ok(missing.some(file => file.endsWith('/cli/package.json')));
 });

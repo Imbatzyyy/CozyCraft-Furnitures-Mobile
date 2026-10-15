@@ -1,5 +1,28 @@
 # Profile verification UI fixture
 
+## Repeatable app readiness checks
+
+From the mobile repository root, after `npm ci` and `npm --prefix storefront ci`:
+
+```sh
+npx playwright install chromium webkit
+npm run verify:release
+npm run test:browser
+```
+
+`test:browser` starts and stops its own localhost-only app server on port 5199.
+It runs the Google/email onboarding and welcome voucher, bounded-read recovery,
+storage/cart/wishlist reliability, and responsive navigation suites in Chromium
+and WebKit. Backend traffic is intercepted by the fixtures; no live customers,
+payments, or messages are created. Linux runners may need
+`npx playwright install --with-deps chromium webkit` first. A preinstalled
+Playwright module can be selected with `PLAYWRIGHT_MODULE` (absolute file URL).
+
+The isolated UI fixture below uses a separate optimized-dependency cache, so it
+can run beside the real app dev server without replacing its Supabase client.
+
+## Isolated component fixture
+
 Run `npm run qa` from `storefront/`, then open `http://127.0.0.1:5174`.
 
 This uses the actual mobile profile components with an in-memory Supabase adapter. The page cannot contact the production API: the adapter replaces the SDK, and its content security policy restricts network access to localhost. No real SMS is sent, and no customer data is changed.

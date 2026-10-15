@@ -79,6 +79,19 @@ function run(command, args, env) {
   if (result.status !== 0) throw new Error(`${path.basename(command)} failed (${result.signal || result.status}).`);
 }
 
+export function missingNativeDependencyFiles(root = projectRoot, exists = fs.existsSync) {
+  const packageRoot = path.join(root, 'ios/App/CapApp-SPM');
+  const manifest = fs.readFileSync(path.join(packageRoot, 'Package.swift'), 'utf8');
+  const required = ['core', 'ios', 'cli'].map(name => path.join(root, 'node_modules/@capacitor', name, 'package.json'));
+  // Read the generated package graph, including haptics and future plugins.
+  // A package.json alone doesn't prove that Xcode can read a Swift package.
+  for (const [, relative] of manifest.matchAll(/\.package\([^\n]*\bpath:\s*"([^"]+)"/g)) {
+    const directory = path.resolve(packageRoot, relative);
+    required.push(path.join(directory, 'package.json'), path.join(directory, 'Package.swift'));
+  }
+  return [...new Set(required)].filter(file => !exists(file));
+}
+
 function main() {
   const [action = 'info', ...args] = process.argv.slice(2);
   if (!['info', 'build', 'open'].includes(action)) throw new Error('Usage: node scripts/xcode-toolchain.mjs [info|build <xcodebuild arguments>|open]');
@@ -90,10 +103,11 @@ function main() {
   console.log(`Using Xcode ${selected.version}: ${selected.app}`);
   const xcodebuild = path.join(env.DEVELOPER_DIR, 'usr/bin/xcodebuild');
   if (action === 'build') { run(xcodebuild, args, env); return; }
-  const required = ['ios', 'app', 'browser', 'local-notifications', 'push-notifications'];
-  if (required.some(name => !fs.existsSync(path.join(projectRoot, 'node_modules/@capacitor', name, 'package.json')))) {
+  if (missingNativeDependencyFiles().length) {
     console.log('Restoring locked mobile dependencies for Xcode...');
     run('npm', ['ci', '--no-audit', '--no-fund'], env);
+    const missing = missingNativeDependencyFiles();
+    if (missing.length) throw new Error(`Native dependencies are still incomplete:\n${missing.join('\n')}`);
   }
   const project = path.join(projectRoot, 'ios/App/App.xcodeproj');
   run(xcodebuild, ['-quiet', '-project', project, '-scheme', 'App', '-resolvePackageDependencies'], env);

@@ -10,7 +10,7 @@ const failures = []
 let passed = 0
 
 for (const engine of [chromium, webkit]) {
-  const browser = await engine.launch(engine === chromium ? { channel: "chrome" } : {})
+  const browser = await engine.launch({ headless: true })
   for (const scenario of ["storage-write-denied", "storage-access-denied", "corrupt-cache", "wishlist-order", "move-rollback", "move-bag-rollback", "move-signout", "cart-rapid", "native-sender"]) {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: "reduce" })
     const errors = []

@@ -10,7 +10,7 @@ const user = { id, email: "qa@example.test", role: "authenticated", aud: "authen
 const profile = { id, role: "customer", full_name: "Alexandra Rivera Santos", email: "alexandra.rivera.long.address@example.test", phone: "+639171234567", username: "alex.rivera", avatar_url: "" }
 let checked = 0
 for (const engine of [chromium, webkit]) {
-  const browser = await engine.launch(engine === chromium ? { channel: "chrome", headless: true } : { headless: true })
+  const browser = await engine.launch({ headless: true })
   for (const [width, height] of [[320,640], [390,844], [768,1024], [844,390], [1440,1000]]) {
     for (const text of ["comfortable", "extra-large"]) {
       const context = await browser.newContext({ viewport: { width, height }, reducedMotion: width === 320 ? "reduce" : "no-preference" })

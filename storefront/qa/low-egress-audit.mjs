@@ -7,7 +7,7 @@ const id='11111111-1111-4111-8111-111111111111';
 // Optional read-only production CDN check. All account/commerce data stays mocked.
 const publicPhoto=process.env.QA_PUBLIC_IMAGE_URL || '';
 for(const engine of [chromium,webkit]) for(const failInitialOrders of [false,true]) {
-  const browser=await engine.launch(engine===chromium?{channel:'chrome'}:{});
+  const browser=await engine.launch({headless:true});
   const context=await browser.newContext({viewport:{width:390,height:844},reducedMotion:'reduce'});
   const user={id,email:'qa@example.test',role:'authenticated',aud:'authenticated',created_at:new Date().toISOString(),app_metadata:{provider:'email',providers:['email']},user_metadata:{full_name:'QA Customer',cozy_tour_completed_v1:true},factors:[]};
   const products=[{id:'qa-a',name:'QA Recovery Sofa',category:'Living room',price:12000,stock_quantity:10,status:'active',images:publicPhoto?[publicPhoto]:[],updated_at:'2026-10-01T00:00:00Z',rating:5,review_count:7}];

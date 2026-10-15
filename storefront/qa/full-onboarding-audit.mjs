@@ -8,7 +8,7 @@ const jwt = [ { alg: "HS256", typ: "JWT" }, { sub: id, exp: Math.floor(Date.now(
 for (const engine of [chromium, webkit]) {
  for (const provider of ["google", "email"]) {
   for (const journey of provider === "email" ? ["finish", "skip", "returning", "retry", "reconnect"] : ["finish", "skip"]) {
-  const browser = await engine.launch(engine === chromium ? { channel: "chrome" } : {})
+  const browser = await engine.launch({ headless: true })
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, reducedMotion: "no-preference" })
   const user = { id, email: "qa@example.test", role: "authenticated", aud: "authenticated", created_at: new Date().toISOString(), app_metadata: { provider, providers: [provider] }, user_metadata: { full_name: "Prince Balane", cozy_tour_pending_v1: provider === "email" }, factors: [] }
   if (journey === "returning") user.user_metadata.cozy_tour_completed_v1 = true
