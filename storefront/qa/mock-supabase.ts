@@ -82,6 +82,20 @@ const fixtureClient = () => ({
     return { data: null, error: null }
   },
   functions: { invoke: async (name: string, { body }: { body: Record<string, unknown> }) => {
+    if (name === "cozycraft-assistant") {
+      const replies: Record<string, string> = {
+        // Preserve the originally reported response to catch formatter regressions.
+        hello: "Hello! I’m Cozy. I can help you choose furniture, follow an order, use a voucher, or find the right account setting. What would you like to do?",
+        "hello po": "Hello po! Ako si Cozy, ang CozyCraft shopping assistant. Ano po ang gusto mong malaman?",
+        "what is cozycraft?": "CozyCraft is a furniture shopping app and website for living rooms, bedrooms, and dining rooms. You can explore products, save favorites, place orders, and follow your orders in one place.",
+        "what is a wishlist?": "A wishlist, called Saved Pieces in the app, keeps furniture you like for later. Saving an item doesn’t place an order or reserve stock.",
+        "what payment methods do you accept?": "Currently enabled payment methods: Cash on Delivery, card, and GCash. Availability is confirmed at checkout.",
+        "recommend furniture": "Here are the matching products.\n1. Fixture sofa: ₱10,000.\n2. Fixture chair: ₱2,000.",
+      }
+      const reply = replies[String(body.message).toLowerCase()]
+      if (!reply) throw new Error("No assistant response defined for this fixture question")
+      return { data: { reply, actions: [] }, error: null }
+    }
     if (name === "resume-paymongo-checkout") {
       await new Promise(resolve => setTimeout(resolve, 300))
       return { data: null, error: { context: new Response(JSON.stringify({ error: "Secure payment is temporarily unavailable. Please try again." }), { status: 503 }) } }

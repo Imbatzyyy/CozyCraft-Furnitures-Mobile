@@ -238,7 +238,8 @@ export function mobileAssistantNavigationFromReply(
   reply: string,
   authenticated: boolean,
 ): MobileAssistantNavigation | null {
-  const actionSentences = reply.match(/\b(?:open|go to|visit|view|check|tap)\b[^.!?\n]{0,120}/gi) || []
+  const actionSentences = formatMobileAssistantReply(reply)
+    .flatMap((block) => block.type === "directions" ? block.items : [])
   for (const sentence of actionSentences) {
     const definition = navigationDefinitions.find((item) => item.matches.test(sentence))
     if (definition) return navigationForDefinition(definition, authenticated)
@@ -526,8 +527,12 @@ export function buildMobileAssistantAccountReply(
 }
 
 const numberedInstruction = /^(?:(?:step\s*)?\d{1,2}[.)]|[-•])\s+(.+)$/i
-const directionSignal = /\b(?:go to|head to|navigate to|visit|tap|choose|select|click|open (?:the |your |my )?(?:account|profile|orders?|bag|cart|wishlist|support|payment|delivery|product|settings|app|page))\b/i
+// A verb mentioned inside friendly prose is not an instruction. In particular,
+// "I can help you choose furniture" must never become a WHERE TO GO card.
+const directionSignal = /^(?:please\s+)?(?:go to|head to|navigate to|visit|tap|click|select|open|choose (?:the |your |my |an? )?(?:account|profile|orders?|bag|cart|wishlist|support|payments?|delivery|products?|settings|app|page|tab|button|option|method)|(?:view|check) (?:the |your |my )?(?:orders?|account|profile|bag|cart|wishlist|support|payment|delivery|settings))\b/i
 const directionContinuation = /^(?:first|next|then|after that|from there|once there|finally),?\s+/i
+const isDirection = (value: string) => directionSignal.test(value
+  .replace(directionContinuation, "").replace(/^for [^,.]{1,40},\s*/i, ""))
 
 function cleanInstruction(value: string) {
   const withoutInternalRoutes = value
@@ -569,7 +574,7 @@ function paragraphBlocks(value: string): MobileAssistantReplyBlock[] {
     .trim()
   const sentences = splitSentences(customerText)
   const firstDirection = sentences.findIndex((sentence) =>
-    directionSignal.test(sentence) || directionContinuation.test(sentence),
+    isDirection(sentence),
   )
   if (firstDirection < 0) return customerText ? [{ type: "paragraph", text: customerText }] : []
 
@@ -580,8 +585,7 @@ function paragraphBlocks(value: string): MobileAssistantReplyBlock[] {
     const sentence = sentences[afterIndex]
     if (
       afterIndex > firstDirection &&
-      !directionSignal.test(sentence) &&
-      !directionContinuation.test(sentence)
+      !isDirection(sentence)
     ) break
     const instruction = cleanInstruction(sentence.replace(directionContinuation, ""))
     if (instruction) directions.push(instruction)
@@ -615,7 +619,7 @@ export function formatMobileAssistantReply(content: string): MobileAssistantRepl
     const cleanLine = line.trim()
     if (!cleanLine) return
     const instruction = cleanLine.match(numberedInstruction)
-    if (instruction) {
+    if (instruction && isDirection(instruction[1])) {
       const customerInstruction = cleanInstruction(instruction[1])
       if (customerInstruction) pendingDirections.push(customerInstruction)
       return

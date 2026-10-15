@@ -35,6 +35,22 @@ const signedInContext: MobileAssistantAccountContext = {
 }
 
 describe("mobile assistant reply formatting", () => {
+  it.each([
+    "Hello! I’m Cozy. I can help you choose furniture, follow an order, use a voucher, or find the right account setting. What would you like to do?",
+    "I can help you select a sofa or choose furniture for your room.",
+    "You can open your wishlist later; saving an item does not reserve stock.",
+    "CozyCraft is a furniture shopping app. You can browse products and follow your orders.",
+    "First, I’d like to understand your budget. Then we can discuss fabrics.",
+    "1. Mara sofa: ₱18,000. 2. Dining chair: ₱1,200.",
+  ])("keeps conversational answers and product lists out of navigation cards: %s", (reply) => {
+    expect(formatMobileAssistantReply(reply).every((block) => block.type === "paragraph")).toBe(true)
+    expect(mobileAssistantNavigationFromReply(reply, true)).toBeNull()
+  })
+
+  it.each(["hello", "hello po", "How are you?", "What is CozyCraft?", "What is a wishlist?", "What payment methods do you accept?"])("does not route a basic question instead of answering: %s", (question) => {
+    expect(mobileAssistantGuidanceFor(question, true)).toBeNull()
+    expect(mobileAssistantDataIntentsFor(question)).toEqual([])
+  })
   it("recognizes natural requests to see support", () => {
     for (const question of ["Where can I see support?", "How do I access support?", "Where do I find support?"]) {
       expect(mobileAssistantGuidanceFor(question, true)?.navigation?.destination).toBe("support")
