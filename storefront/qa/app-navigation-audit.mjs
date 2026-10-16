@@ -94,7 +94,7 @@ for (const engine of [chromium, webkit]) {
         assert.ok(await page.evaluate(() => !!document.activeElement.closest(".ccnav-page")), label + ": modal must retain focus")
         if (name === "Developers") {
           assert.equal(await page.locator(".ccnav-person").count(), 5)
-          assert.equal(await page.locator('.ccnav-person a[href^="mailto:"]').count(), 4)
+          assert.equal(await page.locator('.ccnav-person a[href^="mailto:"]').count(), 5)
           assert.equal(await page.locator(".ccnav-person-description").count(), 5)
           assert.ok((await page.locator(".ccnav-team").innerText()).includes("Jacob Christopher Cañete"))
           assert.ok(!(await page.locator(".ccnav-team").innerText()).match(/samm?uel|qsgconcepcion/i))
@@ -103,6 +103,7 @@ for (const engine of [chromium, webkit]) {
             await page.waitForFunction(el => el.complete && el.naturalWidth > 0, await img.elementHandle())
           }
           const jacob = page.locator(".ccnav-person").filter({ hasText: "Jacob Christopher Cañete" })
+          assert.equal(await jacob.getByRole("link", { name: /qjcanete02@tip.edu.ph/ }).getAttribute("href"), "mailto:qjcanete02@tip.edu.ph")
           await jacob.scrollIntoViewIfNeeded()
           if (engine === webkit && width === 390 && text === "comfortable") await page.screenshot({ path: `${output}/no-menu-developers.png`, animations: "disabled" })
         }

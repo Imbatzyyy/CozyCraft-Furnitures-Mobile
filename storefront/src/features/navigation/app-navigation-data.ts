@@ -38,12 +38,12 @@ export type AppDeveloper = {
   contact: { label: string; href: string } | null
 }
 
-// App-only roster. The website and its shared CMS intentionally stay unchanged.
+// Variant-only roster. The website and its shared CMS intentionally stay unchanged.
 // Only add contact details supplied/approved by the member; never infer emails.
 export const APP_DEVELOPERS: AppDeveloper[] = [
   { name: "Prince Balane", role: "Project Lead · Vision Ventures", description: "Guides the project’s direction and brings the team’s work together around a connected CozyCraft shopping experience.", image: "./team/prince-balane.jpg", contact: { label: "qpcbalane@tip.edu.ph", href: "mailto:qpcbalane@tip.edu.ph" } },
   { name: "Joylyn Campuso", role: "Product & Research", description: "Focuses on product ideas and research, helping the team shape a useful, thoughtfully organized furniture-shopping experience.", image: "./team/joylyn-campuso.jpg", contact: { label: "qjccampuso@tip.edu.ph", href: "mailto:qjccampuso@tip.edu.ph" } },
-  { name: "Jacob Christopher Cañete", role: "Platform Development", description: "Focuses on the app’s technical foundation, bringing features together to support a connected and dependable furniture-shopping experience.", image: "./team/jacob-christopher-canete.jpg", contact: null },
+  { name: "Jacob Christopher Cañete", role: "Platform Development", description: "Focuses on the app’s technical foundation, bringing features together to support a connected and dependable furniture-shopping experience.", image: "./team/jacob-christopher-canete.jpg", contact: { label: "qjcanete02@tip.edu.ph", href: "mailto:qjcanete02@tip.edu.ph" } },
   { name: "Angela Faith Suba", role: "Customer Experience", description: "Focuses on the customer’s journey, helping make CozyCraft’s information, navigation, and support experience clear and welcoming.", image: "./team/angela-faith-suba.jpeg", contact: { label: "qafcsuba@tip.edu.ph", href: "mailto:qafcsuba@tip.edu.ph" } },
   { name: "Hydee Mae Sumalinog", role: "Operations & Quality", description: "Focuses on quality and everyday usability, helping the team review details and keep the shopping experience consistent.", image: "./team/hydee-mae-sumalinog.jpg", contact: { label: "qhmusumalinog@tip.edu.ph", href: "mailto:qhmusumalinog@tip.edu.ph" } },
 ]

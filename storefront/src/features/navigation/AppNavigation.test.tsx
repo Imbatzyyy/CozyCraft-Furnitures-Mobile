@@ -27,7 +27,8 @@ it("retains shopping while switching About and Developers and restores inert sta
   fireEvent.click(screen.getByRole("button", { name: /Meet the developers/ }))
   expect(screen.getByText("Jacob Christopher Cañete")).toBeTruthy()
   expect(screen.queryByText(/Sammuel/)).toBeNull()
-  expect(screen.getAllByRole("link")).toHaveLength(4)
+  expect(screen.getAllByRole("link")).toHaveLength(5)
+  expect(screen.getByRole("link", { name: /qjcanete02@tip.edu.ph/ }).getAttribute("href")).toBe("mailto:qjcanete02@tip.edu.ph")
   fireEvent.click(screen.getByRole("button", { name: "Back to shopping screen" }))
   expect(container.inert).not.toBe(true)
 })
@@ -50,10 +51,10 @@ it("ignores untrusted native messages and restores body state on unmount", () =>
   view.unmount()
   expect(document.body.style.overflow).not.toBe("hidden")
 })
-it("has Jacob and the other four original contacts without inventing his email", () => {
+it("has Jacob's supplied email and the other four original contacts", () => {
   expect(APP_DEVELOPERS.map(person => [person.name, person.contact?.label])).toEqual([
     ["Prince Balane", "qpcbalane@tip.edu.ph"], ["Joylyn Campuso", "qjccampuso@tip.edu.ph"],
-    ["Jacob Christopher Cañete", undefined], ["Angela Faith Suba", "qafcsuba@tip.edu.ph"],
+    ["Jacob Christopher Cañete", "qjcanete02@tip.edu.ph"], ["Angela Faith Suba", "qafcsuba@tip.edu.ph"],
     ["Hydee Mae Sumalinog", "qhmusumalinog@tip.edu.ph"],
   ])
   for (const person of APP_DEVELOPERS) {

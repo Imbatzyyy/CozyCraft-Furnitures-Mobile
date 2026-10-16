@@ -1,8 +1,10 @@
 # CozyCraft — separate no-side-menu version
 
-Based on mobile release 1.0.85 (d32862c). This is an isolated local project;
+Based on mobile release 1.0.85 (d32862c). This is an isolated variant project;
 the standard mobile checkout, published APK, website, and shared backend have
-not been edited or redeployed for this variant. There is no Git push remote.
+not been edited or redeployed for this variant. Publish this variant only on
+the codex/no-side-menu branch and its separate v1.0.85-no-menu prerelease,
+never over main or the standard latest release.
 
 ## Variant changes
 
@@ -15,8 +17,8 @@ not been edited or redeployed for this variant. There is no Git push remote.
   using his website photo and **Platform Development** role. The new description
   is role-based copy: “Focuses on the app’s technical foundation, bringing
   features together to support a connected and dependable furniture-shopping
-  experience.” Jacob's email was not supplied, so none is invented or inherited
-  from Samuel. The other four members and approved contacts are unchanged.
+  experience.” His supplied email is **qjcanete02@tip.edu.ph**, available as a
+  tappable email link. The other four members and contacts are unchanged.
 - Give local Care navigation answers for the no-menu Account paths and the
   variant developer roster. The shared assistant service is not changed.
 - Preserve Account when native Back closes an information page.
@@ -60,8 +62,9 @@ cd android
 ```
 
 The Android debug APK is at android/app/build/outputs/apk/debug/app-debug.apk.
-It is for direct testing, not a Play Store upload. No store submission, remote
-publication, backend migration, or physical-phone installation is included.
+It is for direct testing, not a Play Store upload. This variant is published
+separately on GitHub; no store submission, backend migration, or physical-phone
+installation is included.
 
 ## Verification — October 16, 2026
 
@@ -80,7 +83,7 @@ publication, backend migration, or physical-phone installation is included.
 
 Delivered APK: /Users/imbatzy/Downloads/CozyCraft-1.0.85-No-Side-Menu.apk
 
-SHA-256: 7ea80fe311b8c5c3ee0392869e866775dc395bc544113bd2227d552c3a242426
+The GitHub release asset digest records the published APK's SHA-256.
 
 Browser checks use intercepted fixtures, not real purchases or newly created
 customer accounts. Physical-phone behavior and live provider transactions were

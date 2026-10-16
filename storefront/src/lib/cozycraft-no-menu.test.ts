@@ -10,7 +10,7 @@ describe("isolated no-menu variant", () => {
     expect(jacob?.role).toBe("Platform Development")
     expect(jacob?.image).toBe("./team/jacob-christopher-canete.jpg")
     expect(jacob?.description.length).toBeGreaterThan(40)
-    expect(jacob?.contact).toBeNull()
+    expect(jacob?.contact).toEqual({ label: "qjcanete02@tip.edu.ph", href: "mailto:qjcanete02@tip.edu.ph" })
     expect(JSON.stringify(APP_DEVELOPERS)).not.toMatch(/samm?uel|qsgconcepcion/i)
   })
   it.each(MOBILE_CARE_PAGES)("has no removed menu in $title directions", page => {
