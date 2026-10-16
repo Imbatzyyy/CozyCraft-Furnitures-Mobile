@@ -1,5 +1,5 @@
 import { homeCircleTier } from "./home-circle"
-import { MOBILE_CARE_PAGES, mobileTaskSteps, type MobileCareDestination } from "./cozycraft-mobile-pages"
+import { MOBILE_CARE_PAGES, mobileTaskSteps, noMenuVersionGuidance, type MobileCareDestination } from "./cozycraft-no-menu"
 
 export type MobileAssistantReplyBlock =
   | { type: "paragraph"; text: string }
@@ -219,9 +219,11 @@ export function mobileAssistantGuidanceFor(
   authenticated: boolean,
 ): MobileAssistantGuidance | null {
   if (mobileAssistantDataIntentsFor(message).length) return null
-  if (!navigationRequest.test(message)) return null
   // Troubleshooting needs the scoped assistant rather than a route shortcut.
   if (/\b(why|broken|failed|stuck|not working|cannot|can't|won't|python|coding|ignore instructions)\b/i.test(message)) return null
+  const variantGuidance = noMenuVersionGuidance(message)
+  if (variantGuidance) return variantGuidance
+  if (!navigationRequest.test(message)) return null
   if (/\b(authenticator|two.step|2fa|signed.in devices|sessions)\b/i.test(message)) return null
   const navigation = mobileAssistantNavigationFor(message, authenticated)
   if (!navigation) return null

@@ -1099,6 +1099,9 @@ export default function Storefront({ launchHandoff = false, onReady, initialSupp
   useEffect(() => {
     const handleNativeBack = (event: MessageEvent) => {
       if (event.source !== window.parent || event.data?.type !== "cozycraft-native-back") return
+      // The information layer consumes Back itself. Window-targeted messages
+      // may reach this listener first; never also switch the underlying tab.
+      if (document.querySelector(".ccnav-layer")) return
       if (paymentReturning) {
         flash("Your payment is still being confirmed")
       } else if (placedOrder) setPlacedOrder(null)
@@ -2373,7 +2376,7 @@ export default function Storefront({ launchHandoff = false, onReady, initialSupp
           settled={() => setShoppingNotificationId("")} navigate={openAssistantDestination} notice={flash} onOpenChange={setShoppingOfferOpen} />
         <header className="lux-header">
           <div className="ccnav-brand">
-          <AppNavigation activeTab={tab} profile={userId ? profile : null} storeSettings={storeSettings} savedCount={saved.length} bagCount={bagCount} navigate={openAssistantDestination} openProfile={() => { navigateTo("account"); setProfileOpen(true) }} signIn={() => { window.location.hash = "#/sign-in" }} createAccount={() => { window.location.hash = "#/create-account" }} infoPage={appInfoPage} changeInfoPage={setAppInfoPage} onOpenChange={setAppNavigationOpen}/>
+          <AppNavigation storeSettings={storeSettings} navigate={openAssistantDestination} infoPage={appInfoPage} changeInfoPage={setAppInfoPage} onOpenChange={setAppNavigationOpen}/>
           <button className="logo-button" onClick={() => navigateTo("home")}>
             <img src={cozyLogo} alt="CozyCraft Furniture" />
           </button>
@@ -4506,7 +4509,7 @@ export function Account({
         <button type="button" onClick={() => openContentDocument("contact")}>Contact Us</button>
         {openAppInformation && <><button type="button" onClick={() => openAppInformation("developers")}>Developers</button><button type="button" onClick={() => openAppInformation("history")}>Company History</button></>}
         <button type="button" onClick={() => openContentDocument("terms")}>Terms</button>
-        <button type="button" onClick={() => openContentDocument("privacy-policy")}>Privacy</button>
+        <button type="button" className="account-resource-privacy" onClick={() => openContentDocument("privacy-policy")}>Privacy</button>
       </nav>
       <button className="signout" onClick={() => setConfirmSignOut(true)}>
         <span className="material-symbols-rounded" aria-hidden="true">logout</span>

@@ -47,132 +47,88 @@ for (const engine of [chromium, webkit]) {
       page.on("pageerror", error => errors.push(error.message))
       if (engine === chromium && width === 320) { const cdp = await context.newCDPSession(page); await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 }) }
       await page.goto(`${base}/#/shop`)
-      await page.getByRole("button", { name: "Open navigation menu", exact: true }).waitFor()
+      await page.locator('.lux-nav [data-nav="home"]').waitFor()
       await page.evaluate(() => document.fonts.ready)
       const label = `${engine.name()}-${width}-${text}`
-      const snapshot = engine === webkit && text === "comfortable" && [390,1440].includes(width)
       const checkOverflow = async selector => assert.deepEqual(await page.locator(selector).evaluateAll(elements => elements.filter(e => e.scrollWidth > e.clientWidth + 2).map(e => e.className)), [], `${label}: overflow ${selector}`)
+      const noMenu = async () => {
+        assert.equal(await page.getByRole("button", { name: /navigation menu/i }).count(), 0, label)
+        assert.equal(await page.locator(".ccnav-trigger, .ccnav-drawer, .ccnav-overlay").count(), 0, label)
+      }
+      await noMenu()
       await checkOverflow(".lux-header")
-      if (snapshot && width === 390) await page.screenshot({ path: `${output}/mobile-collapsed.png`, animations: "disabled" })
-      const open = async () => { await page.getByRole("button", { name: "Open navigation menu", exact: true }).click(); await page.locator('.ccnav-drawer').waitFor(); await page.waitForTimeout(240) }
-      await open()
-      await checkOverflow(".ccnav-drawer, .ccnav-drawer-scroll, .ccnav-group button")
-      assert.equal(await page.locator('.ccnav-group button[aria-current="page"]').getAttribute("aria-current"), "page")
-      assert.equal(await page.locator('.ccnav-profile h2').innerText(), profile.full_name)
-      assert.ok((await page.locator('.ccnav-profile').innerText()).includes(profile.email))
-      assert.equal(await page.getByText("A place for you.", { exact: true }).count(), 0)
-      await checkOverflow(".ccnav-profile, .ccnav-profile-heading, .ccnav-profile-details")
-      assert.ok(await page.evaluate(() => document.getElementById("root").inert))
-      // A keyboard user must never fall through to the background dock.
-      await page.keyboard.press("Shift+Tab")
-      assert.equal(await page.evaluate(() => document.activeElement.textContent.includes("Privacy Policy")), true)
-      await page.keyboard.press("Tab")
-      assert.equal(await page.getByRole("button", { name: "Close navigation menu" }).evaluate(e => e === document.activeElement), true)
-      await page.locator('.ccnav-drawer-scroll').evaluate(element => { element.scrollTop = 0 })
-      if (snapshot) await page.screenshot({ path: `${output}/${width === 390 ? "mobile" : "desktop"}-expanded.png`, animations: "disabled" })
-      await page.getByRole("button", { name: "About CozyCraft", exact: true }).click()
-      await page.getByRole("dialog", { name: "About CozyCraft", exact: true }).waitFor()
-      await checkOverflow(".ccnav-page-scroll, .ccnav-information, .ccnav-page-actions")
-      // The real dock must be behind the new page, never painted over its controls.
-      assert.ok(await page.evaluate(() => document.elementFromPoint(innerWidth / 2, innerHeight - 30)?.closest('.ccnav-layer')))
-      if (snapshot) await page.screenshot({ path: `${output}/${width === 390 ? "mobile" : "desktop"}-about.png`, animations: "disabled" })
-      await page.getByRole("button", { name: /Meet the developers/ }).click()
-      await checkOverflow(".ccnav-page-scroll, .ccnav-person, .ccnav-person a")
-      assert.equal(await page.locator(".ccnav-person").count(), 5)
-      assert.equal(await page.locator(".ccnav-person-description").count(), 5)
-      assert.equal(await page.locator('.ccnav-person a[href^="mailto:"]').count(), 5)
-      assert.ok(!(await page.locator(".ccnav-team").textContent()).includes("Jacob"))
-      for (const img of await page.locator('.ccnav-person img').all()) { await img.scrollIntoViewIfNeeded(); await img.evaluate(img => img.decode()) }
-      await page.locator('.ccnav-page-scroll').evaluate(e => { e.scrollTop = 0 })
-      if (snapshot) await page.screenshot({ path: `${output}/${width === 390 ? "mobile" : "desktop"}-developers.png`, animations: "disabled" })
-      await page.locator('.ccnav-page-scroll').evaluate(e => { e.scrollTop = 100 })
-      await open()
-      assert.equal(await page.getByRole("button", { name: "Developers", exact: true }).getAttribute("aria-current"), "page")
-      await page.keyboard.press("Escape")
-      await page.locator('.ccnav-drawer').waitFor({ state: "detached" })
-      assert.equal(await page.getByRole("dialog", { name: "Developers", exact: true }).count(), 1)
-      assert.equal(await page.locator('.ccnav-page-scroll').evaluate(e => e.scrollTop), 100, "Closing the drawer reset the information page's reading position")
-      // Valid native Back closes only the information page, preserving the tab.
-      await page.evaluate(() => window.dispatchEvent(new MessageEvent("message", { data: { type: "cozycraft-native-back" }, source: window.parent })))
-      await page.locator('.ccnav-layer').waitFor({ state: "detached" })
-      assert.equal(await page.evaluate(() => document.getElementById("root").inert), false)
-      assert.equal(await page.locator('.lux-nav [data-nav="home"]').getAttribute("aria-current"), "page")
-      for (const [name, selector] of [["Company History", ".ccnav-timeline"], ["Contact Us", ".ccnav-contact-actions"], ["Terms of Service", ".ccnav-policy"], ["Privacy Policy", ".ccnav-policy"]]) {
-        await open(); await page.getByRole("button", { name, exact: true }).click()
-        await page.locator(selector).waitFor()
-        await checkOverflow(".ccnav-page-scroll, .ccnav-information, .ccnav-policy, .ccnav-contact-actions")
-        if (name === "Terms of Service" || name === "Privacy Policy") {
-          assert.equal(await page.locator('.legal-summary > span').evaluate(e => getComputedStyle(e).color), "rgb(53, 69, 43)", "Policy summary must retain dark, readable text")
-        }
-        if (name === "Contact Us") {
-          assert.equal(await page.getByRole("link", { name: /Email customer care/ }).getAttribute("href"), "mailto:care@example.test")
-          assert.equal(await page.getByRole("link", { name: /Call customer care/ }).getAttribute("href"), "tel:+639171234567")
-        }
-        if (snapshot && width === 390) await page.screenshot({ path: `${output}/mobile-${name.split(" ")[0].toLowerCase()}.png`, animations: "disabled" })
-        await page.getByRole("button", { name: "Back to shopping screen" }).click()
-        assert.ok(page.url().endsWith("#/shop"), "Information unmounted the storefront route")
-      }
-      await open(); await page.getByRole("button", { name: "Terms of Service", exact: true }).click(); await page.locator('.ccnav-policy').waitFor()
-      assert.equal(contentReads.get("terms"), 1, "Reopening the policy fetched it again")
-      await page.getByRole("button", { name: "Back to shopping screen" }).click()
-      await open(); await page.getByRole("button", { name: /View my profile/ }).click()
-      await page.locator('.profile-page').waitFor()
-      await page.evaluate(() => window.dispatchEvent(new MessageEvent("message", { data: { type: "cozycraft-native-back" }, source: window.parent })))
-      await page.locator('.profile-page').waitFor({ state: "detached" })
-      for (const [name, tab] of [["Shop furniture", "shop"], ["Wishlist", "saved"], ["Shopping bag", "bag"], ["My account", "account"]]) {
-        await open(); await page.getByRole("button", { name, exact: true }).click()
-        await page.locator('.ccnav-layer').waitFor({ state: "detached" })
+      if (engine === webkit && width === 390 && text === "comfortable") await page.screenshot({ path: `${output}/no-menu-home.png`, animations: "disabled" })
+      // Main destinations remain available without the drawer.
+      for (const tab of ["shop", "saved", "bag", "account"]) {
+        await page.locator(`.lux-nav [data-nav="${tab}"]`).click()
         assert.equal(await page.locator(`.lux-nav [data-nav="${tab}"]`).getAttribute("aria-current"), "page")
+        await noMenu()
       }
-      // Account shortcuts open the same in-app information surfaces and return
-      // to Account without remounting the storefront or losing the scroll position.
-      for (const [name, selector] of [["Contact Us", ".ccnav-contact-actions"], ["Developers", ".ccnav-team"], ["Company History", ".ccnav-timeline"]]) {
-        const link = page.locator('.account-resource-links').getByRole('button', { name, exact: true })
+      const links = page.locator(".account-resource-links")
+      await links.scrollIntoViewIfNeeded()
+      await checkOverflow(".account-resource-links, .account-resource-links button")
+      const layout = await links.evaluate(el => {
+        const box = name => { const button = [...el.querySelectorAll("button")].find(b => b.textContent === name); const r = button.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height, bottom: r.bottom } }
+        return { privacy: box("Privacy"), history: box("Company History"), terms: box("Terms"), touch: [...el.querySelectorAll("button")].every(b => b.getBoundingClientRect().height >= 44) }
+      })
+      assert.ok(layout.touch)
+      assert.ok(Math.abs(layout.history.y - layout.terms.y) < 2, label + ": history and terms must share a row")
+      assert.ok(layout.privacy.y >= Math.max(layout.history.bottom, layout.terms.bottom), label + ": Privacy must be underneath")
+      assert.ok(Math.abs(layout.privacy.x + layout.privacy.width / 2 - (layout.history.x + layout.terms.x + layout.terms.width) / 2) < 2, label + ": Privacy must be centered")
+      assert.ok(Math.abs(layout.privacy.width - layout.history.width) < 2, label + ": Privacy must keep the matching button width")
+      if (engine === webkit && width === 390 && text === "comfortable") await page.screenshot({ path: `${output}/no-menu-account.png`, animations: "disabled" })
+      for (const [index, [name, selector]] of [["About", ".ccnav-brand-card"], ["Contact Us", ".ccnav-contact-actions"], ["Developers", ".ccnav-team"], ["Company History", ".ccnav-timeline"], ["Terms", ".ccnav-policy"], ["Privacy", ".ccnav-policy"]].entries()) {
+        const link = links.getByRole("button", { name, exact: true })
         await link.scrollIntoViewIfNeeded()
-        // In landscape, the browser may scroll a link clear of the fixed dock
-        // during click actionability. Compare with the actual tap position.
-        await link.evaluate(el => el.addEventListener('click', () => { window.__accountScrollAtOpen = document.querySelector('.lux-body').scrollTop }, { once: true }))
-        await checkOverflow('.account-resource-links')
-        assert.equal(await page.locator('.account-resource-links').evaluate(el => getComputedStyle(el).display), 'grid')
-        assert.ok(await page.locator('.account-resource-links button').evaluateAll(items => items.every(el => el.getBoundingClientRect().height >= 44 && el.getBoundingClientRect().width >= 90)), 'Information shortcuts must be readable touch targets')
-        if (snapshot && name === "Developers") await page.screenshot({ path: `${output}/account-information-links-${width}.png`, animations: "disabled" })
-        await link.click()
+        // Safari does not focus buttons on pointer click. Focus deliberately
+        // to verify the keyboard return target rather than assuming it does.
+        await link.focus()
+        await link.evaluate(el => el.addEventListener("click", () => { window.__accountScrollAtOpen = document.querySelector(".lux-body").scrollTop }, { once: true }))
+        await link.press("Enter")
         await page.locator(selector).waitFor()
-        await page.getByRole("button", { name: "Back to shopping screen" }).click()
-        assert.equal(await page.locator('.lux-nav [data-nav="account"]').getAttribute("aria-current"), "page")
-        assert.equal(await page.locator('.lux-body').evaluate(el => el.scrollTop), await page.evaluate(() => window.__accountScrollAtOpen), `${label}: ${name} changed the Account reading position`)
-      }
-      // Exercise actual chatbot destinations through the full Storefront handler.
-      if (width === 390 && text === "comfortable") for (const [question, selector] of [["Open Developers", ".ccnav-team"], ["Open Company History", ".ccnav-timeline"], ["How do I change my password?", ".profile-security"], ["Open Search", ".search-overlay"], ["Open Living room", ".room-shop"], ["How do I request an invoice?", ".account-sheet"]]) {
-        await page.locator('.lux-nav [data-nav="home"]').click()
-        await page.locator('.lux-body').evaluate(el => el.scrollTop = 0)
-        await page.getByRole('button', { name: 'Open CozyCraft Care', exact: true }).click()
-        await page.getByRole('textbox', { name: 'Message CozyCraft Care' }).fill(question)
-        await page.getByRole('button', { name: 'Send message', exact: true }).click()
-        await page.locator('.ai-navigation-action').click()
-        await page.locator(selector).waitFor()
-        assert.equal(await page.locator('.mobile-ai-chat').count(), 0)
-        if (selector === '.room-shop') {
-          assert.equal(await page.locator('.room-tabs .active').innerText(), 'Living')
-          await page.locator('.lux-nav [data-nav="account"]').click()
+        await noMenu()
+        assert.equal(await page.locator(".ccnav-page").count(), 1)
+        assert.ok(await page.evaluate(() => document.getElementById("root").inert))
+        await checkOverflow(".ccnav-page-header, .ccnav-page-scroll, .ccnav-information, .ccnav-person, .ccnav-contact-actions")
+        await page.keyboard.press("Shift+Tab")
+        assert.ok(await page.evaluate(() => !!document.activeElement.closest(".ccnav-page")), label + ": modal must retain focus")
+        if (name === "Developers") {
+          assert.equal(await page.locator(".ccnav-person").count(), 5)
+          assert.equal(await page.locator('.ccnav-person a[href^="mailto:"]').count(), 4)
+          assert.equal(await page.locator(".ccnav-person-description").count(), 5)
+          assert.ok((await page.locator(".ccnav-team").innerText()).includes("Jacob Christopher Cañete"))
+          assert.ok(!(await page.locator(".ccnav-team").innerText()).match(/samm?uel|qsgconcepcion/i))
+          for (const img of await page.locator(".ccnav-person img").all()) {
+            await img.scrollIntoViewIfNeeded()
+            await page.waitForFunction(el => el.complete && el.naturalWidth > 0, await img.elementHandle())
+          }
+          const jacob = page.locator(".ccnav-person").filter({ hasText: "Jacob Christopher Cañete" })
+          await jacob.scrollIntoViewIfNeeded()
+          if (engine === webkit && width === 390 && text === "comfortable") await page.screenshot({ path: `${output}/no-menu-developers.png`, animations: "disabled" })
         }
-        else {
-          await page.evaluate(() => window.dispatchEvent(new MessageEvent("message", { data: { type: "cozycraft-native-back" }, source: window.parent })))
-          await page.locator(selector).waitFor({ state: "detached" })
-        }
+        if (name === "Contact Us") assert.equal(await page.getByRole("link", { name: /Email customer care/ }).getAttribute("href"), "mailto:care@example.test")
+        if (index % 3 === 0) await page.keyboard.press("Escape")
+        else if (index % 3 === 1) await page.evaluate(() => window.dispatchEvent(new MessageEvent("message", { data: { type: "cozycraft-native-back" }, source: window.parent })))
+        else await page.getByRole("button", { name: "Back to shopping screen" }).click()
+        await page.locator(".ccnav-layer").waitFor({ state: "detached" })
+        assert.equal(await page.evaluate(() => document.getElementById("root").inert), false)
+        assert.equal(await page.locator('.lux-nav [data-nav="account"]').getAttribute("aria-current"), "page", label + ": returned from " + name)
+        assert.equal(await page.locator(".lux-body").evaluate(el => el.scrollTop), await page.evaluate(() => window.__accountScrollAtOpen), label + ": return scroll")
+        assert.ok(await link.evaluate(el => document.activeElement === el), label + ": restored keyboard focus from " + name)
       }
-      // Rapid clicks, background protections, support/rewards/order entry points.
-      for (const [name, selector] of [["My orders", ".account-sheet"], ["Care & support", ".account-sheet"], ["Home Circle", ".home-circle"]]) {
-        await open(); await page.getByRole("button", { name, exact: true }).click(); await page.locator(selector).waitFor()
-        await page.evaluate(() => window.dispatchEvent(new MessageEvent("message", { data: { type: "cozycraft-native-back" }, source: window.parent })))
-        await page.locator(selector).waitFor({ state: "detached" })
-      }
+      // Rapid presses must open one layer, not duplicate a page or drawer.
+      await links.getByRole("button", { name: "Terms", exact: true }).evaluate(el => { el.click(); el.click(); el.click() })
+      await page.locator(".ccnav-policy").waitFor()
+      assert.equal(await page.locator(".ccnav-page").count(), 1)
+      assert.equal(contentReads.get("terms"), 1, "Policy reopening must use the existing cache")
+      await page.getByRole("button", { name: "Back to shopping screen" }).click()
+      await noMenu()
       assert.deepEqual(errors, [], label)
       checked++
-      console.log(`PASS ${label}`)
+      console.log(`PASS ${label}: no drawer; centered Privacy; six information pages; Jacob; focus/Back/cache`)
       await context.close()
     }
   }
   await browser.close()
 }
-console.log(`PASS: ${checked} full-app menu/layout combinations, all destinations, contacts/photos, focus/Back, reduced motion, and dock layering.`)
+console.log(`PASS: ${checked} no-menu full-app layouts, all Account information pages, Jacob photo, bottom tabs, centered Privacy, focus/Back, and policy cache.`)

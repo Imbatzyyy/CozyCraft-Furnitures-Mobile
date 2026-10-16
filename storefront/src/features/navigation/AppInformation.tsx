@@ -75,7 +75,7 @@ export default function AppInformation({ section, changeSection, shop, support, 
           </div>
         </article>)}
       </div>
-      <aside className="ccnav-team-note"><span className="material-symbols-rounded" aria-hidden="true">spa</span><div><h2>Made together, with care.</h2><p>Connect with the mobile app development team using the email links above. For help with a purchase, please use Care & support in the menu.</p></div></aside>
+      <aside className="ccnav-team-note"><span className="material-symbols-rounded" aria-hidden="true">spa</span><div><h2>Made together, with care.</h2><p>Connect with the mobile app development team using the email links above. For help with a purchase, open Account, then Care &amp; Support.</p></div></aside>
       <div className="ccnav-page-actions"><button type="button" onClick={() => changeSection("about")}>Discover the app <span aria-hidden="true">→</span></button><button type="button" onClick={shop}>Back to the collection <span aria-hidden="true">↗</span></button></div>
     </>}
     <footer className="ccnav-info-footer">COZYCRAFT FURNITURES<span>A considered home. A connected experience.</span></footer>
