@@ -25,5 +25,5 @@ try {
     if (ready) break;
   }
   if (!ready) throw new Error("Fixture server did not become ready");
-  for (const script of ["full-onboarding-audit.mjs", "low-egress-audit.mjs", "overall-reliability-audit.mjs", "app-navigation-audit.mjs", "chat-conversation-audit.mjs"]) await run(script);
+  for (const script of ["full-onboarding-audit.mjs", "low-egress-audit.mjs", "overall-reliability-audit.mjs", "app-navigation-audit.mjs", "navigation-haptics-audit.mjs", "chat-conversation-audit.mjs"]) await run(script);
 } finally { server.kill("SIGTERM"); }

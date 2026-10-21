@@ -3,7 +3,7 @@ export type AppInfoSection = keyof typeof APP_INFO_LABELS
 export function isAppInfoSection(value: string): value is AppInfoSection {
   return Object.prototype.hasOwnProperty.call(APP_INFO_LABELS, value)
 }
-export type AppMenuDestination = "home" | "shop" | "saved" | "bag" | "account" | "orders" | "membership" | "support" | AppInfoSection
+export type AppMenuDestination = "home" | "shop" | "saved" | "bag" | "account" | "orders" | "membership" | "support" | "text-size" | AppInfoSection
 
 export const APP_MENU_GROUPS = [
   { label: "Make yourself at home", items: [
@@ -16,6 +16,7 @@ export const APP_MENU_GROUPS = [
     { id: "orders", label: "My orders", icon: "local_shipping" },
     { id: "membership", label: "Home Circle", icon: "loyalty" },
     { id: "account", label: "My account", icon: "person" },
+    { id: "text-size", label: "Text size", icon: "format_size" },
   ] },
   { label: "Discover CozyCraft", items: [
     { id: "about", label: "About CozyCraft", icon: "info" },

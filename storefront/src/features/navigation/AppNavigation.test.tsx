@@ -31,6 +31,14 @@ it("serializes fast taps and navigates once after the close animation", () => {
   expect(navigate).toHaveBeenCalledExactlyOnceWith("shop")
   expect(screen.queryByRole("dialog")).toBeNull()
 })
+it.each([customer, null])("opens text size for members and guests after dismissing the drawer", profile => {
+  const navigate = vi.fn(); render(<Fixture profile={profile} navigate={navigate}/>); open()
+  fireEvent.click(screen.getByRole("button", { name: "Text size" }))
+  fireEvent.click(screen.getByRole("button", { name: "Text size" }))
+  expect(navigate).not.toHaveBeenCalled(); finish()
+  expect(navigate).toHaveBeenCalledExactlyOnceWith("text-size")
+  expect(screen.queryByRole("dialog")).toBeNull()
+})
 it("retains the storefront while switching About and Developers and restores its inert state", () => {
   const { container } = render(<Fixture/>); open()
   expect(container.inert).toBe(true)

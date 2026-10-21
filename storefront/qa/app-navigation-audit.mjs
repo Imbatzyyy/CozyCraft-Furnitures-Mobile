@@ -124,9 +124,51 @@ for (const engine of [chromium, webkit]) {
         await page.locator('.ccnav-layer').waitFor({ state: "detached" })
         assert.equal(await page.locator(`.lux-nav [data-nav="${tab}"]`).getAttribute("aria-current"), "page")
       }
+      // Native Back dismisses the drawer without also changing the Account tab.
+      await open()
+      await page.evaluate(() => window.dispatchEvent(new MessageEvent("message", { data: { type: "cozycraft-native-back" }, source: window.parent })))
+      await page.locator('.ccnav-layer').waitFor({ state: "detached" })
+      assert.equal(await page.locator('.lux-nav [data-nav="account"]').getAttribute("aria-current"), "page", "Native Back from the drawer changed the underlying Account tab")
+      // Both entry points use one saved text preference and one dismissible
+      // Account layer; changing sizes never reopens the drawer or duplicates it.
+      await page.locator('.lux-nav [data-nav="home"]').click()
+      await open(); await page.locator('.ccnav-drawer').getByRole('button', { name: 'Text size', exact: true }).click()
+      await page.getByRole('dialog', { name: 'Choose your text size.' }).waitFor()
+      await page.locator('.ccnav-layer').waitFor({ state: 'detached' })
+      assert.equal(await page.locator('.lux-nav [data-nav="account"]').getAttribute('aria-current'), 'page')
+      await page.getByRole('button', { name: 'Close text size settings' }).focus()
+      await page.keyboard.press('Shift+Tab')
+      assert.equal(await page.getByRole('button', { name: 'Done', exact: true }).evaluate(el => el === document.activeElement), true, 'Text-size focus must not escape to the background')
+      for (const [size, name] of [['standard', 'Standard'], ['comfortable', 'Comfortable'], ['large', 'Large'], ['extra-large', 'Extra large']]) {
+        await page.getByRole('radio', { name: new RegExp(`^${name} `) }).click()
+        assert.equal(await page.evaluate(() => localStorage.getItem('cozycraft-mobile-text-size-v1')), size)
+        assert.equal(await page.locator('html').getAttribute('data-cozy-text-size'), size)
+        assert.equal(await page.locator('.text-size-dialog').count(), 1)
+        await checkOverflow('.text-size-dialog > div, .text-size-options, .text-size-options button')
+      }
+      await page.getByRole('radio', { name: text === 'comfortable' ? /^Comfortable / : /^Extra large / }).click()
+      if (snapshot && width === 390) await page.screenshot({ path: `${output}/mobile-text-size.png`, animations: 'disabled' })
+      await page.getByRole('button', { name: 'Done', exact: true }).click()
+      await page.locator('.text-size-dialog').waitFor({ state: 'detached' })
+      await page.locator('.account-text-size-trigger').click()
+      await page.getByRole('dialog', { name: 'Choose your text size.' }).waitFor()
+      await page.evaluate(() => window.dispatchEvent(new MessageEvent('message', { data: { type: 'cozycraft-native-back' }, source: window.parent })))
+      await page.locator('.text-size-dialog').waitFor({ state: 'detached' })
+      assert.equal(await page.locator('.lux-nav [data-nav="account"]').getAttribute('aria-current'), 'page', 'Text-size Back changed the Account tab')
+      assert.equal(await page.locator('html').evaluate(el => el.classList.contains('text-size-dialog-open')), false)
+      const toastClose = page.locator('.lux-toast-close')
+      if (await toastClose.count()) await toastClose.click()
+      const geometry = await page.locator('.account-resource-links').evaluate(grid => {
+        const box = name => Array.from(grid.querySelectorAll('button')).find(button => button.textContent === name).getBoundingClientRect()
+        const history = box('Company History'), terms = box('Terms'), privacy = box('Privacy'), bounds = grid.getBoundingClientRect()
+        return { sameRow: Math.abs(history.y - terms.y) < 1, below: privacy.y >= Math.max(history.bottom, terms.bottom) + 7,
+          centered: Math.abs((privacy.left + privacy.right) / 2 - (bounds.left + bounds.right) / 2) < 1,
+          sameWidth: Math.abs(privacy.width - history.width) < 1 }
+      })
+      assert.deepEqual(geometry, { sameRow: true, below: true, centered: true, sameWidth: true }, `${label}: Privacy must be centered below Company History and Terms`)
       // Account shortcuts open the same in-app information surfaces and return
       // to Account without remounting the storefront or losing the scroll position.
-      for (const [name, selector] of [["Contact Us", ".ccnav-contact-actions"], ["Developers", ".ccnav-team"], ["Company History", ".ccnav-timeline"]]) {
+      for (const [name, selector] of [["Contact Us", ".ccnav-contact-actions"], ["Developers", ".ccnav-team"], ["Company History", ".ccnav-timeline"], ["Privacy", ".ccnav-policy"]]) {
         const link = page.locator('.account-resource-links').getByRole('button', { name, exact: true })
         await link.scrollIntoViewIfNeeded()
         // In landscape, the browser may scroll a link clear of the fixed dock
@@ -135,10 +177,13 @@ for (const engine of [chromium, webkit]) {
         await checkOverflow('.account-resource-links')
         assert.equal(await page.locator('.account-resource-links').evaluate(el => getComputedStyle(el).display), 'grid')
         assert.ok(await page.locator('.account-resource-links button').evaluateAll(items => items.every(el => el.getBoundingClientRect().height >= 44 && el.getBoundingClientRect().width >= 90)), 'Information shortcuts must be readable touch targets')
-        if (snapshot && name === "Developers") await page.screenshot({ path: `${output}/account-information-links-${width}.png`, animations: "disabled" })
+        if (snapshot && name === "Privacy") await page.screenshot({ path: `${output}/account-information-links-${width}.png`, animations: "disabled" })
         await link.click()
         await page.locator(selector).waitFor()
-        await page.getByRole("button", { name: "Back to shopping screen" }).click()
+        if (name === "Contact Us") {
+          await page.evaluate(() => window.dispatchEvent(new MessageEvent("message", { data: { type: "cozycraft-native-back" }, source: window.parent })))
+          await page.locator('.ccnav-layer').waitFor({ state: "detached" })
+        } else await page.getByRole("button", { name: "Back to shopping screen" }).click()
         assert.equal(await page.locator('.lux-nav [data-nav="account"]').getAttribute("aria-current"), "page")
         assert.equal(await page.locator('.lux-body').evaluate(el => el.scrollTop), await page.evaluate(() => window.__accountScrollAtOpen), `${label}: ${name} changed the Account reading position`)
       }

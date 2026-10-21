@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.cozycraft.furniture',
-  appName: 'CozyCraft Furniture',
+  appName: 'Cozy Craft Furnitures',
   webDir: 'www',
   bundledWebRuntime: false,
   plugins: {

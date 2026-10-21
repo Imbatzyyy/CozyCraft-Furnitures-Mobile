@@ -653,7 +653,7 @@ export default function Storefront({ launchHandoff = false, onReady, initialSupp
     })
     return () => animation?.cancel()
   }, [tab])
-  const [assistantAccountView, setAssistantAccountView] = useState<"orders" | "addresses" | "payments" | "support" | null>(null)
+  const [assistantAccountView, setAssistantAccountView] = useState<"orders" | "addresses" | "payments" | "support" | "text-size" | null>(null)
   const [appInfoPage, setAppInfoPage] = useState<AppInfoSection | null>(null)
   const [appNavigationOpen, setAppNavigationOpen] = useState(false)
   const [navGlassIndex, setNavGlassIndex] = useState(returnState?.tab === "account" ? 4 : 2)
@@ -1099,6 +1099,9 @@ export default function Storefront({ launchHandoff = false, onReady, initialSupp
   useEffect(() => {
     const handleNativeBack = (event: MessageEvent) => {
       if (event.source !== window.parent || event.data?.type !== "cozycraft-native-back") return
+      // The drawer/information layer consumes Back itself. Window-targeted
+      // messages may reach this listener first; preserve the underlying tab.
+      if (document.querySelector(".ccnav-layer")) return
       if (paymentReturning) {
         flash("Your payment is still being confirmed")
       } else if (placedOrder) setPlacedOrder(null)
@@ -2053,7 +2056,8 @@ export default function Storefront({ launchHandoff = false, onReady, initialSupp
     // Tapping the tab you are already reading returns it to the top, as native tab bars do.
     const reselected = destination === tab && !search && !detail && !checkoutOpen && !placedOrder
       && !profileOpen && categoryOpen === null && !notificationsOpen && !membershipOpen
-    if (destination !== tab) haptic("selection")
+    // Routine navigation stays vibration-free, including reselects and rapid taps.
+    // Keep tactile feedback for shopping actions, not tab changes.
     if (reselected) {
       tabScroll.current.set(tab, 0)
       document.querySelector<HTMLElement>(".lux-body")?.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "auto" : "smooth" })
@@ -2081,7 +2085,7 @@ export default function Storefront({ launchHandoff = false, onReady, initialSupp
       setProfileOpen(true)
       return
     }
-    if (destination === "text-size" || destination === "tour") { navigateTo("account"); return }
+    if (destination === "tour") { navigateTo("account"); return }
     if (destination === "search") { navigateTo("shop"); setSearch(true); return }
     if (destination === "compare") {
       navigateTo("shop")
@@ -2095,8 +2099,8 @@ export default function Storefront({ launchHandoff = false, onReady, initialSupp
       setShopSubcategory("")
       return
     }
-    if (["orders", "addresses", "payments", "support"].includes(destination)) {
-      setAssistantAccountView(destination as "orders" | "addresses" | "payments" | "support")
+    if (["orders", "addresses", "payments", "support", "text-size"].includes(destination)) {
+      setAssistantAccountView(destination as "orders" | "addresses" | "payments" | "support" | "text-size")
       navigateTo("account")
       return
     }
@@ -3992,7 +3996,7 @@ export function Account({
   shop: () => void
   openMembership: () => void
   reviewPublished: (orderItemId: number, review: any) => void
-  initialView: "orders" | "addresses" | "payments" | "support" | null
+  initialView: "orders" | "addresses" | "payments" | "support" | "text-size" | null
   onInitialViewHandled: () => void
   initialOrder?: CustomerOrder | null
   onInitialOrderHandled?: () => void
@@ -4370,10 +4374,15 @@ export function Account({
     ? returnRequests.find((request) => request.order_id === selectedOrder.databaseId)
     : undefined
 
+  // Share one Account layer state across the menu shortcut, Account button,
+  // and native Back handling so dismissal cannot leave a hidden modal open.
+  const changeTextSizeOpen = useCallback((open: boolean) => setView(open ? "text-size" : null), [])
   const textSizePreference = (
     <TextSizePreference
       textSize={textSize}
       changeTextSize={changeTextSize}
+      open={view === "text-size"}
+      onOpenChange={changeTextSizeOpen}
     />
   )
 
@@ -4506,7 +4515,7 @@ export function Account({
         <button type="button" onClick={() => openContentDocument("contact")}>Contact Us</button>
         {openAppInformation && <><button type="button" onClick={() => openAppInformation("developers")}>Developers</button><button type="button" onClick={() => openAppInformation("history")}>Company History</button></>}
         <button type="button" onClick={() => openContentDocument("terms")}>Terms</button>
-        <button type="button" onClick={() => openContentDocument("privacy-policy")}>Privacy</button>
+        <button type="button" className="account-resource-privacy" onClick={() => openContentDocument("privacy-policy")}>Privacy</button>
       </nav>
       <button className="signout" onClick={() => setConfirmSignOut(true)}>
         <span className="material-symbols-rounded" aria-hidden="true">logout</span>
@@ -5045,25 +5054,28 @@ export function Account({
 function TextSizePreference({
   textSize,
   changeTextSize,
+  open,
+  onOpenChange,
 }: {
   textSize: MobileTextSize
   changeTextSize: (size: MobileTextSize) => void
+  open: boolean
+  onOpenChange: (open: boolean) => void
 }) {
-  const [open, setOpen] = useState(false)
   const selected = MOBILE_TEXT_SIZE_OPTIONS.find((option) => option.id === textSize)
 
   useEffect(() => {
     if (!open) return
     document.documentElement.classList.add("text-size-dialog-open")
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false)
+      if (event.key === "Escape") onOpenChange(false)
     }
     window.addEventListener("keydown", closeOnEscape)
     return () => {
       document.documentElement.classList.remove("text-size-dialog-open")
       window.removeEventListener("keydown", closeOnEscape)
     }
-  }, [open])
+  }, [open, onOpenChange])
 
   return (
     <>
@@ -5071,7 +5083,8 @@ function TextSizePreference({
         type="button"
         className="account-text-size-trigger"
         aria-haspopup="dialog"
-        onClick={() => setOpen(true)}
+        aria-expanded={open}
+        onClick={() => onOpenChange(true)}
       >
         <span className="material-symbols-rounded" aria-hidden="true">text_fields</span>
         <div>
@@ -5082,7 +5095,7 @@ function TextSizePreference({
         <span className="material-symbols-rounded" aria-hidden="true">chevron_right</span>
       </button>
       {open && createPortal(
-        <section className="text-size-dialog" onClick={() => setOpen(false)}>
+        <section className="text-size-dialog" onClick={() => onOpenChange(false)}>
           <div
             role="dialog"
             aria-modal="true"
@@ -5095,7 +5108,7 @@ function TextSizePreference({
                 <small>READING COMFORT</small>
                 <h2 id="text-size-dialog-title">Choose your text size.</h2>
               </div>
-              <button type="button" onClick={() => setOpen(false)} aria-label="Close text size settings">
+              <button type="button" onClick={() => onOpenChange(false)} aria-label="Close text size settings">
                 <span className="material-symbols-rounded" aria-hidden="true">close</span>
               </button>
             </header>
@@ -5122,7 +5135,7 @@ function TextSizePreference({
               <span className="material-symbols-rounded" aria-hidden="true">check_circle</span>
               <div><b>{selected?.label} is applied</b><small>Your choice is saved on this device.</small></div>
             </aside>
-            <button type="button" className="text-size-dialog-done" onClick={() => setOpen(false)}>Done</button>
+            <button type="button" className="text-size-dialog-done" onClick={() => onOpenChange(false)}>Done</button>
           </div>
         </section>,
         document.body,
