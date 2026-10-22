@@ -23,6 +23,9 @@ logs/
 .claude-replay.*
 .tmp-*
 www/
+ota-artifacts/
+*.pem
+*.p8
 /android/.idea/
 
 # Local assistant/scaffold files that are not part of the Ionic application.

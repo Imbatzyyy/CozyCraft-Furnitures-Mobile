@@ -87,11 +87,11 @@ function CheckoutFixture() {
           id: "EKOLSUND",
           name: "EKOLSUND",
           category: "Living room",
-          price: "₱12,999",
+          price: params.has("payment-limits") ? `₱${Number(params.get("price") || 19850).toLocaleString("en-PH")}` : "₱12,999",
           image: "/furniture/photo-1599696848652-f0ff23bc911f.jpg",
           alt: "CozyCraft armchair",
         },
-        quantity: 2,
+        quantity: params.has("payment-limits") ? 1 : 2,
         selected: true,
       }]}
       profile={{ name: "Alex Rivera", email: "alex@example.test", phone: "+639171234567", image: "" }}
@@ -125,7 +125,7 @@ function CheckoutFixture() {
         status: "available",
         code: "WELCOME-COZY2026",
         created_at: "2026-09-04T00:00:00.000Z",
-        expires_at: "2026-10-04T00:00:00.000Z",
+        expires_at: "2099-10-04T00:00:00.000Z",
         used_at: null,
       }]}
       close={() => {}}

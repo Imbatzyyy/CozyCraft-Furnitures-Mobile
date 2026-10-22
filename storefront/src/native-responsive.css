@@ -11568,10 +11568,12 @@ body.profile-crop-open {
   cursor: not-allowed;
   border-color: #e1dcd4;
   background: #eeebe6;
-  color: #898279;
+  color: #635d55;
   box-shadow: none;
-  opacity: 0.7;
+  opacity: 1;
 }
+
+.payment-options button:disabled small { color: #635d55; line-height: 1.5; }
 
 .payment-options button:disabled > span {
   background: #e2ddd6;
@@ -13014,3 +13016,9 @@ html.text-size-dialog-open .lux-body {
     animation: none;
   }
 }
+/* A native-only manual update check; independent of side-menu presentation. */
+.account-update-check { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 68px; padding: 16px 20px; margin: 16px 0; border: 1px solid #dcded3; border-radius: 22px; background: #f5f6ef; color: #3c4933; text-align: left; }
+.account-update-check > span:nth-child(2) { flex: 1; }
+.account-update-check b, .account-update-check small { display: block; }
+.account-update-check small { margin-top: 4px; color: #6b7363; font-size: 12px; }
+.account-update-check i { font-style: normal; }

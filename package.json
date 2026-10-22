@@ -4,8 +4,13 @@
   "author": "CozyCraft Furnitures",
   "homepage": "https://www.cozycraftfurnitures.com",
   "scripts": {
-    "verify:release": "node scripts/verify-backend-ownership.mjs && npm --prefix storefront run typecheck && npm --prefix storefront test && npm run lint && npm run ios:toolchain:test && npm test -- --watch=false --browsers=ChromeHeadless && npm run audit:prod",
-    "audit:prod": "npm audit --omit=dev --audit-level=high && npm --prefix storefront audit --omit=dev --audit-level=high",
+    "update:prepare": "node scripts/live-updates.mjs prepare",
+    "update:publish": "node scripts/live-updates.mjs publish",
+    "update:stage": "node scripts/live-updates.mjs stage",
+    "update:pause": "node scripts/live-updates.mjs pause",
+    "update:test": "node --test scripts/live-updates.test.mjs",
+    "verify:release": "npm run update:test && node scripts/verify-backend-ownership.mjs && npm --prefix storefront run typecheck && npm --prefix storefront test && npm run lint && npm run ios:toolchain:test && npm test -- --watch=false --browsers=ChromeHeadless && npm run audit:prod",
+    "audit:prod": "node scripts/audit-production.mjs",
     "test:browser": "node scripts/test-browser-readiness.mjs",
     "ng": "ng",
     "start": "ng serve",
@@ -46,6 +51,7 @@
     "@capacitor/ios": "8.5.1",
     "@capacitor/local-notifications": "^8.2.1",
     "@capacitor/push-notifications": "^8.1.2",
+    "@capgo/capacitor-updater": "8.53.1",
     "@ionic/angular": "^8.0.0",
     "ionicons": "^7.0.0",
     "rxjs": "~7.8.0",
@@ -53,7 +59,6 @@
     "zone.js": "~0.15.0"
   },
   "devDependencies": {
-    "playwright": "1.64.1",
     "@angular-devkit/build-angular": "20.3.40",
     "@angular-eslint/builder": "20.7.0",
     "@angular-eslint/eslint-plugin": "20.7.0",
@@ -81,6 +86,7 @@
     "karma-coverage": "~2.2.0",
     "karma-jasmine": "~5.1.0",
     "karma-jasmine-html-reporter": "~2.1.0",
+    "playwright": "1.64.1",
     "typescript": "~5.9.0",
     "typescript-eslint": "8.65.0"
   },

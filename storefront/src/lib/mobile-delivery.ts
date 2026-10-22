@@ -1,3 +1,5 @@
+import { paymentUnavailableReason } from "./payment-policy"
+
 export type MobileDeliveryServiceArea = {
   id: number
   area_code: string
@@ -106,13 +108,8 @@ export function mobileCheckoutAmountError(
 
 export function mobilePaymentMethodAvailable(
   method: "cod" | "card" | "gcash",
-  subtotal: number,
+  finalTotal: number,
   settings: Record<string, unknown>,
 ) {
-  if (method === "cod") {
-    const maximum = Math.max(0, Number(settings.cod_maximum_order) || 0)
-    return settings.cod_enabled !== false && (maximum === 0 || subtotal <= maximum)
-  }
-  if (method === "card") return settings.card_enabled !== false
-  return settings.gcash_enabled !== false
+  return !paymentUnavailableReason(method, finalTotal, settings)
 }

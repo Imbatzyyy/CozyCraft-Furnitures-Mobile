@@ -77,9 +77,12 @@ export function mobileRewardMinimumOrder(reward: Pick<MobileRedemption, "minimum
 }
 
 export function isMobileRewardEligible(
-  reward: Pick<MobileRedemption, "minimum_order_amount">,
+  reward: Pick<MobileRedemption, "minimum_order_amount"> & Partial<Pick<MobileRedemption, "status" | "expires_at">>,
   merchandiseSubtotal: number,
+  now = Date.now(),
 ) {
+  if (reward.status && reward.status !== "available") return false
+  if (reward.expires_at && !(Date.parse(reward.expires_at) > now)) return false
   return Math.max(0, Number(merchandiseSubtotal) || 0) >= mobileRewardMinimumOrder(reward)
 }
 

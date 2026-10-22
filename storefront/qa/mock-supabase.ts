@@ -74,6 +74,7 @@ const fixtureClient = () => ({
   channel: () => { const channel = { on: () => channel, subscribe: () => channel }; return channel },
   removeChannel() {},
   rpc: async (name: string, args: { p_address?: Partial<typeof fixtureAddress>; p_primary_only?: boolean }) => {
+    if (name === "get_checkout_payment_policy") return { data: { cod_limit: 20000, outstanding_cod_total: Number(new URLSearchParams(location.search).get("outstanding") || 0) }, error: null }
     if (name === "mobile_product_review_page") return { data: { reviews: shellRows("reviews"), total: 1, matched: 1, average: 5, counts: { "5": 1 } }, error: null }
     if (name === "save_mobile_delivery_address") {
       Object.assign(fixtureAddress, args.p_address, args.p_primary_only ? { is_primary: true } : {})

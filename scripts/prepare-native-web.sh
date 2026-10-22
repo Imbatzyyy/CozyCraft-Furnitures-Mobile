@@ -23,6 +23,7 @@ hash_sources() {
     ! -path '*/android/*' \
     ! -path '*/.git/*' \
     ! -path '*/.native-build/*' \
+    ! -path '*/ota-artifacts/*' \
     ! -name '.DS_Store' \
     ! -name '*.apk' \
     ! -name '*.aab' \

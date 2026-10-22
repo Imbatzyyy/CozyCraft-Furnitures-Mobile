@@ -15,3 +15,20 @@
   border: 0;
   background: #f7f6f3;
 }
+
+.cozy-update-backdrop { position: fixed; inset: 0; z-index: 99999; display: grid; place-items: center; padding: max(20px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom)); background: #211f1ab3; overflow: auto; }
+.cozy-update-dialog { width: min(100%, 420px); max-height: 100%; overflow-y: auto; box-sizing: border-box; border: 1px solid #e8e5dc; border-radius: 30px; padding: 28px 24px; color: #28281f; background: #faf9f5; box-shadow: 0 16px 48px #0003; text-align: center; font-family: system-ui, sans-serif; animation: cozy-update-in 180ms ease-out; }
+.cozy-update-mark { display: inline-grid; place-items: center; border-radius: 22px; width: 62px; height: 62px; background: #e7ecdf; color: #4e6045; font-size: 40px; }
+.cozy-update-eyebrow { letter-spacing: .14em; font-size: 10px; font-weight: 700; color: #657257; margin: 20px 0 12px; }
+.cozy-update-dialog h1 { font: 600 clamp(25px, 6vw, 32px)/1.12 Georgia, serif; margin: 0 0 16px; }
+.cozy-update-copy { line-height: 1.55; white-space: pre-line; overflow-wrap: anywhere; font-size: 15px; }
+.cozy-update-dialog small, .cozy-update-detail { font-size: 12px; line-height: 1.6; color: #68685c; }
+.cozy-update-dialog button { display: block; min-height: 48px; width: 100%; border-radius: 16px; font: 600 16px system-ui; margin-top: 12px; cursor: pointer; }
+.cozy-update-primary { border: 0; background: #333b2d; color: #fff; }
+.cozy-update-secondary { border: 1px solid #d5d9cc; color: #414b38; background: transparent; }
+.cozy-update-dialog button:focus-visible { outline: 3px solid #84946b; outline-offset: 3px; }
+.cozy-update-footnote { font-size: 11px; color: #737467; line-height: 1.5; margin: 20px 0 0; }
+.cozy-update-progress { margin: 22px 0; font-size: 13px; }
+.cozy-update-progress progress { width: 100%; accent-color: #566747; }
+@keyframes cozy-update-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .cozy-update-dialog { animation: none; } }

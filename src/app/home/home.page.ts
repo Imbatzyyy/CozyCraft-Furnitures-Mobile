@@ -1,4 +1,5 @@
-import { AfterViewInit, Component, ElementRef, HostListener, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, HostListener, ViewChild, NgZone, OnDestroy, inject } from '@angular/core';
+import { SecureUpdates } from '../updates/secure-updates';
 import { App } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
 import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
@@ -165,7 +166,19 @@ export const installIOSLaunchStyle = (targetDocument: Document | null, platform:
   styleUrls: ['home.page.scss'],
   standalone: false,
 })
-export class HomePage implements AfterViewInit {
+export class HomePage implements AfterViewInit, OnDestroy {
+  readonly updates: SecureUpdates;
+  private readonly zone = inject(NgZone);
+  constructor() {
+    this.updates = new SecureUpdates(
+      () => this.storefront?.nativeElement.contentDocument ?? null,
+      () => !this.pendingAppUrl && !this.paymongoBrowserOpening && !this.pendingPaymongoOrderId,
+      () => this.zone.run(() => undefined),
+    );
+  }
+  ngOnDestroy() { this.updates.stop(); }
+  @HostListener('window:keydown', ['$event'])
+  updateKeyboard(event: KeyboardEvent) { this.updates.keydown(event); }
   @ViewChild('storefront') storefront?: ElementRef<HTMLIFrameElement>;
   private readonly platform = Capacitor.getPlatform();
   // The native iOS target currently deploys from iOS 26.0. Some iframe user
@@ -392,6 +405,7 @@ export class HomePage implements AfterViewInit {
   }
 
   ngAfterViewInit() {
+    this.zone.runOutsideAngular(() => this.updates.start());
     // appUrlOpen covers a running app. getLaunchUrl is also required when
     // PayMongo's Back to merchant deep link cold-starts the native process.
     // deliverAppUrl keeps the callback until the storefront acknowledges it.
@@ -427,6 +441,7 @@ export class HomePage implements AfterViewInit {
       this.deliverAppUrl(url);
     });
     void App.addListener('appStateChange', ({ isActive }) => {
+      this.updates.foreground(isActive);
       if (isActive) this.storefront?.nativeElement.contentWindow?.postMessage({ type: 'cozycraft-native-app-active' }, '*');
       if (isActive) void this.deliverPushPermission().catch((error) => {
         console.error('Unable to refresh notification permission', error);
@@ -443,6 +458,7 @@ export class HomePage implements AfterViewInit {
       }
     });
     void App.addListener('backButton', () => {
+      if (this.updates.open) { this.updates.dismiss(); return; }
       this.storefront?.nativeElement.contentWindow?.postMessage(
         { type: 'cozycraft-native-back' },
         '*',
@@ -461,6 +477,10 @@ export class HomePage implements AfterViewInit {
     // the same boundary to navigation/browser actions as to payment requests.
     const sender = this.storefront?.nativeElement.contentWindow;
     if (!sender || event.source !== sender) return;
+    if (event.data?.type === 'cozycraft-check-updates') {
+      void this.updates.check();
+      return;
+    }
     if (event.data?.type === 'cozycraft-haptic') {
       void this.playHaptic(String(event.data.kind || 'light'));
       return;

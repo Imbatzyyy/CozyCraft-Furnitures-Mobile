@@ -1,4 +1,6 @@
 import { localStore, storageKeys } from "./lib/browser-storage"
+import { effectiveCodLimit, paymentUnavailableReason } from "./lib/payment-policy"
+import { useCheckoutPaymentPolicy } from "./lib/use-checkout-payment-policy"
 import { readCachedValue } from "./lib/cached-value"
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import ReviewPhotoViewer from "./components/ReviewPhotoViewer"
@@ -165,7 +167,6 @@ import {
   mobileDeliveryAreaForAddress,
   mobileDeliveryDateRange,
   mobileDeliveryFeeFor,
-  mobilePaymentMethodAvailable,
   type MobileDeliveryServiceArea,
 } from "./lib/mobile-delivery"
 
@@ -2335,7 +2336,11 @@ export default function Storefront({ launchHandoff = false, onReady, initialSupp
   if (catalogLoading && products.length === 0) return <CozyLaunchScreen handoff={launchHandoff} />
 
   return (
-    <main className={`lux-shell${launchHandoff ? " lux-shell--handoff" : ""}`}>
+    <main className={`lux-shell${launchHandoff ? " lux-shell--handoff" : ""}`}
+      data-cozy-update-safe={!catalogLoading && !checkoutOpen && !paymentReturning && !placedOrder && !profileOpen
+        && !search && !chatOpen && !detail && !compareOpen && categoryOpen === null && !notificationsOpen
+        && !membershipOpen && !shoppingOfferOpen && !appNavigationOpen && !appInfoPage
+        && (!userId || (welcomeReady.userId === userId && welcomeReady.ready)) ? "true" : "false"}>
       <section className="lux-phone" ref={pullRefresh.ref}>
         <PullToRefreshIndicator
           pullDistance={pullRefresh.pullDistance}
@@ -4430,12 +4435,13 @@ export function Account({
           </button>
         </div>
         {textSizePreference}
+        {window.parent !== window && <button type="button" className="account-update-check" onClick={() => window.parent.postMessage({ type: "cozycraft-check-updates" }, "*")}>Check for app updates</button>}
       </section>
     )
   }
 
   return (
-    <section className="account-page atelier-account">
+    <section className="account-page atelier-account" data-cozy-update-busy={view || confirmSignOut ? "true" : "false"}>
       <div className="account-page-heading">
         <p className="hello">MY COZYCRAFT</p>
         <h1>My profile</h1>
@@ -4517,6 +4523,10 @@ export function Account({
         <button type="button" onClick={() => openContentDocument("terms")}>Terms</button>
         <button type="button" className="account-resource-privacy" onClick={() => openContentDocument("privacy-policy")}>Privacy</button>
       </nav>
+      {window.parent !== window && <button type="button" className="account-update-check" onClick={() => window.parent.postMessage({ type: "cozycraft-check-updates" }, "*")}>
+        <span className="material-symbols-rounded" aria-hidden="true">system_update</span>
+        <span><b>App updates</b><small>Check for a verified CozyCraft update</small></span><i aria-hidden="true">→</i>
+      </button>}
       <button className="signout" onClick={() => setConfirmSignOut(true)}>
         <span className="material-symbols-rounded" aria-hidden="true">logout</span>
         <span className="signout-copy">
@@ -5797,6 +5807,7 @@ export function CheckoutPage({
     is_primary: false,
   })
   const [payment, setPayment] = useState("Cash on delivery")
+  const paymentPolicy = useCheckoutPaymentPolicy(userId)
   const paymentChosen = useRef(false)
   const [placing, setPlacing] = useState(false)
   const submitting = useRef(false)
@@ -5814,6 +5825,8 @@ export function CheckoutPage({
   }
   const [error, setError] = useState("")
   const [redemptionId, setRedemptionId] = useState("")
+  const [rewardNow, setRewardNow] = useState(Date.now)
+  useVisibleInterval(() => setRewardNow(Date.now()), redemptions.length ? 1000 : null, true)
   const [paymentChallenge, setPaymentChallenge] = useState<PaymentEmailChallenge | null>(null)
   useEffect(() => {
     if (!userId) return
@@ -5916,24 +5929,36 @@ export function CheckoutPage({
   const checkoutError = mobileCheckoutAmountError(total, checkoutSettings)
   const selectedRewardCandidate = redemptions.find((reward) => reward.id === redemptionId)
   const selectedRewardEligible = Boolean(
-    selectedRewardCandidate && isMobileRewardEligible(selectedRewardCandidate, total),
+    selectedRewardCandidate && isMobileRewardEligible(selectedRewardCandidate, total, rewardNow),
   )
   const selectedReward = selectedRewardEligible ? selectedRewardCandidate : undefined
   const rewardDiscount = selectedReward ? Math.min(Number(selectedReward.discount_amount), Math.max(0, total + deliveryFee - 1)) : 0
   const grandTotal = total + deliveryFee - rewardDiscount
   const paymentEmailDestination = profile.email.trim() || "your verified account email"
   const paymentMethods = [
-    { id: "cod" as const, name: "Cash on delivery", icon: "payments", note: Number(checkoutSettings.cod_maximum_order || 0) > 0 ? `Available up to ₱${Number(checkoutSettings.cod_maximum_order).toLocaleString()}` : "Pay when your furniture arrives", enabled: mobilePaymentMethodAvailable("cod", total, checkoutSettings) },
-    { id: "gcash" as const, name: "GCash", icon: "smartphone", note: "Secure PayMongo mobile payment", enabled: mobilePaymentMethodAvailable("gcash", total, checkoutSettings) },
-    { id: "card" as const, name: "Credit or debit card", icon: "credit_card", note: "Secure PayMongo · Visa · Mastercard", enabled: mobilePaymentMethodAvailable("card", total, checkoutSettings) },
-  ]
+    { id: "cod" as const, name: "Cash on delivery", icon: "payments", note: `Up to ₱${effectiveCodLimit(checkoutSettings.cod_maximum_order).toLocaleString()} including delivery, after discounts` },
+    { id: "gcash" as const, name: "GCash", icon: "smartphone", note: "Up to ₱100,000 · Your wallet limits also apply" },
+    { id: "card" as const, name: "Credit or debit card", icon: "credit_card", note: "Secure PayMongo · Your bank’s limits apply" },
+  ].map(method => {
+    const reason = paymentUnavailableReason(method.id, grandTotal, checkoutSettings, paymentPolicy.outstandingCod, paymentPolicy.codLimit)
+      || (method.id === "cod" ? (paymentPolicy.loading ? "Checking COD availability…" : paymentPolicy.error) : "")
+    return { ...method, reason, enabled: !reason }
+  })
+  const selectedPaymentAvailable = paymentMethods.some(method => method.name === payment && method.enabled)
   useEffect(() => {
-    if (paymentMethods.some((method) => method.name === payment && method.enabled)) return
-    setPayment(paymentMethods.find((method) => method.enabled)?.name || "")
-  }, [payment, total, checkoutSettings.cod_enabled, checkoutSettings.card_enabled, checkoutSettings.gcash_enabled, checkoutSettings.cod_maximum_order])
+    if (!payment || selectedPaymentAvailable || (payment === "Cash on delivery" && paymentPolicy.loading)) return
+    setPayment("")
+  }, [payment, selectedPaymentAvailable, paymentPolicy.loading])
   useEffect(() => {
     if (redemptionId && !selectedRewardEligible) setRedemptionId("")
   }, [redemptionId, selectedRewardEligible])
+  useEffect(() => {
+    if (!paymentChallenge || placing) return
+    if ((paymentChallenge.intent.redemptionId || null) !== (selectedReward?.id || null) || !selectedPaymentAvailable) {
+      setPaymentChallenge(null)
+      setError("Your voucher or payment availability changed. Review the updated total and payment method before continuing.")
+    }
+  }, [paymentChallenge, placing, selectedReward?.id, selectedPaymentAvailable])
   const openPaymongoCheckout = (result: Awaited<ReturnType<typeof placeOrder>>) => {
     if (!result.checkoutUrl || !/^https:\/\//i.test(result.checkoutUrl)) {
       throw new Error("The secure PayMongo payment page could not be opened. Your order has not been completed; please try again.")
@@ -5967,6 +5992,7 @@ export function CheckoutPage({
     if (!currentMethod || currentMethod !== authorization.paymentMethod) {
       throw new Error("The selected payment method changed. Send a new code for this checkout.")
     }
+    if (!selectedPaymentAvailable) throw new Error("Review the total and choose an available payment method.")
     setSubmitting(true)
     try {
       const result = await placeOrder({
@@ -5993,8 +6019,8 @@ export function CheckoutPage({
       setError(checkoutError)
       return
     }
-    if (!payment) {
-      setError("No payment method is currently available for this order.")
+    if (!selectedPaymentAvailable) {
+      setError("Choose an available payment method to continue.")
       return
     }
     setSubmitting(true)
@@ -6035,6 +6061,7 @@ export function CheckoutPage({
       completeCheckoutAttempt(checkoutKey)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Checkout could not be completed.")
+      paymentPolicy.retry()
     } finally {
       setSubmitting(false)
     }
@@ -6171,6 +6198,9 @@ export function CheckoutPage({
                 <button
                   key={method.name}
                   disabled={!method.enabled}
+                  aria-label={method.name}
+                  aria-describedby={`checkout-payment-${method.id}-detail`}
+                  aria-pressed={payment === method.name}
                   className={payment === method.name ? "selected" : ""}
                   onClick={() => { if (method.enabled) { paymentChosen.current = true; setPayment(method.name) } }}
                 >
@@ -6179,18 +6209,20 @@ export function CheckoutPage({
                   </span>
                   <div>
                     <b>{method.name}</b>
-                    <small>{method.enabled ? method.note : "Unavailable for this order"}</small>
+                    <small id={`checkout-payment-${method.id}-detail`}>{method.reason || method.note}</small>
                   </div>
                   <i>{payment === method.name ? "✓" : method.enabled ? "" : "—"}</i>
                 </button>
               ))}
             </div>
+            {!payment && <p className="form-notice" role="status">Please choose an available payment method. We won’t switch it for you.</p>}
+            {paymentPolicy.error && <button className="secondary-button" onClick={paymentPolicy.retry}>Retry COD availability</button>}
             {redemptions.length > 0 && <section className="checkout-rewards">
               <p className="hello">HOME CIRCLE REWARD</p>
               <button className={!redemptionId ? "selected" : ""} onClick={() => setRedemptionId("")}><span>No reward</span><b>Keep for later</b></button>
               {redemptions.map((reward) => {
                 const minimumOrder = mobileRewardMinimumOrder(reward)
-                const eligible = isMobileRewardEligible(reward, total)
+                const eligible = isMobileRewardEligible(reward, total, rewardNow)
                 return <button
                   key={reward.id}
                   className={`${redemptionId === reward.id ? "selected" : ""} ${reward.reward_source === "welcome" ? "welcome-reward" : ""}`.trim()}
@@ -6201,7 +6233,9 @@ export function CheckoutPage({
                   <b>Save ₱{Number(reward.discount_amount).toLocaleString()}</b>
                   <small>{eligible
                     ? `Expires ${new Date(reward.expires_at).toLocaleDateString("en-PH")}`
-                    : `Available on orders of ₱${minimumOrder.toLocaleString("en-PH")} or more`}</small>
+                    : reward.status !== "available" || !(Date.parse(reward.expires_at) > rewardNow)
+                      ? "This reward is no longer available"
+                      : `Available on orders of ₱${minimumOrder.toLocaleString("en-PH")} or more`}</small>
                 </button>
               })}
             </section>}
@@ -6275,6 +6309,7 @@ export function CheckoutPage({
             </aside>}
             {error && <p className="form-notice checkout-flow-error" role="alert">{error}</p>}
             {checkoutError && <p className="form-notice" role="alert">{checkoutError}</p>}
+            {!selectedPaymentAvailable && <p className="form-notice" role="status">Payment availability changed. Use Back to choose an available method for the updated total.</p>}
           </section>
         )}
       </main>
@@ -6290,14 +6325,14 @@ export function CheckoutPage({
         )}
         <button
           className="checkout-next"
-          disabled={!address.trim() || !selectedAddressId || !deliveryArea || placing || editingAddress || (step === 2 && (Boolean(checkoutError) || !payment))}
+          disabled={!address.trim() || !selectedAddressId || !deliveryArea || placing || editingAddress || (step > 0 && (Boolean(checkoutError) || !selectedPaymentAvailable))}
           onClick={() => {
             if (step === 0 && !deliveryArea) {
               setError("Delivery is not currently available for this address.")
               return
             }
-            if (step === 1 && !payment) {
-              setError("No payment method is currently available for this order.")
+            if (step === 1 && !selectedPaymentAvailable) {
+              setError("Choose an available payment method to continue.")
               return
             }
             setError("")

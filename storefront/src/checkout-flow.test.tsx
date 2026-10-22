@@ -6,7 +6,10 @@ const mocks = vi.hoisted(() => ({
   loadPaymentPreference: vi.fn(),
   saveAddress: vi.fn(),
   requestPaymentEmailVerification: vi.fn(),
+  policy: { owner: "fixture", loading: false, error: "", codLimit: 20000, outstandingCod: 0, retry: vi.fn() },
 }))
+
+vi.mock("./lib/use-checkout-payment-policy", () => ({ useCheckoutPaymentPolicy: () => mocks.policy }))
 
 vi.mock("./lib/mobile-data", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./lib/mobile-data")>()
@@ -30,7 +33,7 @@ import { CheckoutPage } from "./Storefront"
 
 const addressId = "99bdb728-40a8-4575-ac91-31228449c349"
 
-const renderCheckout = () => render(
+const renderCheckout = (price = "₱12,999", quantity = 2, expiresAt = "2099-10-04T00:00:00.000Z") => render(
   <CheckoutPage
     userId="8150a7d9-8f0c-49fd-8816-35b18a399a6a"
     lines={[{
@@ -38,11 +41,11 @@ const renderCheckout = () => render(
         id: "EKOLSUND",
         name: "EKOLSUND",
         category: "Living room",
-        price: "₱12,999",
+        price,
         image: "/chair.jpg",
         alt: "Purple armchair",
       },
-      quantity: 2,
+      quantity,
       selected: true,
     }]}
     profile={{ name: "Alex", email: "alex@example.com", phone: "+639171234567", image: "" }}
@@ -76,7 +79,7 @@ const renderCheckout = () => render(
       status: "available",
       code: "WELCOME-COZY2026",
       created_at: "2026-09-04T00:00:00.000Z",
-      expires_at: "2026-10-04T00:00:00.000Z",
+      expires_at: expiresAt,
       used_at: null,
     }]}
     close={() => {}}
@@ -85,6 +88,9 @@ const renderCheckout = () => render(
 )
 
 beforeEach(() => {
+  mocks.policy.loading = false
+  mocks.policy.error = ""
+  mocks.policy.outstandingCod = 0
   mocks.loadAddresses.mockResolvedValue([{
     id: addressId,
     label: "Home",
@@ -105,6 +111,70 @@ beforeEach(() => {
 })
 
 describe("checkout payment handoff", () => {
+  it("explains how to recover when a voucher expires on Review and COD is no longer eligible", async () => {
+    const now = Date.now()
+    mocks.loadPaymentPreference.mockResolvedValueOnce("cod")
+    renderCheckout("₱19,850", 1, new Date(now + 60000).toISOString())
+    await screen.findByText("Saved addresses")
+    fireEvent.click(screen.getByRole("button", {name:/continue/i}))
+    fireEvent.click(screen.getByRole("button", {name:/welcome reward/i}))
+    fireEvent.click(screen.getByRole("button", {name:"Cash on delivery"}))
+    fireEvent.click(screen.getByRole("button", {name:/continue/i}))
+    expect(screen.getByText("REVIEW YOUR ORDER")).toBeTruthy()
+    vi.spyOn(Date, "now").mockReturnValue(now + 61000)
+    await screen.findByText(/Payment availability changed/, {}, {timeout:2000})
+    expect((screen.getByRole("button", {name:/Place order/}) as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.getByRole("button", {name:"Back"})).toBeTruthy()
+  })
+  it("includes delivery in COD eligibility and never silently switches methods", async () => {
+    mocks.loadPaymentPreference.mockResolvedValueOnce("cod")
+    renderCheckout("₱19,350.01", 1)
+    await screen.findByText("Saved addresses")
+    fireEvent.click(screen.getByRole("button", { name: /continue/i }))
+    const cod = screen.getByRole("button", { name: /Cash on delivery/ }) as HTMLButtonElement
+    expect(cod.disabled).toBe(true)
+    expect(cod.textContent).toContain("including delivery and after discounts")
+    expect((screen.getByRole("button", { name: /continue/i }) as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.getByRole("button", { name: /GCash/ }).classList.contains("selected")).toBe(false)
+  })
+
+  it("allows COD at the boundary after a voucher and clears it when the voucher is removed", async () => {
+    mocks.loadPaymentPreference.mockResolvedValueOnce("cod")
+    renderCheckout("₱19,850", 1)
+    await screen.findByText("Saved addresses")
+    fireEvent.click(screen.getByRole("button", { name: /continue/i }))
+    fireEvent.click(screen.getByRole("button", { name: /welcome reward/i }))
+    const cod = screen.getByRole("button", { name: /Cash on delivery/ }) as HTMLButtonElement
+    expect(cod.disabled).toBe(false)
+    fireEvent.click(cod)
+    expect(cod.classList.contains("selected")).toBe(true)
+    fireEvent.click(screen.getByRole("button", { name: /No reward/ }))
+    expect(cod.disabled).toBe(true)
+    expect(cod.classList.contains("selected")).toBe(false)
+  })
+
+  it("keeps online payment usable when COD policy cannot load", async () => {
+    mocks.policy.error = "We couldn’t check your COD availability. Retry or choose an online payment."
+    renderCheckout("₱10,000", 1)
+    await screen.findByText("Saved addresses")
+    fireEvent.click(screen.getByRole("button", { name: /continue/i }))
+    expect((screen.getByRole("button", { name: /Cash on delivery/ }) as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.click(screen.getByRole("button", { name: "Retry COD availability" }))
+    expect(mocks.policy.retry).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByRole("button", { name: /Credit or debit card/ }))
+    fireEvent.click(screen.getByRole("button", { name: /continue/i }))
+    expect(screen.getByText("REVIEW YOUR ORDER")).toBeTruthy()
+  })
+
+  it("explains outstanding COD exposure and blocks GCash above its limit", async () => {
+    mocks.policy.outstandingCod = 15000
+    renderCheckout("₱100,001", 1)
+    await screen.findByText("Saved addresses")
+    fireEvent.click(screen.getByRole("button", { name: /continue/i }))
+    expect((screen.getByRole("button", { name: /GCash/ }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole("button", { name: /Credit or debit card/ }) as HTMLButtonElement).disabled).toBe(false)
+  })
+
   it("guards same-frame duplicate address submits and uses the returned row", async () => {
     let resolve!: (address: Record<string, unknown>) => void
     mocks.saveAddress.mockReturnValueOnce(new Promise(done => { resolve = done }))

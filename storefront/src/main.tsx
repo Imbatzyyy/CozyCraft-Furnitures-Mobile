@@ -1,4 +1,5 @@
 import React from 'react'
+import { installUpdateActivityGuard } from './lib/update-activity'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import './index.css'
@@ -12,6 +13,7 @@ import { applyMobileTextSize, readMobileTextSize } from './lib/mobile-text-size'
 // Apply before React renders so opening the app or moving between routes never
 // flashes the old text size.
 applyMobileTextSize(readMobileTextSize())
+installUpdateActivityGuard()
 
 // Expose the native platform to responsive CSS without coupling the storefront
 // bundle to Capacitor. The parent Ionic shell repeats this as a postMessage

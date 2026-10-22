@@ -2,9 +2,31 @@
   <iframe
     #storefront
     class="original-frontend"
+    [attr.inert]="updates.open ? '' : null"
+    [attr.aria-hidden]="updates.open ? 'true' : null"
     src="assets/original-frontend/index.html"
     (load)="onStorefrontLoad()"
     title="CozyCraft Furniture mobile storefront"
     allow="clipboard-read; clipboard-write"
   ></iframe>
 </ion-content>
+<div *ngIf="updates.open" class="cozy-update-backdrop">
+  <section class="cozy-update-dialog" role="dialog" aria-modal="true" aria-labelledby="cozy-update-title">
+    <span class="cozy-update-mark" aria-hidden="true">↻</span>
+    <p class="cozy-update-eyebrow">A LITTLE BETTER, TOGETHER</p>
+    <h1 id="cozy-update-title">{{ updates.phase === 'available' ? 'A fresh touch of CozyCraft.' : updates.phase === 'downloading' ? 'Getting everything ready.' : 'Your CozyCraft updates' }}</h1>
+    <p class="cozy-update-copy" role="status" aria-live="polite">{{ updates.message }}</p>
+    <small>Installed: {{ updates.installed }}<span *ngIf="updates.release"> · Update: {{ updates.release.version }}</span></small>
+    <ng-container *ngIf="updates.phase === 'available'">
+      <p class="cozy-update-detail">About {{ ((updates.release?.bytes || 0) / 1048576).toFixed(1) }} MB · Wi-Fi recommended<br>Your app will briefly restart. Your account and orders stay in place.</p>
+      <button type="button" class="cozy-update-primary" (click)="updates.install()">Update now</button>
+      <button type="button" class="cozy-update-secondary" (click)="updates.dismiss()">Later</button>
+    </ng-container>
+    <div *ngIf="updates.phase === 'downloading'" class="cozy-update-progress">
+      <progress max="100" [value]="updates.progress" aria-label="Downloading verified update"></progress>
+      <p>{{ updates.progress }}% · Keep CozyCraft open</p>
+    </div>
+    <button *ngIf="updates.phase !== 'available' && updates.phase !== 'downloading'" type="button" class="cozy-update-primary" (click)="updates.dismiss()">Continue shopping</button>
+    <p class="cozy-update-footnote">Only verified updates for your app version are accepted.</p>
+  </section>
+</div>
